@@ -15,6 +15,7 @@ public class ServoTests extends OpMode  {
     Servo leftServo;
     Servo rightServo;
 
+    // probably like needs to only move 0.08-0.1 to retract
     double leftServoPosition = 1.0;
     double rightServoPosition = 0.0;
 
