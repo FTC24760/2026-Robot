@@ -15,7 +15,7 @@ public class ServoTests extends OpMode  {
     Servo leftServo;
     Servo rightServo;
 
-    double leftServoPosition = 0.0;
+    double leftServoPosition = 1.0;
     double rightServoPosition = 0.0;
 
     @Override
@@ -31,21 +31,21 @@ public class ServoTests extends OpMode  {
 
         if (gamepad1.right_trigger > 0.2) {
             if (leftServoPosition < 1.0) {
-                leftServoPosition += 0.05;
+                leftServoPosition += 0.002;
             }
         } else if (gamepad1.left_trigger > 0.2) {
             if (leftServoPosition > 0.0) {
-                leftServoPosition -= 0.05;
+                leftServoPosition -= 0.002;
             }
         }
 
         if (gamepad1.right_bumper) {
             if (rightServoPosition < 1.0) {
-                rightServoPosition += 0.05;
+                rightServoPosition += 0.002;
             }
         } else if (gamepad1.left_bumper) {
             if (rightServoPosition > 0.0) {
-                rightServoPosition -= 0.05;
+                rightServoPosition -= 0.002;
             }
         }
 
