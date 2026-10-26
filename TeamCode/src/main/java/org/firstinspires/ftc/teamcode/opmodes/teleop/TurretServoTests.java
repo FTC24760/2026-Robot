@@ -31,21 +31,21 @@ public class TurretServoTests extends OpMode  {
 
         if (gamepad1.right_trigger > 0.2) {
             if (leftServoPosition < 1.0) {
-                leftServoPosition += 0.002;
+                leftServoPosition += 0.005;
             }
         } else if (gamepad1.left_trigger > 0.2) {
             if (leftServoPosition > 0.0) {
-                leftServoPosition -= 0.002;
+                leftServoPosition -= 0.005;
             }
         }
 
         if (gamepad1.right_bumper) {
             if (rightServoPosition < 1.0) {
-                rightServoPosition += 0.002;
+                rightServoPosition += 0.005;
             }
         } else if (gamepad1.left_bumper) {
             if (rightServoPosition > 0.0) {
-                rightServoPosition -= 0.002;
+                rightServoPosition -= 0.005;
             }
         }
 
