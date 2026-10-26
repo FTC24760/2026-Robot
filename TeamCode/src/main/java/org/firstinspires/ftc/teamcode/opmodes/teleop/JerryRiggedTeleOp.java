@@ -17,8 +17,8 @@ import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 public class JerryRiggedTeleOp extends OpMode {
 
     // variables
-    double intakePower = 0.46;
-    double transferPower = 0.5;
+    double intakePower = 0.4;
+    double transferPower = 0.6;
 
     private DcMotor frontLeftDrive;
     private DcMotor frontRightDrive;
@@ -51,7 +51,7 @@ public class JerryRiggedTeleOp extends OpMode {
     private static double P = 12.5;
     private static double I = 0.0;
     private static double D = 0.0;
-    private static double F = 21.9;
+    private static double F = 22.0;
 
 
     @Override
@@ -67,14 +67,14 @@ public class JerryRiggedTeleOp extends OpMode {
 
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
-        intakeMotor.setDirection(DcMotor.Direction.REVERSE);
+        transferMotor.setDirection(DcMotor.Direction.REVERSE);
 
         frontLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         frontRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        shooterMotor = hardwareMap.get(DcMotorEx.class, "shooterMotor");
+        shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
         // shooterMotor.setDirection(DcMotor.Direction.REVERSE);
 
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -106,7 +106,6 @@ public class JerryRiggedTeleOp extends OpMode {
         double strafe = gamepad1.left_stick_x;
         double rotate = gamepad1.right_stick_x;
 
-        boolean intakeTransferOn = gamepad1.left_trigger > 0.2;
 
         if (gamepad1.a) {
             imu.resetYaw();
@@ -141,8 +140,11 @@ public class JerryRiggedTeleOp extends OpMode {
             }
         }
 
-        if (intakeTransferOn) {
+        if (gamepad1.left_trigger > 0.2) {
             intakeMotor.setPower(intakePower);
+            transferMotor.setPower(transferPower);
+        }
+        else if (gamepad1.x) {
             transferMotor.setPower(transferPower);
         } else {
             intakeMotor.setPower(0);
