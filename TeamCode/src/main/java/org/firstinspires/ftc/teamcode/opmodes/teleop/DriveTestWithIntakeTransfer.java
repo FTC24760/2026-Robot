@@ -50,8 +50,8 @@ public class DriveTestWithIntakeTransfer extends OpMode {
 
         RevHubOrientationOnRobot orientationOnRobot =
                 new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                        RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
+                        RevHubOrientationOnRobot.UsbFacingDirection.UP
                 );
 
         imu.initialize(new IMU.Parameters(orientationOnRobot));

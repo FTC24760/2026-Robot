@@ -1,7 +1,6 @@
 
 package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -10,15 +9,14 @@ import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 
-@TeleOp(name = "Robot: Field Relative Mecanum Drive", group = "Robot")
-public class DriveTest extends OpMode {
+@TeleOp(name = "Robot: Normal Mecanum Drive", group = "Robot")
+public class NormalDriveTest extends OpMode {
 
     private DcMotor frontLeftDrive;
     private DcMotor frontRightDrive;
     private DcMotor backLeftDrive;
     private DcMotor backRightDrive;
 
-    private IMU imu;
     private ButterflyController butterfly;
 
     @Override
@@ -36,15 +34,6 @@ public class DriveTest extends OpMode {
         backLeftDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        imu = hardwareMap.get(IMU.class, "imu");
-
-        RevHubOrientationOnRobot orientationOnRobot =
-                new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
-                );
-
-        imu.initialize(new IMU.Parameters(orientationOnRobot));
 
         butterfly = new ButterflyController(hardwareMap);
     }
@@ -55,9 +44,6 @@ public class DriveTest extends OpMode {
         double strafe = gamepad1.left_stick_x;
         double rotate = gamepad1.right_stick_x;
 
-        if (gamepad1.a) {
-            imu.resetYaw();
-        }
 
         butterfly.update(
                 forward,
@@ -66,30 +52,10 @@ public class DriveTest extends OpMode {
                 gamepad1.right_bumper
         );
 
-        if (gamepad1.left_bumper) {
-            drive(forward, strafe, rotate);
-        } else {
-            driveFieldRelative(forward, strafe, rotate);
-        }
+        drive(forward, strafe, rotate);
 
         telemetry.addData("Butterfly", butterfly.getState());
-        telemetry.addData("Drive Mode",
-                gamepad1.left_bumper ? "Robot Relative" : "Field Relative");
         telemetry.update();
-    }
-
-    private void driveFieldRelative(double forward, double right, double rotate) {
-        double theta = Math.atan2(forward, right);
-        double r = Math.hypot(right, forward);
-
-        theta = AngleUnit.normalizeRadians(
-                theta - imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS)
-        );
-
-        double newForward = r * Math.sin(theta);
-        double newRight = r * Math.cos(theta);
-
-        drive(newForward, newRight, rotate);
     }
 
     private void drive(double forward, double right, double rotate) {
