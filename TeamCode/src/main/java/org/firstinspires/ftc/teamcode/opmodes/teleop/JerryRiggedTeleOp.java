@@ -18,7 +18,7 @@ public class JerryRiggedTeleOp extends OpMode {
 
     // variables
     double intakePower = 0.4;
-    double transferPower = 0.6;
+    double transferPower = 0.8;
 
     private DcMotor frontLeftDrive;
     private DcMotor frontRightDrive;
