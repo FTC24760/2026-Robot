@@ -1,6 +1,7 @@
 
 package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -13,12 +14,13 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 
+@Configurable
 @TeleOp(name = "Jerry Rigged Teleop", group = "Robot")
 public class JerryRiggedTeleOp extends OpMode {
 
     // variables
-    double intakePower = 0.4;
-    double transferPower = 0.6;
+    public static double intakePower = 0.6;
+    public static double transferPower = 0.8;
 
     private DcMotor frontLeftDrive;
     private DcMotor frontRightDrive;
@@ -32,9 +34,12 @@ public class JerryRiggedTeleOp extends OpMode {
 
     Servo leftTurretServo;
     Servo rightTurretServo;
+    Servo blockerServo;
 
     double leftTurretServoPosition = 0.5;
     double rightTurretServoPosition = 0.5;
+    double blockerOpenPosition = 0.032;
+    double blockerClosedPosition = 0.0;
 
 
 
@@ -45,13 +50,13 @@ public class JerryRiggedTeleOp extends OpMode {
     private static final double TICKS_PER_REV = 28.0;
 
     // Target shooter speed (RPM)
-    private static double TARGET_RPM = 2480;
+    public static double TARGET_RPM = 1525;
 
     // Initial PIDF values - tune on your robot
-    private static double P = 12.5;
-    private static double I = 0.0;
-    private static double D = 0.0;
-    private static double F = 22.0;
+    public static double P = 30;
+    public static double I = 0.05;
+    public static double D = 0.0;
+    public static double F = 29;
 
 
     @Override
@@ -64,6 +69,7 @@ public class JerryRiggedTeleOp extends OpMode {
         transferMotor = hardwareMap.get(DcMotor.class, "transfer");
         leftTurretServo = hardwareMap.get(Servo.class, "leftturret");
         rightTurretServo = hardwareMap.get(Servo.class, "rightturret");
+        blockerServo = hardwareMap.get(Servo.class, "blocker");
 
         backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
@@ -120,23 +126,15 @@ public class JerryRiggedTeleOp extends OpMode {
 
         driveFieldRelative(forward, strafe, rotate);
 
-        if (gamepad1.right_trigger > 0.2) {
-            if (leftTurretServoPosition < 1.0) {
-                leftTurretServoPosition += 0.005;
-            }
-        } else if (gamepad1.left_trigger > 0.2) {
-            if (leftTurretServoPosition > 0.0) {
-                leftTurretServoPosition -= 0.005;
-            }
-        }
-
         if (gamepad1.right_bumper) {
             if (rightTurretServoPosition < 1.0) {
                 rightTurretServoPosition += 0.005;
+                leftTurretServoPosition += 0.005;
             }
         } else if (gamepad1.left_bumper) {
             if (rightTurretServoPosition > 0.0) {
                 rightTurretServoPosition -= 0.005;
+                leftTurretServoPosition -= 0.005;
             }
         }
 
@@ -149,6 +147,12 @@ public class JerryRiggedTeleOp extends OpMode {
         } else {
             intakeMotor.setPower(0);
             transferMotor.setPower(0);
+        }
+
+        if (gamepad1.a) {
+            blockerServo.setPosition(blockerOpenPosition);
+        } else {
+            blockerServo.setPosition(blockerClosedPosition);
         }
 
 
