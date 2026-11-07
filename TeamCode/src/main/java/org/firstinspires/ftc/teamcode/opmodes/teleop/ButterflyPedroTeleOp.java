@@ -7,7 +7,6 @@ package org.firstinspires.ftc.teamcode.opmodes.teleop;
 import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.ManualDrive;
 import com.bylazar.configurables.annotations.Configurable;
-import com.bylazar.configurables.annotations.*;
 import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;

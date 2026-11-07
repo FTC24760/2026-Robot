@@ -1,7 +1,8 @@
 
 package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
-import com.bylazar.configurables.annotations.Configurable;
+
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -17,7 +18,7 @@ import java.util.List;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 
-@Configurable
+//@Configurabale
 @TeleOp(name = "Jerry Rigged PIDF Teleop", group = "Robot")
 public class JerryRiggedPidfTeleOp extends OpMode {
 
@@ -246,7 +247,7 @@ public class JerryRiggedPidfTeleOp extends OpMode {
     }
 
     // Based on the supplied velocity controller; all velocities are encoder ticks/s.
-    private static class SpeedController {
+    public static class SpeedController {
         private double integral, filteredVel, profiledTarget;
         private long lastTimeNs = -1;
 
