@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.teamcode.constants.RobotHardwareNames;
 import org.firstinspires.ftc.teamcode.constants.ManualShooterTuning;
 
-/** Turret, blocker and continuous intake/transfer control for JerryRigged. */
+/** Turret, blocker and continuous intake/transfer control for manual shooter. */
 public final class IntakeTurretMechanisms {
     private final DcMotor intake, transfer;
     private final Servo leftTurret, rightTurret, blocker;
