@@ -2,7 +2,7 @@
 package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
 
-
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -18,7 +18,7 @@ import java.util.List;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 
-//@Configurabale
+@Configurable
 @TeleOp(name = "Jerry Rigged PIDF Teleop", group = "Robot")
 public class JerryRiggedPidfTeleOp extends OpMode {
 
@@ -56,11 +56,11 @@ public class JerryRiggedPidfTeleOp extends OpMode {
     private static final double TICKS_PER_REV = 28.0;
 
     // Target shooter speed (RPM)
-    public static double TARGET_RPM = 1470;
+    public static double TARGET_RPM = 1550;
 
     // Software controller gains: power per tick/second (not the hub PIDF units).
     // Starting estimates only; tune on the robot: kF, kS, kP, kD, kI, kA.
-    public static double kF = 0.0006825;
+    public static double kF = 0.00089;
     public static double kS = 0.069;
     public static double kP = 0.0051;
     public static double kI = 0.00002;
@@ -212,6 +212,7 @@ public class JerryRiggedPidfTeleOp extends OpMode {
         telemetry.addData("Shooter power", "%.3f", shooterPower);
         telemetry.addData("Loop ms", "%.1f", loopSeconds * 1000.0);
         telemetry.addData("Blocker open", blockerOpen? "yes": "no");
+        telemetry.addData("Feedforward", kF);
         telemetry.update();
     }
 
