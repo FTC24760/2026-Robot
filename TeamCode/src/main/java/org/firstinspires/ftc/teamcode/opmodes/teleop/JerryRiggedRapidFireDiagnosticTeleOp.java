@@ -24,50 +24,45 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @TeleOp(
-        name = "Jerry Rigged Rapid Fire DIAGNOSTIC V4.1",
+        name = "Jerry Rigged PIDF Baseline Logger",
         group = "Robot"
 )
 public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
-    // ========================================
-    // SHOOTER SETTINGS
-    // ========================================
+    // ===================================
+    // BASELINE SHOOTER CONFIGURATION
+    // ===================================
 
     public static double intakePower = 0.6;
     public static double transferPower = 0.8;
 
+    // goBILDA 5000 Series bare motor encoder.
+    // Motor to flywheel belt ratio: 1:1.
     private static final double TICKS_PER_REV = 28.0;
 
     public static double TARGET_RPM = 1410.0;
     public static double RPM_STEP = 20.0;
 
+    // Original conservative software PIDF.
+    // Gains use ticks/second, not hub PIDF units.
     public static double kF = 0.0006825;
     public static double kS = 0.069;
-
     public static double kP = 0.0015;
     public static double kI = 0.00002;
-    public static double kD = 0.0;
+    public static double kD = 0.00005;
+    public static double kA = 0.0;
 
-    public static double RECOVERY_KP = 0.0030;
-    public static double MAX_RECOVERY_BOOST = 0.12;
-
-    public static double RECOVERY_ON_RPM = 35.0;
-    public static double RECOVERY_OFF_RPM = 15.0;
-    public static double FULL_RECOVERY_RPM = 120.0;
-
-    public static double FAST_TAU = 0.010;
-    public static double NORMAL_TAU = 0.035;
-
+    public static double MAX_INTEGRAL = 5000.0;
     public static double NOMINAL_VOLTAGE = 12.0;
     public static double MAX_ACCEL = 6000.0;
-    public static double MAX_INTEGRAL = 5000.0;
+    public static double VELOCITY_ALPHA = 0.5;
+    public static double KS_DEADBAND = 50.0;
 
-    public static double READY_FRACTION = 0.98;
     public static double TURRET_RATE = 0.25;
 
-    // ========================================
+    // ===================================
     // HARDWARE
-    // ========================================
+    // ===================================
 
     private DcMotor frontLeftDrive;
     private DcMotor frontRightDrive;
@@ -76,7 +71,6 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
     private DcMotor intakeMotor;
     private DcMotor transferMotor;
-
     private DcMotorEx shooterMotor;
 
     private Servo leftTurretServo;
@@ -89,9 +83,9 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
     private List<LynxModule> hubs;
     private VoltageSensor voltageSensor;
 
-    // ========================================
+    // ===================================
     // TURRET AND BLOCKER
-    // ========================================
+    // ===================================
 
     private double leftTurretPosition = 0.5;
     private double rightTurretPosition = 0.5;
@@ -105,35 +99,33 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
 
-    // ========================================
-    // CONTROLLER
-    // ========================================
+    // ===================================
+    // PIDF
+    // ===================================
 
-    private final ShooterController controller =
-            new ShooterController();
+    private final SpeedController speedController =
+            new SpeedController();
 
     private long lastLoopNs = 0;
     private long lastVoltageNs = 0;
     private long lastTelemetryNs = 0;
+    private long recordingStartNs = 0;
 
     private double voltage = Double.NaN;
     private double voltageScale = 1.0;
 
-    // ========================================
-    // ASYNCHRONOUS CSV LOGGER
-    // ========================================
+    // ===================================
+    // CSV LOGGER
+    // ===================================
 
-    private final AsyncCsvLogger csvLogger =
+    private final AsyncCsvLogger logger =
             new AsyncCsvLogger();
 
-    private long recordingStartNs = 0;
-
-    // ========================================
-    // BURST STATISTICS
-    // ========================================
+    // ===================================
+    // BURST DIAGNOSTICS
+    // ===================================
 
     private boolean wasFeeding = false;
-
     private int burstNumber = 0;
 
     private double burstStartRpm = Double.NaN;
@@ -141,13 +133,15 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
     private double burstMaxRpm = Double.NaN;
 
     private double burstMaxPower = 0.0;
-    private double burstMaxRecovery = 0.0;
+    private double burstMinVoltage = Double.NaN;
 
-    private long burstStartNs = 0;
+    private double lastBurstStartRpm = Double.NaN;
+    private double lastBurstMinRpm = Double.NaN;
+    private double lastBurstMaxRpm = Double.NaN;
 
-    // ========================================
-    // INITIALIZATION
-    // ========================================
+    // ===================================
+    // INIT
+    // ===================================
 
     @Override
     public void init() {
@@ -249,37 +243,31 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         blockerServo.setPosition(BLOCKER_CLOSED);
     }
 
-    // ========================================
+    // ===================================
     // START
-    // ========================================
+    // ===================================
 
     @Override
     public void start() {
 
-        super.start();
-
         lastLoopNs = 0;
         lastVoltageNs = 0;
         lastTelemetryNs = 0;
-
         recordingStartNs = 0;
 
         wasFeeding = false;
         burstNumber = 0;
 
-        controller.reset();
+        speedController.reset();
 
-        // Creates and writes the CSV on another thread.
-        // No disk writing occurs here.
-
-        csvLogger.start(
+        logger.start(
                 hardwareMap.appContext.getExternalFilesDir(null)
         );
     }
 
-    // ========================================
+    // ===================================
     // MAIN LOOP
-    // ========================================
+    // ===================================
 
     @Override
     public void loop() {
@@ -288,14 +276,17 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
         double dt = lastLoopNs == 0
                 ? 0.01
-                : clamp(
-                (now - lastLoopNs) * 1e-9,
+                : Math.max(
                 0.0001,
-                0.1
+                Math.min(
+                        (now - lastLoopNs) * 1e-9,
+                        0.1
+                )
         );
 
         lastLoopNs = now;
 
+        // Exactly one fresh bulk snapshot per loop.
         for (LynxModule hub : hubs) {
             hub.clearBulkCache();
         }
@@ -306,71 +297,65 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         double rawRpm =
                 measuredTicks * 60.0 / TICKS_PER_REV;
 
-        // ====================================
-        // TARGET RPM ADJUSTMENT
-        // ====================================
+        // ===================================
+        // TARGET ADJUSTMENT
+        // ===================================
 
         if (gamepad1.dpad_up && !lastDpadUp) {
-
             TARGET_RPM = clamp(
                     TARGET_RPM + RPM_STEP,
-                    1100,
-                    1700
+                    1100.0,
+                    1700.0
             );
         }
 
         if (gamepad1.dpad_down && !lastDpadDown) {
-
             TARGET_RPM = clamp(
                     TARGET_RPM - RPM_STEP,
-                    1100,
-                    1700
+                    1100.0,
+                    1700.0
             );
         }
 
         lastDpadUp = gamepad1.dpad_up;
         lastDpadDown = gamepad1.dpad_down;
 
-        // ====================================
-        // FEED INPUT
-        // ====================================
+        // ===================================
+        // INPUTS
+        // ===================================
+
+        boolean shooterEnabled =
+                gamepad1.right_trigger > 0.2;
 
         boolean feeding =
                 gamepad1.left_trigger > 0.2
                         || gamepad1.x;
 
-        boolean shooterEnabled =
-                gamepad1.right_trigger > 0.2;
-
-        // ====================================
-        // BATTERY
-        // ====================================
-
-        long voltageInterval = feeding
-                ? 100_000_000L
-                : 250_000_000L;
+        // ===================================
+        // VOLTAGE
+        // ===================================
 
         if (lastVoltageNs == 0
-                || now - lastVoltageNs >= voltageInterval) {
+                || now - lastVoltageNs >= 250_000_000L) {
 
             double v = voltageSensor == null
                     ? 0.0
                     : voltageSensor.getVoltage();
 
-            voltage = v > 1.0
+            voltage = v > 0.1
                     ? v
                     : Double.NaN;
 
-            voltageScale = v > 1.0
+            voltageScale = v > 0.1
                     ? NOMINAL_VOLTAGE / v
                     : 1.0;
 
             lastVoltageNs = now;
         }
 
-        // ====================================
-        // SHOOTER PIDF
-        // ====================================
+        // ===================================
+        // ORIGINAL PIDF CONTROL
+        // ===================================
 
         double targetTicks = shooterEnabled
                 ? TARGET_RPM * TICKS_PER_REV / 60.0
@@ -380,7 +365,7 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
         if (shooterEnabled) {
 
-            shooterPower = controller.calculate(
+            shooterPower = speedController.calculate(
                     targetTicks,
                     measuredTicks,
                     voltageScale,
@@ -389,27 +374,26 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
         } else {
 
-            controller.reset();
+            speedController.reset();
             shooterPower = 0.0;
         }
 
         shooterMotor.setPower(shooterPower);
 
-        // ====================================
+        // ===================================
         // BURST STATISTICS
-        // ====================================
+        // ===================================
 
         if (feeding && !wasFeeding) {
 
             burstNumber++;
-            burstStartNs = now;
 
             burstStartRpm = rawRpm;
             burstMinRpm = rawRpm;
             burstMaxRpm = rawRpm;
 
             burstMaxPower = 0.0;
-            burstMaxRecovery = 0.0;
+            burstMinVoltage = Double.NaN;
         }
 
         if (feeding) {
@@ -429,17 +413,30 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                     shooterPower
             );
 
-            burstMaxRecovery = Math.max(
-                    burstMaxRecovery,
-                    controller.recoveryPower
-            );
+            if (!Double.isNaN(voltage)) {
+
+                burstMinVoltage =
+                        Double.isNaN(burstMinVoltage)
+                                ? voltage
+                                : Math.min(
+                                burstMinVoltage,
+                                voltage
+                        );
+            }
+        }
+
+        if (!feeding && wasFeeding) {
+
+            lastBurstStartRpm = burstStartRpm;
+            lastBurstMinRpm = burstMinRpm;
+            lastBurstMaxRpm = burstMaxRpm;
         }
 
         wasFeeding = feeding;
 
-        // ====================================
+        // ===================================
         // CONTINUOUS INTAKE / TRANSFER
-        // ====================================
+        // ===================================
 
         if (gamepad1.left_trigger > 0.2) {
 
@@ -457,9 +454,9 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
             transferMotor.setPower(0.0);
         }
 
-        // ====================================
+        // ===================================
         // DRIVING
-        // ====================================
+        // ===================================
 
         double forward = -gamepad1.left_stick_y;
         double strafe = gamepad1.left_stick_x;
@@ -482,9 +479,9 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                 rotate
         );
 
-        // ====================================
+        // ===================================
         // TURRET
-        // ====================================
+        // ===================================
 
         if (gamepad1.right_bumper) {
 
@@ -514,9 +511,9 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         leftTurretServo.setPosition(leftTurretPosition);
         rightTurretServo.setPosition(rightTurretPosition);
 
-        // ====================================
+        // ===================================
         // BLOCKER
-        // ====================================
+        // ===================================
 
         if (gamepad1.a && !lastA) {
             blockerOpen = !blockerOpen;
@@ -525,12 +522,14 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         lastA = gamepad1.a;
 
         blockerServo.setPosition(
-                blockerOpen ? BLOCKER_OPEN : BLOCKER_CLOSED
+                blockerOpen
+                        ? BLOCKER_OPEN
+                        : BLOCKER_CLOSED
         );
 
-        // ====================================
-        // NONBLOCKING CSV SAMPLE
-        // ====================================
+        // ===================================
+        // ASYNCHRONOUS CSV LOGGING
+        // ===================================
 
         if (recordingStartNs == 0) {
             recordingStartNs = now;
@@ -543,105 +542,82 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
         sample.rawRpm = rawRpm;
 
-        sample.fastRpm =
-                controller.fastVelocity
-                        * 60.0 / TICKS_PER_REV;
-
-        sample.normalRpm =
-                controller.normalVelocity
+        sample.filteredRpm =
+                speedController.filteredVel
                         * 60.0 / TICKS_PER_REV;
 
         sample.targetRpm =
                 targetTicks * 60.0 / TICKS_PER_REV;
 
         sample.profiledRpm =
-                controller.profiledTarget
+                speedController.profiledTarget
+                        * 60.0 / TICKS_PER_REV;
+
+        sample.errorRpm =
+                (speedController.profiledTarget
+                        - speedController.filteredVel)
                         * 60.0 / TICKS_PER_REV;
 
         sample.motorPower = shooterPower;
 
-        sample.basePower = controller.basePower;
-        sample.pidPower = controller.pidPower;
-        sample.recoveryPower = controller.recoveryPower;
-        sample.effectiveKp = controller.effectiveKp;
-
         sample.batteryVolts = voltage;
         sample.loopMs = dt * 1000.0;
 
+        sample.shooterEnabled =
+                shooterEnabled ? 1 : 0;
+
         sample.feeding = feeding ? 1 : 0;
-        sample.shooterEnabled = shooterEnabled ? 1 : 0;
-        sample.recoveryActive =
-                controller.recoveryActive ? 1 : 0;
 
-        sample.burstId = feeding ? burstNumber : 0;
+        sample.rightTrigger =
+                gamepad1.right_trigger;
 
-        // offer() does not wait for disk writes.
-        csvLogger.record(sample);
+        sample.leftTrigger =
+                gamepad1.left_trigger;
 
-        // ====================================
-        // DRIVER STATION TELEMETRY
-        // ====================================
+        sample.xPressed =
+                gamepad1.x ? 1 : 0;
+
+        sample.burstId =
+                feeding ? burstNumber : 0;
+
+        logger.record(sample);
+
+        // ===================================
+        // TELEMETRY
+        // ===================================
 
         if (now - lastTelemetryNs >= 200_000_000L) {
 
             telemetry.addData(
-                    "Target RPM",
-                    "%.0f",
-                    TARGET_RPM
+                    "Target RPM", "%.0f", TARGET_RPM
             );
 
             telemetry.addData(
-                    "Actual RPM",
+                    "Actual RPM", "%.1f", rawRpm
+            );
+
+            telemetry.addData(
+                    "Filtered RPM",
                     "%.1f",
-                    rawRpm
+                    sample.filteredRpm
             );
 
             telemetry.addData(
-                    "Fast RPM",
+                    "Profiled RPM",
                     "%.1f",
-                    sample.fastRpm
+                    sample.profiledRpm
             );
 
             telemetry.addData(
-                    "Normal RPM",
+                    "RPM Error",
                     "%.1f",
-                    sample.normalRpm
+                    sample.errorRpm
             );
 
             telemetry.addData(
-                    "Base Power",
-                    "%.3f",
-                    controller.basePower
-            );
-
-            telemetry.addData(
-                    "PID Power",
-                    "%.3f",
-                    controller.pidPower
-            );
-
-            telemetry.addData(
-                    "Recovery Power",
-                    "%.3f",
-                    controller.recoveryPower
-            );
-
-            telemetry.addData(
-                    "Final Power",
+                    "Shooter Power",
                     "%.3f",
                     shooterPower
-            );
-
-            telemetry.addData(
-                    "Effective kP",
-                    "%.5f",
-                    controller.effectiveKp
-            );
-
-            telemetry.addData(
-                    "Recovery",
-                    controller.recoveryActive
-                            ? "ACTIVE" : "off"
             );
 
             telemetry.addData(
@@ -651,19 +627,19 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
             );
 
             telemetry.addData(
-                    "Loop",
+                    "Loop Time",
                     "%.1f ms",
                     dt * 1000.0
             );
 
             telemetry.addData(
-                    "Shooter trigger",
+                    "Shooter Trigger",
                     "%.2f",
                     gamepad1.right_trigger
             );
 
             telemetry.addData(
-                    "Shooter enabled",
+                    "Shooter Enabled",
                     shooterEnabled ? "YES" : "NO"
             );
 
@@ -673,74 +649,86 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
             );
 
             telemetry.addData(
-                    "Burst",
+                    "Burst #",
                     burstNumber
             );
 
             telemetry.addData(
-                    "Burst start RPM",
+                    "Burst Start RPM",
                     "%.1f",
                     burstStartRpm
             );
 
             telemetry.addData(
-                    "Burst min RPM",
+                    "Burst Min RPM",
                     "%.1f",
                     burstMinRpm
             );
 
             telemetry.addData(
-                    "Burst max RPM",
+                    "Burst Max RPM",
                     "%.1f",
                     burstMaxRpm
             );
 
             telemetry.addData(
-                    "Burst max power",
+                    "Burst Max Power",
                     "%.3f",
                     burstMaxPower
             );
 
             telemetry.addData(
-                    "Burst max recovery",
-                    "%.3f",
-                    burstMaxRecovery
+                    "Last Burst Start",
+                    "%.1f",
+                    lastBurstStartRpm
             );
 
             telemetry.addData(
-                    "CSV status",
-                    csvLogger.status
+                    "Last Burst Min",
+                    "%.1f",
+                    lastBurstMinRpm
             );
 
             telemetry.addData(
-                    "CSV written samples",
-                    csvLogger.writtenSamples
+                    "Last Burst Max",
+                    "%.1f",
+                    lastBurstMaxRpm
             );
 
             telemetry.addData(
-                    "CSV queued samples",
-                    csvLogger.queueSize()
+                    "CSV Status",
+                    logger.status
             );
 
             telemetry.addData(
-                    "CSV dropped samples",
-                    csvLogger.droppedSamples.get()
+                    "Samples Written",
+                    logger.writtenSamples
             );
 
-            if (csvLogger.error != null) {
+            telemetry.addData(
+                    "Samples Dropped",
+                    logger.droppedSamples.get()
+            );
+
+            telemetry.addData(
+                    "Queue Size",
+                    logger.queueSize()
+            );
+
+            if (logger.error != null) {
 
                 telemetry.addData(
-                        "CSV ERROR",
-                        csvLogger.error
+                        "CSV Error",
+                        logger.error
                 );
             }
 
             telemetry.addLine(
-                    "D-pad up/down: +/-20 RPM"
+                    "D-pad UP/DOWN: +/-20 RPM"
             );
 
             telemetry.addLine(
-                    "STOP safely closes CSV in background"
+                    "Continuous feed: no recovery boost"
             );
 
             telemetry.update();
@@ -749,9 +737,9 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         }
     }
 
-    // ========================================
-    // DRIVE METHODS
-    // ========================================
+    // ===================================
+    // FIELD-RELATIVE DRIVING
+    // ===================================
 
     private void driveFieldRelative(
             double forward,
@@ -799,15 +787,14 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         backRightDrive.setPower(br / max);
     }
 
-    // ========================================
-    // STOP: NO BLOCKING FILE I/O
-    // ========================================
+    // ===================================
+    // STOP
+    // ===================================
 
     @Override
     public void stop() {
 
-        // Stop motors FIRST.
-
+        // Stop hardware immediately.
         shooterMotor.setPower(0.0);
         intakeMotor.setPower(0.0);
         transferMotor.setPower(0.0);
@@ -817,63 +804,169 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
         backLeftDrive.setPower(0.0);
         backRightDrive.setPower(0.0);
 
-        controller.reset();
+        speedController.reset();
 
-        // Only signals the background writer.
-        // Does NOT wait for the file to finish.
-
-        csvLogger.stopAsync();
+        // Signal the CSV thread without waiting
+        // for thousands of disk writes.
+        logger.stopAsync();
 
         for (LynxModule hub : hubs) {
-
             hub.setBulkCachingMode(
                     LynxModule.BulkCachingMode.AUTO
             );
         }
     }
 
-    // ========================================
-    // CSV SAMPLE OBJECT
-    // ========================================
+    // ===================================
+    // ORIGINAL SOFTWARE PIDF
+    // ===================================
+
+    public static class SpeedController {
+
+        private double integral = 0.0;
+        private double filteredVel = 0.0;
+        private double profiledTarget = 0.0;
+
+        private long lastTimeNs = -1;
+
+        double calculate(
+                double target,
+                double measured,
+                double voltageScale,
+                long now
+        ) {
+
+            if (lastTimeNs < 0) {
+
+                lastTimeNs = now;
+
+                filteredVel = measured;
+                profiledTarget = measured;
+
+                return 0.0;
+            }
+
+            double dt =
+                    (now - lastTimeNs) * 1e-9;
+
+            lastTimeNs = now;
+
+            if (dt <= 0.0) {
+                return 0.0;
+            }
+
+            double previousVel = filteredVel;
+
+            double alpha = clamp(
+                    VELOCITY_ALPHA,
+                    0.0,
+                    1.0
+            );
+
+            filteredVel =
+                    alpha * filteredVel
+                            + (1.0 - alpha) * measured;
+
+            double previousTarget = profiledTarget;
+
+            double maxDelta =
+                    Math.max(0.0, MAX_ACCEL) * dt;
+
+            profiledTarget += clamp(
+                    target - profiledTarget,
+                    -maxDelta,
+                    maxDelta
+            );
+
+            double accel =
+                    (profiledTarget - previousTarget) / dt;
+
+            double error =
+                    profiledTarget - filteredVel;
+
+            double derivative =
+                    -(filteredVel - previousVel) / dt;
+
+            // Original integral accumulation rule.
+            if (Math.abs(kP * error) < 1.0) {
+
+                double limit =
+                        Math.abs(MAX_INTEGRAL);
+
+                integral = clamp(
+                        integral + error * dt,
+                        -limit,
+                        limit
+                );
+            }
+
+            double staticTerm =
+                    Math.abs(profiledTarget) > KS_DEADBAND
+                            ? Math.copySign(kS, profiledTarget)
+                            : 0.0;
+
+            double output =
+                    (
+                            kF * profiledTarget
+                                    + staticTerm
+                                    + kA * accel
+                                    + kP * error
+                                    + kI * integral
+                                    + kD * derivative
+                    ) * voltageScale;
+
+            return clamp(
+                    output,
+                    -1.0,
+                    1.0
+            );
+        }
+
+        void reset() {
+
+            integral = 0.0;
+            filteredVel = 0.0;
+            profiledTarget = 0.0;
+
+            lastTimeNs = -1;
+        }
+    }
+
+    // ===================================
+    // CSV SAMPLE
+    // ===================================
 
     private static class CsvSample {
 
         double timeSeconds;
 
         double rawRpm;
-        double fastRpm;
-        double normalRpm;
+        double filteredRpm;
 
         double targetRpm;
         double profiledRpm;
+        double errorRpm;
 
         double motorPower;
-
-        double basePower;
-        double pidPower;
-        double recoveryPower;
-
-        double effectiveKp;
-
         double batteryVolts;
         double loopMs;
 
-        int feeding;
+        double rightTrigger;
+        double leftTrigger;
+
+        int xPressed;
         int shooterEnabled;
-        int recoveryActive;
+        int feeding;
         int burstId;
     }
 
-    // ========================================
-    // BACKGROUND CSV LOGGER
-    // ========================================
+    // ===================================
+    // NONBLOCKING CSV LOGGER
+    // ===================================
 
     private static class AsyncCsvLogger {
 
         private static final int QUEUE_CAPACITY = 4096;
-
-        private static final long FLUSH_INTERVAL_NS =
-                500_000_000L;
 
         private final ArrayBlockingQueue<CsvSample> queue =
                 new ArrayBlockingQueue<>(QUEUE_CAPACITY);
@@ -885,7 +978,6 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
         volatile String status = "NOT STARTED";
         volatile String error = null;
-        volatile String savedPath = null;
 
         private volatile boolean stopping = false;
         private volatile boolean accepting = false;
@@ -922,18 +1014,16 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                             && !folder.mkdirs()) {
 
                         throw new IOException(
-                                "Cannot create CSV directory"
+                                "Could not create directory"
                         );
                     }
 
                     File file = new File(
                             folder,
-                            "rapidfire_v4_1_"
+                            "rapidfire_baseline_"
                                     + System.currentTimeMillis()
                                     + ".csv"
                     );
-
-                    savedPath = file.getAbsolutePath();
 
                     try (BufferedWriter writer =
                                  new BufferedWriter(
@@ -942,28 +1032,25 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                                  )) {
 
                         writer.write(
-                                "time_s,raw_rpm,fast_rpm,"
-                                        + "normal_rpm,target_rpm,"
-                                        + "profiled_rpm,motor_power,"
-                                        + "base_power,pid_power,"
-                                        + "recovery_power,effective_kp,"
-                                        + "battery_v,loop_ms,feeding,"
-                                        + "shooter_enabled,recovery_active,"
-                                        + "burst_id\n"
+                                "time_s,raw_rpm,filtered_rpm,"
+                                        + "target_rpm,profiled_rpm,"
+                                        + "error_rpm,motor_power,"
+                                        + "battery_v,loop_ms,"
+                                        + "right_trigger,left_trigger,"
+                                        + "x_pressed,shooter_enabled,"
+                                        + "feeding,burst_id\n"
                         );
 
                         writer.flush();
 
                         status = "RECORDING";
 
-                        long lastFlush = System.nanoTime();
-
-                        // Reuse builder outside the motor loop.
-
                         StringBuilder row =
                                 new StringBuilder(256);
 
-                        // Drain remaining samples after STOP.
+                        long lastFlushNs =
+                                System.nanoTime();
+
                         while (!stopping || !queue.isEmpty()) {
 
                             CsvSample s;
@@ -976,9 +1063,6 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                                 );
 
                             } catch (InterruptedException e) {
-
-                                // A shutdown interrupt must
-                                // not discard queued samples.
                                 continue;
                             }
 
@@ -988,25 +1072,18 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
 
                                 row.append(s.timeSeconds).append(',');
                                 row.append(s.rawRpm).append(',');
-                                row.append(s.fastRpm).append(',');
-                                row.append(s.normalRpm).append(',');
-
+                                row.append(s.filteredRpm).append(',');
                                 row.append(s.targetRpm).append(',');
                                 row.append(s.profiledRpm).append(',');
-
+                                row.append(s.errorRpm).append(',');
                                 row.append(s.motorPower).append(',');
-
-                                row.append(s.basePower).append(',');
-                                row.append(s.pidPower).append(',');
-                                row.append(s.recoveryPower).append(',');
-
-                                row.append(s.effectiveKp).append(',');
                                 row.append(s.batteryVolts).append(',');
                                 row.append(s.loopMs).append(',');
-
-                                row.append(s.feeding).append(',');
+                                row.append(s.rightTrigger).append(',');
+                                row.append(s.leftTrigger).append(',');
+                                row.append(s.xPressed).append(',');
                                 row.append(s.shooterEnabled).append(',');
-                                row.append(s.recoveryActive).append(',');
+                                row.append(s.feeding).append(',');
                                 row.append(s.burstId).append('\n');
 
                                 writer.write(row.toString());
@@ -1014,28 +1091,26 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                                 writtenSamples++;
                             }
 
-                            long now = System.nanoTime();
+                            long currentNs =
+                                    System.nanoTime();
 
-                            if (now - lastFlush >= FLUSH_INTERVAL_NS) {
+                            if (currentNs - lastFlushNs
+                                    >= 500_000_000L) {
 
                                 writer.flush();
-                                lastFlush = now;
+                                lastFlushNs = currentNs;
                             }
                         }
 
-                        // Final flush is done off the
-                        // FTC OpMode thread.
-
                         status = "FINALIZING";
-
                         writer.flush();
                     }
 
                     status = "SAVED";
 
                     android.util.Log.i(
-                            "RapidFireV4",
-                            "CSV saved: " + savedPath
+                            "RapidFireBaseline",
+                            "Saved CSV: " + file.getAbsolutePath()
                     );
 
                 } catch (IOException e) {
@@ -1044,8 +1119,8 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                     status = "ERROR";
 
                     android.util.Log.e(
-                            "RapidFireV4",
-                            "CSV writer failed",
+                            "RapidFireBaseline",
+                            "CSV write failed",
                             e
                     );
 
@@ -1055,8 +1130,8 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                     status = "ERROR";
 
                     android.util.Log.e(
-                            "RapidFireV4",
-                            "Unexpected CSV writer error",
+                            "RapidFireBaseline",
+                            "Logger error",
                             e
                     );
 
@@ -1065,26 +1140,19 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
                     accepting = false;
                 }
 
-            }, "RapidFireCsvWriter");
-
-            // This prevents the diagnostic thread from
-            // keeping the Robot Controller app alive.
+            }, "RapidFireBaselineWriter");
 
             writerThread.setDaemon(true);
-
             writerThread.start();
         }
 
         void record(CsvSample sample) {
 
             if (!accepting || stopping) {
-                droppedSamples.incrementAndGet();
                 return;
             }
 
-            // offer() returns immediately.
-            // Never use put() here because it blocks.
-
+            // No disk I/O on control loop.
             if (!queue.offer(sample)) {
                 droppedSamples.incrementAndGet();
             }
@@ -1099,271 +1167,14 @@ public class JerryRiggedRapidFireDiagnosticTeleOp extends OpMode {
             accepting = false;
             stopping = true;
 
-            // No join(), no disk flush here.
-            // The background thread drains and exits.
-
+            // No join or flush on FTC thread.
             status = "STOP REQUESTED";
         }
     }
 
-    // ========================================
-    // V4 SHOOTER RECOVERY CONTROLLER
-    // ========================================
-
-    public static class ShooterController {
-
-        private double fastVelocity = 0.0;
-        private double normalVelocity = 0.0;
-
-        private double profiledTarget = 0.0;
-
-        private double integral = 0.0;
-
-        private double basePower = 0.0;
-        private double pidPower = 0.0;
-        private double recoveryPower = 0.0;
-
-        private double effectiveKp = kP;
-
-        private boolean recoveryActive = false;
-
-        private long lastTimeNs = -1;
-
-        double calculate(
-                double target,
-                double measured,
-                double voltageScale,
-                long now
-        ) {
-
-            if (lastTimeNs < 0) {
-
-                lastTimeNs = now;
-
-                fastVelocity = measured;
-                normalVelocity = measured;
-
-                profiledTarget = measured;
-
-                return 0.0;
-            }
-
-            double dt = clamp(
-                    (now - lastTimeNs) * 1e-9,
-                    0.0001,
-                    0.1
-            );
-
-            lastTimeNs = now;
-
-            // =================================
-            // FAST AND NORMAL VELOCITY FILTERS
-            // =================================
-
-            double fastAlpha = Math.exp(
-                    -dt / Math.max(0.001, FAST_TAU)
-            );
-
-            double normalAlpha = Math.exp(
-                    -dt / Math.max(0.001, NORMAL_TAU)
-            );
-
-            double previousNormal = normalVelocity;
-
-            fastVelocity =
-                    fastAlpha * fastVelocity
-                            + (1.0 - fastAlpha) * measured;
-
-            normalVelocity =
-                    normalAlpha * normalVelocity
-                            + (1.0 - normalAlpha) * measured;
-
-            // =================================
-            // PROFILE TARGET
-            // =================================
-
-            double maxDelta =
-                    Math.max(0.0, MAX_ACCEL) * dt;
-
-            profiledTarget += clamp(
-                    target - profiledTarget,
-                    -maxDelta,
-                    maxDelta
-            );
-
-            // =================================
-            // VELOCITY ERRORS
-            // =================================
-
-            double normalError =
-                    profiledTarget - normalVelocity;
-
-            double fastError =
-                    target - fastVelocity;
-
-            double normalErrorRpm =
-                    normalError * 60.0 / TICKS_PER_REV;
-
-            double fastErrorRpm =
-                    fastError * 60.0 / TICKS_PER_REV;
-
-            // =================================
-            // VOLTAGE-COMPENSATED FEEDFORWARD
-            // =================================
-
-            double staticPower =
-                    profiledTarget > 50.0 ? kS : 0.0;
-
-            basePower = (
-                    kF * profiledTarget + staticPower
-            ) * voltageScale;
-
-            // =================================
-            // RECOVERY HYSTERESIS
-            // =================================
-
-            boolean atTarget =
-                    target > 0.0
-                            && profiledTarget
-                            >= target * READY_FRACTION;
-
-            if (!atTarget) {
-
-                recoveryActive = false;
-
-            } else if (
-                    !recoveryActive
-                            && fastErrorRpm >= RECOVERY_ON_RPM
-            ) {
-
-                recoveryActive = true;
-
-            } else if (
-                    recoveryActive
-                            && fastErrorRpm <= RECOVERY_OFF_RPM
-            ) {
-
-                recoveryActive = false;
-            }
-
-            // =================================
-            // ADAPTIVE KP
-            // =================================
-
-            double recoveryFraction = 0.0;
-
-            if (recoveryActive) {
-
-                recoveryFraction = clamp(
-                        (normalErrorRpm - RECOVERY_OFF_RPM)
-                                / Math.max(
-                                1.0,
-                                FULL_RECOVERY_RPM - RECOVERY_OFF_RPM
-                        ),
-                        0.0,
-                        1.0
-                );
-            }
-
-            effectiveKp =
-                    kP
-                            + Math.max(
-                            0.0,
-                            RECOVERY_KP - kP
-                    ) * recoveryFraction;
-
-            // =================================
-            // BOUNDED RECOVERY BOOST
-            // =================================
-
-            if (recoveryActive) {
-
-                recoveryPower =
-                        MAX_RECOVERY_BOOST * clamp(
-                                (fastErrorRpm - RECOVERY_OFF_RPM)
-                                        / Math.max(
-                                        1.0,
-                                        FULL_RECOVERY_RPM
-                                                - RECOVERY_OFF_RPM
-                                ),
-                                0.0,
-                                1.0
-                        );
-
-            } else {
-
-                recoveryPower = 0.0;
-            }
-
-            // =================================
-            // PID FEEDBACK
-            // =================================
-
-            double derivative =
-                    -(normalVelocity - previousNormal) / dt;
-
-            double feedbackWithoutI =
-                    effectiveKp * normalError
-                            + kD * derivative;
-
-            // =================================
-            // CONDITIONAL ANTI-WINDUP
-            // =================================
-
-            double candidateIntegral = clamp(
-                    integral + normalError * dt,
-                    -Math.abs(MAX_INTEGRAL),
-                    Math.abs(MAX_INTEGRAL)
-            );
-
-            double candidatePower =
-                    basePower
-                            + feedbackWithoutI
-                            + kI * candidateIntegral
-                            + recoveryPower;
-
-            boolean saturatingHigh =
-                    candidatePower > 1.0
-                            && normalError > 0.0;
-
-            boolean saturatingLow =
-                    candidatePower < 0.0
-                            && normalError < 0.0;
-
-            if (!saturatingHigh && !saturatingLow) {
-                integral = candidateIntegral;
-            }
-
-            pidPower =
-                    feedbackWithoutI
-                            + kI * integral;
-
-            return clamp(
-                    basePower + pidPower + recoveryPower,
-                    0.0,
-                    1.0
-            );
-        }
-
-        void reset() {
-
-            fastVelocity = 0.0;
-            normalVelocity = 0.0;
-
-            profiledTarget = 0.0;
-
-            integral = 0.0;
-
-            basePower = 0.0;
-            pidPower = 0.0;
-            recoveryPower = 0.0;
-
-            effectiveKp = kP;
-            recoveryActive = false;
-
-            lastTimeNs = -1;
-        }
-    }
+    // ===================================
+    // UTILITIES
+    // ===================================
 
     private static double clamp(
             double value,
