@@ -10,6 +10,7 @@
 - `subsystems/FieldCentricMecanumDrive.java`: shared field-relative/robot-relative drive and IMU setup.
 - `subsystems/IntakeTurretMechanisms.java`: transfer/intake, turret and blocker; supports both PIDF and legacy control behaviors.
 - `subsystems/ShooterVelocityController.java`: software PIDF extracted verbatim in terms of its control algorithm.
+- `diagnostics/ShooterCsvLogger.java`: reusable nonblocking CSV writer used by the baseline shooter diagnostic.
 - `subsystems/ButterflyController.java`: existing butterfly controller.
 - `constants/RobotHardwareNames.java`: motor/servo/IMU configuration names and shooter encoder resolution.
 - `constants/ManualShooterTuning.java`: the *checked-in original* ManualPidf tune and mechanism setpoints.
