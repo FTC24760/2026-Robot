@@ -7,7 +7,7 @@ import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.constants.RobotHardwareNames;
 
-/** JerryRigged field-centric mecanum drive; preserves original axis conventions. */
+/** manual shooter field-centric mecanum drive; preserves original axis conventions. */
 public final class FieldCentricMecanumDrive {
     private final DcMotor frontLeft, frontRight, backLeft, backRight;
     private final IMU imu;
