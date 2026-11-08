@@ -37,10 +37,10 @@ public final class FieldCentricMecanumDrive {
         double r = Math.hypot(right, forward);
         theta = AngleUnit.normalizeRadians(theta -
                 imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS));
-        drive(r * Math.sin(theta), r * Math.cos(theta), rotate);
+        driveRobotRelative(r * Math.sin(theta), r * Math.cos(theta), rotate);
     }
 
-    private void drive(double forward, double right, double rotate) {
+    public void driveRobotRelative(double forward, double right, double rotate) {
         double fl = forward + right + rotate;
         double fr = forward - right - rotate;
         double br = forward + right - rotate;
