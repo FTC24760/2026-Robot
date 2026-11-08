@@ -4,7 +4,7 @@ import org.firstinspires.ftc.teamcode.constants.ManualShooterTuning;
 
 /**
  * Software PIDF in encoder ticks/second, not hub PIDF units.
- * The algorithm is intentionally identical to the original JerryRigged
+ * The algorithm is intentionally identical to the original manual shooter
  * TeleOp controller. No adaptive recovery or additional feed gating.
  */
 public final class ShooterVelocityController {
