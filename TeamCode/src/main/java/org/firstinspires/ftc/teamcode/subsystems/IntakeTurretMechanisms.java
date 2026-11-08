@@ -60,6 +60,27 @@ public final class IntakeTurretMechanisms {
                 : ManualShooterTuning.BLOCKER_CLOSED_POSITION);
     }
 
+    /** Preserve the legacy hub-PIDF per-loop turret increments. */
+    public void updateTurretStep(boolean rightBumper, boolean leftBumper) {
+        leftTurret.setPosition(leftPosition);
+        rightTurret.setPosition(rightPosition);
+        if (rightBumper && rightPosition < 1.0) {
+            rightPosition += 0.005;
+            leftPosition += 0.005;
+        } else if (!rightBumper && leftBumper && rightPosition > 0.0) {
+            rightPosition -= 0.005;
+            leftPosition -= 0.005;
+        }
+    }
+
+    /** Legacy mode opens the blocker while A is held (not toggle). */
+    public void updateBlockerMomentary(boolean aPressed) {
+        blockerOpen = aPressed;
+        blocker.setPosition(aPressed
+                ? ManualShooterTuning.BLOCKER_OPEN_POSITION
+                : ManualShooterTuning.BLOCKER_CLOSED_POSITION);
+    }
+
     public boolean isBlockerOpen() { return blockerOpen; }
 
     public void stop() {
