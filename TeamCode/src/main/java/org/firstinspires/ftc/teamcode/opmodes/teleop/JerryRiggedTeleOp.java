@@ -23,6 +23,7 @@ public class JerryRiggedTeleOp extends OpMode {
     public static double transferPower = 0.8;
 
     private DcMotor frontLeftDrive;
+
     private DcMotor frontRightDrive;
     private DcMotor backLeftDrive;
     private DcMotor backRightDrive;

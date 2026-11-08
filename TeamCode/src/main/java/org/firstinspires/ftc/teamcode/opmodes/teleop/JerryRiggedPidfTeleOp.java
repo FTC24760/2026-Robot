@@ -44,6 +44,8 @@ public class JerryRiggedPidfTeleOp extends OpMode {
     double rightTurretServoPosition = 0.5;
     double blockerOpenPosition = 0.032;
     double blockerClosedPosition = 0.0;
+    private boolean blockerOpen = false;
+    private boolean lastAPressed = false;
 
 
 
@@ -54,17 +56,17 @@ public class JerryRiggedPidfTeleOp extends OpMode {
     private static final double TICKS_PER_REV = 28.0;
 
     // Target shooter speed (RPM)
-    public static double TARGET_RPM = 1525;
+    public static double TARGET_RPM = 1470;
 
     // Software controller gains: power per tick/second (not the hub PIDF units).
     // Starting estimates only; tune on the robot: kF, kS, kP, kD, kI, kA.
-    public static double kF = 29.0 / 32767.0;
-    public static double kS = 0.0;
-    public static double kP = 0.0001;
-    public static double kI = 0.0;
-    public static double kD = 0.0;
+    public static double kF = 0.0006825;
+    public static double kS = 0.069;
+    public static double kP = 0.0051;
+    public static double kI = 0.00002;
+    public static double kD = 0.00005;
     public static double kA = 0.0;
-    public static double MAX_INTEGRAL = 1000.0;
+    public static double MAX_INTEGRAL = 5000;
     public static double NOMINAL_VOLTAGE = 12.0;
     public static double MAX_ACCEL = 6000.0; // ticks/s^2
     public static double VELOCITY_ALPHA = 0.7;
@@ -121,6 +123,7 @@ public class JerryRiggedPidfTeleOp extends OpMode {
         imu.initialize(new IMU.Parameters(orientationOnRobot));
 
         butterfly = new ButterflyController(hardwareMap);
+        blockerServo.setPosition(blockerClosedPosition);
     }
 
     @Override
@@ -154,7 +157,7 @@ public class JerryRiggedPidfTeleOp extends OpMode {
         double rotate = gamepad1.right_stick_x;
 
 
-        if (gamepad1.a) {
+        if (gamepad1.b) {
             imu.resetYaw();
         }
 
@@ -191,11 +194,15 @@ public class JerryRiggedPidfTeleOp extends OpMode {
             transferMotor.setPower(0);
         }
 
-        if (gamepad1.a) {
-            blockerServo.setPosition(blockerOpenPosition);
-        } else {
-            blockerServo.setPosition(blockerClosedPosition);
+        if (gamepad1.a && !lastAPressed) {
+            blockerOpen = !blockerOpen;
         }
+
+        lastAPressed = gamepad1.a;
+
+        blockerServo.setPosition(
+                blockerOpen ? blockerOpenPosition : blockerClosedPosition
+        );
 
 
         double actualRPM = actualTicksPerSecond * 60.0 / TICKS_PER_REV;
@@ -204,6 +211,7 @@ public class JerryRiggedPidfTeleOp extends OpMode {
         telemetry.addData("Profiled RPM", "%.1f", speedController.profiledTarget * 60.0 / TICKS_PER_REV);
         telemetry.addData("Shooter power", "%.3f", shooterPower);
         telemetry.addData("Loop ms", "%.1f", loopSeconds * 1000.0);
+        telemetry.addData("Blocker open", blockerOpen? "yes": "no");
         telemetry.update();
     }
 
