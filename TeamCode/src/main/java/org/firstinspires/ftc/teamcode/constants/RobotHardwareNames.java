@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.constants;
 
 /**
- * Hardware configuration names and fixed geometry for JerryRigged TeleOp.
+ * Hardware configuration names and fixed geometry for manual shooter TeleOp.
  * Names must match the Robot Controller configuration.
  */
 public final class RobotHardwareNames {
