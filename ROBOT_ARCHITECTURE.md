@@ -4,9 +4,9 @@
 
 - `opmodes/teleop/ManualPidfTeleOp.java`: software PIDF shooter drive, original checked-in tune.
 - `opmodes/teleop/HubVelocityTeleOp.java`: separate REV hub velocity PIDF experiment; uses its own PIDF values and legacy A-button behavior.
-- `opmodes/teleop/ShooterBaselineDiagnosticTeleOp.java`: nonblocking CSV logging test mode, tuned separately from the production manual PIDF mode.
+- `opmodes/testing/ShooterBaselineDiagnosticTeleOp.java`: nonblocking CSV logging test mode, tuned separately from the production manual PIDF mode.
 - `opmodes/teleop/CompetitionTeleOp.java`: existing competition-mode placeholder; currently does not implement driving or shooting.
-- `opmodes/testing/`: motor/servo and field-centric drive tests.
+- `opmodes/testing/`: shooter diagnostics, motor/servo tests, and experimental field-centric/Pedro drive modes.
 - `subsystems/FieldCentricMecanumDrive.java`: shared field-relative/robot-relative drive and IMU setup.
 - `subsystems/IntakeTurretMechanisms.java`: transfer/intake, turret and blocker; supports both PIDF and legacy control behaviors.
 - `subsystems/ShooterVelocityController.java`: software PIDF extracted verbatim in terms of its control algorithm.
