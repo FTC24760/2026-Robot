@@ -5,13 +5,11 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
-import org.firstinspires.ftc.teamcode.opmodes.teleop.JerryRiggedPidfTeleOp;
 import org.firstinspires.ftc.teamcode.utils.SpeedController;
 import org.firstinspires.ftc.teamcode.ShooterConstants;
 
 @Configurable
 public class Shooter {
-    private long lastLoopNs;
     double hoodAngle, flywheelRPM;
     DcMotorEx shooterMotor;
     private final SpeedController speedController;
@@ -31,8 +29,6 @@ public class Shooter {
 
     public void Update(State state, double voltageScale) {
         long now = System.nanoTime();
-        double loopSeconds = lastLoopNs == 0 ? 0 : Math.min((now - lastLoopNs) * 1e-9, 0.1);
-        lastLoopNs = now;
 
         double shooterPower = 0;
         double actualTicksPerSecond = shooterMotor.getVelocity();
