@@ -16,7 +16,7 @@ import org.firstinspires.ftc.teamcode.subsystems.IntakeTurretMechanisms;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterVelocityController;
 
 /**
- * Original JerryRigged PIDF controls, extracted into modular subsystems.
+ * Original software PIDF controls, extracted into modular subsystems.
  * Tuning remains at the repository's original values, not the experimental
  * diagnostic values. Continuous transfer and the original gamepad mapping remain.
  */
