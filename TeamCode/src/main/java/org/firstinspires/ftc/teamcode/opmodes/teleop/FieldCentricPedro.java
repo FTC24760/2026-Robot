@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.pedro.Constants;
-import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
+import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 
 @Configurable
 @TeleOp(
@@ -19,12 +19,12 @@ import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
 
 public class FieldCentricPedro extends OpMode {
     private Follower follower;
-    private ButterflyController butterflyController;
+    private Butterfly butterflyController;
 
     @Override
     public void init() {
         follower = Constants.create(hardwareMap);
-        butterflyController = new ButterflyController(hardwareMap);
+        butterflyController = new Butterfly(hardwareMap);
     }
 
     @Override

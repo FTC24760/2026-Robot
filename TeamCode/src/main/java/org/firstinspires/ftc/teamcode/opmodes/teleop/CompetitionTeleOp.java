@@ -2,38 +2,33 @@ package org.firstinspires.ftc.teamcode.opmodes.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.HardwareMap;
 
-import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
-import org.firstinspires.ftc.teamcode.subsystems.Shooter;
+import org.firstinspires.ftc.teamcode.Robot;
 
 @TeleOp(name = "TeleOp", group = "Competition")
 public class CompetitionTeleOp extends OpMode {
-    Shooter shooter;
-    ButterflyController butterflyController;
-    @Override
-    public void init() {
-        shooter = new Shooter(hardwareMap);
-        butterflyController = new ButterflyController(hardwareMap);
-    }
+    private Robot robot;
 
     @Override
-    public void init_loop() {
-        super.init_loop();
+    public void init() {
+        robot = new Robot(this);
     }
 
     @Override
     public void start() {
-        super.start();
+        robot.start();
     }
 
     @Override
     public void loop() {
-
+        robot.update();
     }
 
     @Override
     public void stop() {
-        super.stop();
+        // robot is null if init() failed (e.g. a device missing from the configuration).
+        if (robot != null) {
+            robot.stop();
+        }
     }
 }
