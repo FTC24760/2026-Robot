@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.util.Range;
 
 @Configurable
 public class ButterflyController {
-
     public static String LEFT_SERVO_NAME = "leftButterfly";
     public static String RIGHT_SERVO_NAME = "rightButterfly";
 
@@ -51,6 +50,10 @@ public class ButterflyController {
     }
 
     public void update(double forward, double strafe, double turn) {
+        update(forward, strafe, turn, false);
+    }
+
+    public void update(double forward, double strafe, double turn, double voltageScale) {
         update(forward, strafe, turn, false);
     }
 

@@ -32,7 +32,7 @@ public class ButterflyPedroTeleOp extends OpMode {
 
     @Override
     public void init() {
-        follower = Constants.create(hardwareMap);
+        //follower = Constants.create(hardwareMap);
         butterflyController = new ButterflyController(hardwareMap);
 
         telemetry.addLine("Butterfly Pedro TeleOp initialized");
