@@ -1,92 +1,66 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
-import com.qualcomm.robotcore.hardware.DcMotor;
+import com.pedropathing.drivetrain.DrivePowers;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.follower.ManualDrive;
+import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.hardware.HardwareMap;
-import com.qualcomm.robotcore.hardware.IMU;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.constants.DriveConstants;
+import org.firstinspires.ftc.teamcode.pedro.Constants;
 
-/** Mecanum drive with IMU-based field-centric control. */
+/**
+ * Competition drive: mecanum through the Pedro follower, field-centric off the
+ * localizer heading, holding position when the sticks are released.
+ * Motor names, localizer and follower tuning live in pedro/Constants.
+ */
 public class Drivetrain implements Subsystem {
-    private final DcMotor frontLeft;
-    private final DcMotor frontRight;
-    private final DcMotor backLeft;
-    private final DcMotor backRight;
-    private final IMU imu;
-    private double lastHeadingRadians;
+    private final Follower follower;
+    private Pose pose = new Pose(0, 0, 0);
 
     public Drivetrain(HardwareMap hardwareMap) {
-        frontLeft = hardwareMap.get(DcMotor.class, DriveConstants.FRONT_LEFT_NAME);
-        frontRight = hardwareMap.get(DcMotor.class, DriveConstants.FRONT_RIGHT_NAME);
-        backLeft = hardwareMap.get(DcMotor.class, DriveConstants.BACK_LEFT_NAME);
-        backRight = hardwareMap.get(DcMotor.class, DriveConstants.BACK_RIGHT_NAME);
-
-        frontLeft.setDirection(DriveConstants.LEFT_DIRECTION);
-        backLeft.setDirection(DriveConstants.LEFT_DIRECTION);
-        frontRight.setDirection(DriveConstants.RIGHT_DIRECTION);
-        backRight.setDirection(DriveConstants.RIGHT_DIRECTION);
-
-        for (DcMotor motor : new DcMotor[]{frontLeft, frontRight, backLeft, backRight}) {
-            motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        }
-
-        imu = hardwareMap.get(IMU.class, DriveConstants.IMU_NAME);
-        imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(
-                DriveConstants.IMU_LOGO_DIRECTION,
-                DriveConstants.IMU_USB_DIRECTION
-        )));
+        follower = Constants.create(hardwareMap);
     }
 
-    /** Drive relative to the field: "forward" is away from the driver regardless of heading. */
+    /**
+     * Drive relative to the field, and update the localizer. Call once per loop.
+     *
+     * @param forward positive = away from the driver
+     * @param strafe  positive = to the driver's right
+     * @param rotate  positive = clockwise
+     */
     public void driveFieldCentric(double forward, double strafe, double rotate) {
-        double theta = Math.atan2(forward, strafe);
-        double r = Math.hypot(strafe, forward);
-
-        theta = AngleUnit.normalizeRadians(theta - getHeadingRadians());
-
-        driveRobotCentric(r * Math.sin(theta), r * Math.cos(theta), rotate);
+        // Pedro uses left-positive strafe and counter-clockwise-positive rotation.
+        DrivePowers powers = ManualDrive.fieldCentric(
+                forward,
+                -strafe,
+                -rotate,
+                follower.pose().heading()
+        );
+        ManualDrive.driveOrHold(follower, powers);
+        follower.update();
+        pose = follower.pose();
     }
 
-    /** Drive relative to the robot's own front. */
-    public void driveRobotCentric(double forward, double strafe, double rotate) {
-        double frontLeftPower = forward + strafe + rotate;
-        double frontRightPower = forward - strafe - rotate;
-        double backRightPower = forward + strafe - rotate;
-        double backLeftPower = forward - strafe + rotate;
-
-        // Scale everything down together if any wheel would exceed full power.
-        double maxPower = Math.max(1.0, Math.max(
-                Math.max(Math.abs(frontLeftPower), Math.abs(frontRightPower)),
-                Math.max(Math.abs(backLeftPower), Math.abs(backRightPower))
-        ));
-
-        frontLeft.setPower(frontLeftPower / maxPower);
-        frontRight.setPower(frontRightPower / maxPower);
-        backLeft.setPower(backLeftPower / maxPower);
-        backRight.setPower(backRightPower / maxPower);
+    /** Make the robot's current position and heading the field origin. */
+    public void resetPose() {
+        follower.setPose(new Pose(0, 0, 0));
     }
 
-    /** Make the robot's current heading the new field "forward". */
-    public void resetYaw() {
-        imu.resetYaw();
-    }
-
-    public double getHeadingRadians() {
-        lastHeadingRadians = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.RADIANS);
-        return lastHeadingRadians;
+    /** Pose as of the last driveFieldCentric call. */
+    public Pose getPose() {
+        return pose;
     }
 
     @Override
     public void stop() {
-        driveRobotCentric(0, 0, 0);
+        // The SDK cuts motor power when the OpMode stops.
     }
 
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        // Reuses the last reading: a fresh IMU read is slow I2C and would cost loop time.
-        telemetry.addData("Heading deg", "%.1f", Math.toDegrees(lastHeadingRadians));
+        telemetry.addData("Robot X", pose.x());
+        telemetry.addData("Robot Y", pose.y());
+        telemetry.addData("Robot Heading", Math.toDegrees(pose.heading()));
     }
 }

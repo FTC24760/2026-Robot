@@ -122,16 +122,12 @@ public class Robot {
     }
 
     private void updateDrive() {
-        double forward = controls.forward();
-        double strafe = controls.strafe();
-        double rotate = controls.rotate();
-
-        if (controls.resetYaw()) {
-            drivetrain.resetYaw();
+        if (controls.resetPose()) {
+            drivetrain.resetPose();
         }
 
-        butterfly.update(forward, strafe, rotate, controls.butterflyInvert());
-        drivetrain.driveFieldCentric(forward, strafe, rotate);
+        butterfly.setDown();
+        drivetrain.driveFieldCentric(controls.forward(), controls.strafe(), controls.rotate());
     }
 
     private void updateTurret() {

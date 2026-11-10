@@ -14,9 +14,8 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   left stick      drive (field-centric)        right stick x   rotate
  *   right trigger   spin up shooter              left trigger    intake + transfer
  *   X               transfer only (feed)         A               toggle blocker
- *   B               reset field-centric heading
- *   right bumper    turret one way AND invert butterflies
- *   left bumper     turret the other way
+ *   B               reset pose (current position and heading become the field origin)
+ *   right bumper    turret one way               left bumper     turret the other way
  */
 public class DriverControls {
     private final OpMode opMode;
@@ -45,12 +44,8 @@ public class DriverControls {
         return driver().right_stick_x;
     }
 
-    public boolean resetYaw() {
+    public boolean resetPose() {
         return driver().b;
-    }
-
-    public boolean butterflyInvert() {
-        return driver().right_bumper;
     }
 
     /** +1 while the right bumper is held, -1 for the left bumper, otherwise 0. */

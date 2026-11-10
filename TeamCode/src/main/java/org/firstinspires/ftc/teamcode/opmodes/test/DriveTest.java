@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
-import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
+import org.firstinspires.ftc.teamcode.subsystems.ImuMecanumDrive;
 
 /**
  * Drivetrain and butterflies only, for checking the drive base without the other mechanisms.
@@ -13,12 +13,12 @@ import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
  */
 @TeleOp(name = "Test: Drive", group = "Test")
 public class DriveTest extends OpMode {
-    private Drivetrain drivetrain;
+    private ImuMecanumDrive drivetrain;
     private Butterfly butterfly;
 
     @Override
     public void init() {
-        drivetrain = new Drivetrain(hardwareMap);
+        drivetrain = new ImuMecanumDrive(hardwareMap);
         butterfly = new Butterfly(hardwareMap);
     }
 
