@@ -22,11 +22,12 @@ public final class AsyncRpmLogger {
     private static final int MASK = CAPACITY - 1;
     private static final String TAG = "ShooterRpmLogger";
     private static final String FOLDER_NAME = "shooter_diagnostics";
-    private static final String FILE_PREFIX = "rapidfire_original_pidf_rpm_";
+    private static final String FILE_PREFIX = "shooter_rpm_";
 
     private final double[] timeSeconds = new double[CAPACITY];
     private final double[] measuredRpm = new double[CAPACITY];
     private final double[] requestedRpm = new double[CAPACITY];
+    private final double[] motorPower = new double[CAPACITY];
     private final byte[] feeding = new byte[CAPACITY];
 
     private volatile long publishedIndex = 0;
@@ -56,7 +57,7 @@ public final class AsyncRpmLogger {
     }
 
     /** Called from the OpMode thread. Never blocks; drops the sample if the buffer is full. */
-    public void record(double t, double rpm, double target, boolean isFeeding) {
+    public void record(double t, double rpm, double target, double power, boolean isFeeding) {
         if (!accepting || stopping) {
             return;
         }
@@ -72,6 +73,7 @@ public final class AsyncRpmLogger {
         timeSeconds[slot] = t;
         measuredRpm[slot] = rpm;
         requestedRpm[slot] = target;
+        motorPower[slot] = power;
         feeding[slot] = (byte) (isFeeding ? 1 : 0);
 
         publishedIndex = write + 1;
@@ -122,7 +124,7 @@ public final class AsyncRpmLogger {
             );
 
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(pending), 8192)) {
-                writer.write("time_s,actual_rpm,target_rpm,feeding\n");
+                writer.write("time_s,actual_rpm,target_rpm,power,feeding\n");
                 status = "RECORDING";
 
                 long read = 0;
@@ -135,6 +137,7 @@ public final class AsyncRpmLogger {
                         double t = timeSeconds[slot];
                         double actual = measuredRpm[slot];
                         double target = requestedRpm[slot];
+                        double power = motorPower[slot];
                         int feed = feeding[slot];
 
                         consumedIndex = ++read;
@@ -144,6 +147,8 @@ public final class AsyncRpmLogger {
                         writer.write(Double.toString(actual));
                         writer.write(',');
                         writer.write(Double.toString(target));
+                        writer.write(',');
+                        writer.write(Double.toString(power));
                         writer.write(',');
                         writer.write(Integer.toString(feed));
                         writer.write('\n');
