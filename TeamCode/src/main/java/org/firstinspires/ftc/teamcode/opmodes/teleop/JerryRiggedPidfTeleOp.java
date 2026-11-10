@@ -56,15 +56,18 @@ public class JerryRiggedPidfTeleOp extends OpMode {
     private static final double TICKS_PER_REV = 28.0;
 
     // Target shooter speed (RPM)
-    public static double TARGET_RPM = 1550;
+    public static double TARGET_RPM = 1530;
 
     // Software controller gains: power per tick/second (not the hub PIDF units).
     // Starting estimates only; tune on the robot: kF, kS, kP, kD, kI, kA.
-    public static double kF = 0.00089;
+    public static double kF = 0.000752;
+
     public static double kS = 0.069;
-    public static double kP = 0.0051;
+    public static double kP = 0.0063;
     public static double kI = 0.00002;
     public static double kD = 0.00005;
+
+
     public static double kA = 0.0;
     public static double MAX_INTEGRAL = 5000;
     public static double NOMINAL_VOLTAGE = 12.0;
