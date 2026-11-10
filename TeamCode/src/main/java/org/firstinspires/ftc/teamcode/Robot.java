@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
+import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
@@ -42,6 +43,12 @@ public class Robot {
     private long lastLoopNs;
     private double loopSeconds;
 
+    // Rapid-fire fixes (off unless enableShooterAssist() is called).
+    private boolean shooterAssist;
+    // Set by the first trigger pull, cleared by the stop button; idle spin runs while set.
+    private boolean shooterArmed;
+    private boolean feedHeld;
+
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
     private long startNs;
@@ -71,6 +78,16 @@ public class Robot {
      */
     public Robot enableShooterLogging() {
         rpmLogger = new AsyncRpmLogger();
+        return this;
+    }
+
+    /**
+     * Turn on the rapid-fire consistency fixes: recovery boost, feed gating, a working
+     * integral and idle spin. Each is configured in ShooterAssistConstants.
+     */
+    public Robot enableShooterAssist() {
+        shooterAssist = true;
+        shooter.setAssistEnabled(true);
         return this;
     }
 
@@ -117,7 +134,19 @@ public class Robot {
     }
 
     private void updateShooter(long nowNs) {
-        shooter.setState(controls.shoot() ? Shooter.State.SHOOT : Shooter.State.DISABLED);
+        if (controls.shooterStopPressed()) {
+            shooterArmed = false;
+        }
+
+        if (controls.shoot()) {
+            shooterArmed = true;
+            shooter.setState(Shooter.State.SHOOT);
+        } else if (shooterAssist && ShooterAssistConstants.IDLE_SPIN_ENABLED && shooterArmed) {
+            shooter.setState(Shooter.State.IDLE);
+        } else {
+            shooter.setState(Shooter.State.DISABLED);
+        }
+
         shooter.update(nowNs, hubs.getVoltageScale(nowNs));
     }
 
@@ -135,17 +164,30 @@ public class Robot {
     }
 
     private void updateIntake() {
-        if (controls.intake()) {
-            intake.setMode(Intake.Mode.INTAKE);
-        } else if (controls.transferOnly()) {
-            intake.setMode(Intake.Mode.TRANSFER_ONLY);
-        } else {
-            intake.setMode(Intake.Mode.OFF);
-        }
-
         if (controls.blockerTogglePressed()) {
             intake.toggleBlocker();
         }
+
+        Intake.Mode mode;
+        if (controls.intake()) {
+            mode = Intake.Mode.INTAKE;
+        } else if (controls.transferOnly()) {
+            mode = Intake.Mode.TRANSFER_ONLY;
+        } else {
+            mode = Intake.Mode.OFF;
+        }
+
+        // Feed gating: while shooting, do not push the next ball into a wheel that has
+        // not recovered from the last one. Runs after updateShooter() so it uses this
+        // loop's speed reading.
+        boolean shooting = shooter.getState() == Shooter.State.SHOOT && intake.isBlockerOpen();
+        feedHeld = shooterAssist
+                && ShooterAssistConstants.FEED_GATING_ENABLED
+                && shooting
+                && mode != Intake.Mode.OFF
+                && !shooter.isReadyToFeed();
+
+        intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
     }
 
     private void logShooterRpm(long nowNs) {
@@ -160,6 +202,7 @@ public class Robot {
                     (nowNs - startNs) * 1e-9,
                     shooter.getActualRpm(),
                     shooter.getTargetRpm(),
+                    shooter.getPower(),
                     intake.isFeeding()
             );
             lastRpmLoggedNs = nowNs;
@@ -181,6 +224,10 @@ public class Robot {
 
         for (Subsystem subsystem : subsystems) {
             subsystem.addTelemetry(telemetry);
+        }
+
+        if (shooterAssist) {
+            telemetry.addData("Feed held for RPM", feedHeld ? "yes" : "no");
         }
 
         if (rpmLogger != null) {

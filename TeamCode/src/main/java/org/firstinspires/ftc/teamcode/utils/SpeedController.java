@@ -39,6 +39,21 @@ public class SpeedController {
      * @return motor power in [-1, 1]
      */
     public double calculate(double target, double measured, double voltageScale, long nowNs) {
+        return calculate(target, measured, voltageScale, nowNs, false);
+    }
+
+    /**
+     * @param holdIntegral true to leave the integral where it is this step, e.g. while the
+     *                     caller is overriding the output and the error is not the
+     *                     controller's to fix
+     */
+    public double calculate(
+            double target,
+            double measured,
+            double voltageScale,
+            long nowNs,
+            boolean holdIntegral
+    ) {
         if (lastTimeNs < 0) {
             lastTimeNs = nowNs;
             filteredVel = measured;
@@ -65,7 +80,7 @@ public class SpeedController {
         double derivative = -(filteredVel - previousVel) / dt;
 
         // Only integrate while the proportional term is not already saturating the output.
-        if (Math.abs(gains.kP * error) < 1.0) {
+        if (!holdIntegral && Math.abs(gains.kP * error) < 1.0) {
             double limit = Math.abs(gains.maxIntegral);
             integral = clamp(integral + error * dt, -limit, limit);
         }
