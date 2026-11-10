@@ -14,8 +14,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import static com.pedropathing.api.Paths.*;
 import com.pedropathing.paths.Path;
 
+import org.firstinspires.ftc.teamcode.constants.ButterflyConstants;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
-import org.firstinspires.ftc.teamcode.subsystems.ButterflyController;
+import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 
 @Configurable
 @TeleOp(
@@ -28,16 +29,16 @@ public class ButterflyPedroTeleOp extends OpMode {
     public static boolean USE_BRAKE_MODE = true;
 
     private Follower follower;
-    private ButterflyController butterflyController;
+    private Butterfly butterflyController;
 
     @Override
     public void init() {
         //follower = Constants.create(hardwareMap);
-        butterflyController = new ButterflyController(hardwareMap);
+        butterflyController = new Butterfly(hardwareMap);
 
         telemetry.addLine("Butterfly Pedro TeleOp initialized");
-        telemetry.addData("Left servo", ButterflyController.LEFT_SERVO_NAME);
-        telemetry.addData("Right servo", ButterflyController.RIGHT_SERVO_NAME);
+        telemetry.addData("Left servo", ButterflyConstants.LEFT_SERVO_NAME);
+        telemetry.addData("Right servo", ButterflyConstants.RIGHT_SERVO_NAME);
         telemetry.update();
     }
 
