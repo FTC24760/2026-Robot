@@ -42,6 +42,8 @@ public class Robot {
 
     private long lastLoopNs;
     private double loopSeconds;
+    // Nominal voltage / battery voltage, refreshed by HubManager a few times a second.
+    private double voltageScale = 1.0;
 
     // Rapid-fire fixes (off unless enableShooterAssist() is called).
     private boolean shooterAssist;
@@ -110,6 +112,7 @@ public class Robot {
         lastLoopNs = nowNs;
 
         hubs.clearBulkCache();
+        voltageScale = hubs.getVoltageScale(nowNs);
         controls.update();
 
         updateShooter(nowNs);
@@ -147,7 +150,7 @@ public class Robot {
             shooter.setState(Shooter.State.DISABLED);
         }
 
-        shooter.update(nowNs, hubs.getVoltageScale(nowNs));
+        shooter.update(nowNs, voltageScale);
     }
 
     private void updateDrive() {
@@ -187,6 +190,7 @@ public class Robot {
                 && mode != Intake.Mode.OFF
                 && !shooter.isReadyToFeed();
 
+        intake.setVoltageScale(voltageScale);
         intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
     }
 
