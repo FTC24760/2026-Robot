@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
+import org.firstinspires.ftc.teamcode.utils.MathUtil;
 
 /** Intake roller, transfer, and the blocker servo that gates the path into the shooter. */
 public class Intake implements Subsystem {
@@ -25,6 +26,8 @@ public class Intake implements Subsystem {
 
     private Mode mode = Mode.OFF;
     private boolean blockerOpen;
+    private double voltageScale = 1.0;
+    private double transferPower;
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, IntakeConstants.INTAKE_MOTOR_NAME);
@@ -36,11 +39,27 @@ public class Intake implements Subsystem {
         setBlockerOpen(false);
     }
 
+    /**
+     * Give the transfer the latest battery reading. Call before setMode() each loop.
+     *
+     * @param voltageScale nominal voltage / battery voltage
+     */
+    public void setVoltageScale(double voltageScale) {
+        this.voltageScale = voltageScale;
+    }
+
     public void setMode(Mode mode) {
         this.mode = mode;
 
+        if (mode == Mode.OFF) {
+            transferPower = 0.0;
+        } else {
+            double scale = IntakeConstants.TRANSFER_VOLTAGE_COMPENSATION ? voltageScale : 1.0;
+            transferPower = MathUtil.clamp(IntakeConstants.TRANSFER_POWER * scale, 0.0, 1.0);
+        }
+
         intakeMotor.setPower(mode == Mode.INTAKE ? IntakeConstants.INTAKE_POWER : 0.0);
-        transferMotor.setPower(mode == Mode.OFF ? 0.0 : IntakeConstants.TRANSFER_POWER);
+        transferMotor.setPower(transferPower);
     }
 
     public Mode getMode() {
@@ -75,6 +94,7 @@ public class Intake implements Subsystem {
     @Override
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Intake", mode);
+        telemetry.addData("Transfer power", "%.2f", transferPower);
         telemetry.addData("Blocker open", blockerOpen ? "yes" : "no");
     }
 }
