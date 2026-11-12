@@ -8,13 +8,21 @@ import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
+import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Subsystem;
 import org.firstinspires.ftc.teamcode.subsystems.Turret;
+import org.firstinspires.ftc.teamcode.subsystems.Vision;
+import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
+import org.firstinspires.ftc.teamcode.utils.ShotSolver;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * The whole robot. An OpMode only has to forward its lifecycle:
@@ -26,6 +34,14 @@ import org.firstinspires.ftc.teamcode.utils.MathUtil;
  *
  * Robot wires driver input (DriverControls) to the subsystems. Hardware details live in
  * the subsystems, tunable numbers in constants/, and button bindings in DriverControls.
+ *
+ * An autonomous OpMode drives the same robot without a gamepad:
+ *
+ *   loop() -> robot.beginLoop();
+ *             robot.drivetrain.update();      // follow the current path
+ *             robot.runShooter(true);         // spin up / hold speed
+ *             robot.runIntake(mode);          // feed, held back until the wheel is ready
+ *             robot.endLoop();
  */
 public class Robot {
     public final Drivetrain drivetrain;
@@ -33,13 +49,18 @@ public class Robot {
     public final Intake intake;
     public final Turret turret;
     public final Shooter shooter;
+    // Only present after enableAutoAim(); null otherwise, so robots without a Limelight
+    // or hood servo configured can still run the plain TeleOp.
+    public Vision vision;
+    public Hood hood;
 
     private final OpMode opMode;
     private final Telemetry telemetry;
     private final DriverControls controls;
     private final HubManager hubs;
-    private final Subsystem[] subsystems;
+    private final List<Subsystem> subsystems;
 
+    private long nowNs;
     private long lastLoopNs;
     private double loopSeconds;
     // Nominal voltage / battery voltage, refreshed by HubManager a few times a second.
@@ -50,6 +71,10 @@ public class Robot {
     // Set by the first trigger pull, cleared by the stop button; idle spin runs while set.
     private boolean shooterArmed;
     private boolean feedHeld;
+
+    // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
+    // when the HIVE is not in view.
+    private ShotSolver.Solution shot;
 
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
@@ -71,7 +96,7 @@ public class Robot {
         turret = new Turret(opMode.hardwareMap);
         shooter = new Shooter(opMode.hardwareMap);
 
-        subsystems = new Subsystem[]{drivetrain, butterfly, intake, turret, shooter};
+        subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, turret, shooter));
     }
 
     /**
@@ -93,6 +118,34 @@ public class Robot {
         return this;
     }
 
+    /**
+     * Use the Limelight to find our HIVE and set shooter speed and hood angle from the
+     * measured distance. Needs a Limelight and a hood servo in the robot configuration.
+     * When the HIVE is not in view, the shooter falls back to ShooterConstants.TARGET_RPM
+     * and the hood stays where it was.
+     */
+    public Robot enableAutoAim(Alliance alliance) {
+        // Look up both before keeping either, so a missing device leaves auto-aim fully off.
+        Hood newHood = new Hood(opMode.hardwareMap);
+        Vision newVision = new Vision(opMode.hardwareMap, alliance);
+
+        hood = newHood;
+        vision = newVision;
+        subsystems.add(vision);
+        subsystems.add(hood);
+        return this;
+    }
+
+    /** The shot auto-aim is using right now, or null if the HIVE is not in view. */
+    public ShotSolver.Solution getShot() {
+        return shot;
+    }
+
+    /** True when auto-aim can see the upward-facing CELL and has a reachable shot for it. */
+    public boolean hasShot() {
+        return shot != null && shot.reachable;
+    }
+
     public void start() {
         startNs = System.nanoTime();
         lastRpmLoggedNs = 0;
@@ -105,7 +158,36 @@ public class Robot {
 
     /** One iteration of teleop. Call from OpMode.loop(). */
     public void update() {
-        long nowNs = System.nanoTime();
+        beginLoop();
+        controls.update();
+
+        if (controls.shooterStopPressed()) {
+            shooterArmed = false;
+        }
+        runShooter(controls.shoot());
+
+        updateDrive();
+        updateTurret();
+
+        if (controls.blockerTogglePressed()) {
+            intake.toggleBlocker();
+        }
+        if (controls.intake()) {
+            runIntake(Intake.Mode.INTAKE);
+        } else if (controls.transferOnly()) {
+            runIntake(Intake.Mode.TRANSFER_ONLY);
+        } else {
+            runIntake(Intake.Mode.OFF);
+        }
+
+        endLoop();
+    }
+
+    // ---- Building blocks, also used directly by autonomous OpModes ----
+
+    /** Start of every loop: timing, sensor cache, battery voltage and auto-aim. */
+    public void beginLoop() {
+        nowNs = System.nanoTime();
         loopSeconds = lastLoopNs == 0
                 ? 0
                 : Math.min((nowNs - lastLoopNs) * 1e-9, RobotConstants.MAX_LOOP_SECONDS);
@@ -113,15 +195,77 @@ public class Robot {
 
         hubs.clearBulkCache();
         voltageScale = hubs.getVoltageScale(nowNs);
-        controls.update();
+        updateAim();
+    }
 
-        updateShooter(nowNs);
-        updateDrive();
-        updateTurret();
-        updateIntake();
+    /**
+     * Run the shooter for this loop.
+     *
+     * @param shoot true to hold shooting speed; false to idle (with assist, once it has
+     *              been spun up) or stop
+     */
+    public void runShooter(boolean shoot) {
+        if (shoot) {
+            shooterArmed = true;
+            shooter.setState(Shooter.State.SHOOT);
+        } else if (shooterAssist && ShooterAssistConstants.IDLE_SPIN_ENABLED && shooterArmed) {
+            shooter.setState(Shooter.State.IDLE);
+        } else {
+            shooter.setState(Shooter.State.DISABLED);
+        }
 
+        shooter.update(nowNs, voltageScale);
+    }
+
+    /**
+     * Run the intake and transfer for this loop. Call after runShooter() so feed gating
+     * uses this loop's wheel speed.
+     */
+    public void runIntake(Intake.Mode mode) {
+        // Feed gating: while shooting, do not push the next ball into a wheel that has
+        // not recovered from the last one.
+        boolean shooting = shooter.getState() == Shooter.State.SHOOT && intake.isBlockerOpen();
+        feedHeld = shooterAssist
+                && ShooterAssistConstants.FEED_GATING_ENABLED
+                && shooting
+                && mode != Intake.Mode.OFF
+                && !shooter.isReadyToFeed();
+
+        intake.setVoltageScale(voltageScale);
+        intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
+    }
+
+    /** End of every loop: logging and telemetry. */
+    public void endLoop() {
         logShooterRpm(nowNs);
         updateTelemetry(nowNs);
+    }
+
+    /** Seconds since the previous loop, capped so a stall cannot cause a jump. */
+    public double getLoopSeconds() {
+        return loopSeconds;
+    }
+
+    // Auto-aim: turn what the camera sees into a shooter speed and hood position.
+    private void updateAim() {
+        if (vision == null) {
+            return;
+        }
+
+        vision.update(nowNs);
+        Vision.HiveTarget target = vision.getTarget(nowNs);
+
+        // Only aim at a CELL that is facing up; the other one cannot be scored in.
+        shot = target != null && target.cellUp
+                ? ShotSolver.solveForCell(target.distanceM, target.tagHeightM)
+                : null;
+
+        if (hasShot()) {
+            shooter.setShootRpm(shot.rpm);
+            hood.setPosition(shot.hoodPosition);
+        } else {
+            shooter.clearShootRpm();
+        }
     }
 
     public void stop() {
@@ -136,23 +280,6 @@ public class Robot {
         hubs.stop();
     }
 
-    private void updateShooter(long nowNs) {
-        if (controls.shooterStopPressed()) {
-            shooterArmed = false;
-        }
-
-        if (controls.shoot()) {
-            shooterArmed = true;
-            shooter.setState(Shooter.State.SHOOT);
-        } else if (shooterAssist && ShooterAssistConstants.IDLE_SPIN_ENABLED && shooterArmed) {
-            shooter.setState(Shooter.State.IDLE);
-        } else {
-            shooter.setState(Shooter.State.DISABLED);
-        }
-
-        shooter.update(nowNs, voltageScale);
-    }
-
     private void updateDrive() {
         if (controls.resetPose()) {
             drivetrain.resetPose();
@@ -164,34 +291,6 @@ public class Robot {
 
     private void updateTurret() {
         turret.move(controls.turretDirection(), loopSeconds);
-    }
-
-    private void updateIntake() {
-        if (controls.blockerTogglePressed()) {
-            intake.toggleBlocker();
-        }
-
-        Intake.Mode mode;
-        if (controls.intake()) {
-            mode = Intake.Mode.INTAKE;
-        } else if (controls.transferOnly()) {
-            mode = Intake.Mode.TRANSFER_ONLY;
-        } else {
-            mode = Intake.Mode.OFF;
-        }
-
-        // Feed gating: while shooting, do not push the next ball into a wheel that has
-        // not recovered from the last one. Runs after updateShooter() so it uses this
-        // loop's speed reading.
-        boolean shooting = shooter.getState() == Shooter.State.SHOOT && intake.isBlockerOpen();
-        feedHeld = shooterAssist
-                && ShooterAssistConstants.FEED_GATING_ENABLED
-                && shooting
-                && mode != Intake.Mode.OFF
-                && !shooter.isReadyToFeed();
-
-        intake.setVoltageScale(voltageScale);
-        intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
     }
 
     private void logShooterRpm(long nowNs) {
@@ -232,6 +331,16 @@ public class Robot {
 
         if (shooterAssist) {
             telemetry.addData("Feed held for RPM", feedHeld ? "yes" : "no");
+        }
+
+        if (vision != null) {
+            if (shot == null) {
+                telemetry.addData("Auto-aim", "no upward CELL in view, using fixed RPM");
+            } else if (!shot.reachable) {
+                telemetry.addData("Auto-aim", "OUT OF RANGE");
+            } else {
+                telemetry.addData("Auto-aim", "%.0f RPM at %.1f deg", shot.rpm, shot.launchAngleDeg);
+            }
         }
 
         if (rpmLogger != null) {

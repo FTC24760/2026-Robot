@@ -4,6 +4,7 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -38,6 +39,35 @@ public class Drivetrain implements Subsystem {
                 follower.pose().heading()
         );
         ManualDrive.driveOrHold(follower, powers);
+        follower.update();
+        pose = follower.pose();
+    }
+
+    // ---- Autonomous ----
+
+    /** Tell the localizer where the robot is. Call once at the start of an auto. */
+    public void setPose(Pose pose) {
+        follower.setPose(pose);
+        this.pose = pose;
+    }
+
+    /** Start following a path. Keep calling update() every loop until isBusy() is false. */
+    public void follow(Path path) {
+        follower.follow(path);
+    }
+
+    /** Drive to a pose and hold it against being pushed. */
+    public void hold(Pose pose) {
+        follower.hold(pose);
+    }
+
+    /** True while a path is still being followed. */
+    public boolean isBusy() {
+        return follower.isBusy();
+    }
+
+    /** Run the follower and localizer for one loop of an auto. */
+    public void update() {
         follower.update();
         pose = follower.pose();
     }
