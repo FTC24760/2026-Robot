@@ -10,20 +10,38 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  * The one place that maps gamepad buttons to robot actions.
  * To rebind a control, change it here; nothing else reads the gamepad.
  *
- * Gamepad 1:
- *   left stick      drive (field-centric)        right stick x   rotate
- *   right trigger   spin up shooter              left trigger    intake + transfer
- *   X               transfer only (feed)         A               toggle blocker
+ * Gamepad 1, everyday controls:
+ *   left stick      drive (field-centric)       right stick x   rotate
+ *   right trigger   SHOOT: press once to spin up, open the blocker and feed;
+ *                   press again to stop early (it also stops by itself)
+ *   left trigger    intake on / off
+ *   Y               flower arm up / down
+ *   X (hold)        reverse intake and transfer, to clear a jam
+ *   A               auto-aim on / off (turret, wheel speed and hood from the Limelight)
  *   B               reset pose (current position and heading become the field origin)
- *   right bumper    turret one way               left bumper     turret the other way
- *   Y               stop the shooter's idle spin (shooter assist only)
+ *   bumpers (hold)  turn the turret by hand: right bumper one way, left the other.
+ *                   Overrides auto-align while held.
+ *
+ * Gamepad 1, manual backups on the d-pad:
+ *   up (hold)       spin the shooter without feeding
+ *   right (hold)    run the transfer only
+ *   down            open / close the blocker
+ *   left            stop the shooter completely (cancels a shot and the idle spin)
  */
 public class DriverControls {
     private final OpMode opMode;
-    private final EdgeDetector blockerToggle = new EdgeDetector();
 
+    private final EdgeDetector shoot = new EdgeDetector();
+    private final EdgeDetector intakeToggle = new EdgeDetector();
+    private final EdgeDetector flowerToggle = new EdgeDetector();
+    private final EdgeDetector aimToggle = new EdgeDetector();
+    private final EdgeDetector blockerToggle = new EdgeDetector();
     private final EdgeDetector shooterStop = new EdgeDetector();
 
+    private boolean shootPressed;
+    private boolean intakeTogglePressed;
+    private boolean flowerTogglePressed;
+    private boolean aimTogglePressed;
     private boolean blockerTogglePressed;
     private boolean shooterStopPressed;
 
@@ -33,9 +51,17 @@ public class DriverControls {
 
     /** Call once per loop before reading any "pressed" (edge-triggered) control. */
     public void update() {
-        blockerTogglePressed = blockerToggle.rose(driver().a);
-        shooterStopPressed = shooterStop.rose(driver().y);
+        Gamepad pad = driver();
+
+        shootPressed = shoot.rose(pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD);
+        intakeTogglePressed = intakeToggle.rose(pad.left_trigger > RobotConstants.TRIGGER_THRESHOLD);
+        flowerTogglePressed = flowerToggle.rose(pad.y);
+        aimTogglePressed = aimToggle.rose(pad.a);
+        blockerTogglePressed = blockerToggle.rose(pad.dpad_down);
+        shooterStopPressed = shooterStop.rose(pad.dpad_left);
     }
+
+    // ---- Driving ----
 
     public double forward() {
         return -driver().left_stick_y;
@@ -53,6 +79,31 @@ public class DriverControls {
         return driver().b;
     }
 
+    // ---- Everyday controls ----
+
+    /** True for one loop each time the shoot trigger is pulled. */
+    public boolean shootPressed() {
+        return shootPressed;
+    }
+
+    /** True for one loop each time the intake trigger is pulled. */
+    public boolean intakeTogglePressed() {
+        return intakeTogglePressed;
+    }
+
+    public boolean flowerTogglePressed() {
+        return flowerTogglePressed;
+    }
+
+    public boolean aimTogglePressed() {
+        return aimTogglePressed;
+    }
+
+    /** Held: run the intake and transfer backwards. */
+    public boolean reverse() {
+        return driver().x;
+    }
+
     /** +1 while the right bumper is held, -1 for the left bumper, otherwise 0. */
     public double turretDirection() {
         if (driver().right_bumper) {
@@ -64,24 +115,22 @@ public class DriverControls {
         return 0.0;
     }
 
-    public boolean shoot() {
-        return driver().right_trigger > RobotConstants.TRIGGER_THRESHOLD;
+    // ---- Manual backups ----
+
+    /** Held: spin the shooter without feeding. */
+    public boolean manualSpin() {
+        return driver().dpad_up;
     }
 
-    public boolean intake() {
-        return driver().left_trigger > RobotConstants.TRIGGER_THRESHOLD;
-    }
-
+    /** Held: run the transfer only. */
     public boolean transferOnly() {
-        return driver().x;
+        return driver().dpad_right;
     }
 
-    /** True for one loop each time the blocker button is pressed. */
     public boolean blockerTogglePressed() {
         return blockerTogglePressed;
     }
 
-    /** True for one loop each time the shooter-stop button is pressed. */
     public boolean shooterStopPressed() {
         return shooterStopPressed;
     }

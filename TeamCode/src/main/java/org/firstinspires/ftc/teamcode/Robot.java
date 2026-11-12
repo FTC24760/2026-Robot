@@ -5,9 +5,12 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
+import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
+import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
+import org.firstinspires.ftc.teamcode.subsystems.FlowerArm;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
@@ -39,7 +42,9 @@ import java.util.List;
  *
  *   loop() -> robot.beginLoop();
  *             robot.drivetrain.update();      // follow the current path
+ *             robot.shootSequence.update(robot.nowSeconds());
  *             robot.runShooter(true);         // spin up / hold speed
+ *             robot.runTurret(0);             // auto-align if the HIVE is in view
  *             robot.runIntake(mode);          // feed, held back until the wheel is ready
  *             robot.endLoop();
  */
@@ -49,6 +54,9 @@ public class Robot {
     public final Intake intake;
     public final Turret turret;
     public final Shooter shooter;
+    public final FlowerArm flowerArm;
+    /** One-click shooting: spin up, open the blocker, feed, close. */
+    public final ShootSequence shootSequence;
     // Only present after enableAutoAim(); null otherwise, so robots without a Limelight
     // or hood servo configured can still run the plain TeleOp.
     public Vision vision;
@@ -75,6 +83,14 @@ public class Robot {
     // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
     // when the HIVE is not in view.
     private ShotSolver.Solution shot;
+    // The upward-facing CELL of our HIVE, or null if it is not in view.
+    private Vision.HiveTarget aimTarget;
+    // The driver can switch auto-aim off mid-match if the camera misbehaves.
+    private boolean aimEnabled = true;
+    private String aimNote = "";
+
+    // Driver's intake on/off switch (teleop only).
+    private boolean intakeOn;
 
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
@@ -95,8 +111,11 @@ public class Robot {
         intake = new Intake(opMode.hardwareMap);
         turret = new Turret(opMode.hardwareMap);
         shooter = new Shooter(opMode.hardwareMap);
+        flowerArm = new FlowerArm(opMode.hardwareMap);
+        shootSequence = new ShootSequence(shooter, intake);
 
-        subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, turret, shooter));
+        subsystems = new ArrayList<>(
+                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm));
     }
 
     /**
@@ -119,21 +138,33 @@ public class Robot {
     }
 
     /**
-     * Use the Limelight to find our HIVE and set shooter speed and hood angle from the
-     * measured distance. Needs a Limelight and a hood servo in the robot configuration.
-     * When the HIVE is not in view, the shooter falls back to ShooterConstants.TARGET_RPM
-     * and the hood stays where it was.
+     * Use the Limelight to find our HIVE, turn the turret to it, and set shooter speed
+     * and hood angle from the measured distance.
+     *
+     * If there is no Limelight in the robot configuration, auto-aim stays off and the
+     * robot still runs with manual aiming and the fixed ShooterConstants.TARGET_RPM; a
+     * warning is shown on telemetry. A missing hood servo is tolerated the same way.
+     * When the upward-facing CELL is not in view, the shooter also falls back to
+     * TARGET_RPM and the turret and hood stay where they were.
      */
     public Robot enableAutoAim(Alliance alliance) {
-        // Look up both before keeping either, so a missing device leaves auto-aim fully off.
-        Hood newHood = new Hood(opMode.hardwareMap);
-        Vision newVision = new Vision(opMode.hardwareMap, alliance);
+        try {
+            vision = new Vision(opMode.hardwareMap, alliance);
+        } catch (RuntimeException e) {
+            vision = null;
+            aimNote = "AUTO-AIM OFF: no Limelight \"" + VisionConstants.LIMELIGHT_NAME + "\" configured";
+            return this;
+        }
 
-        hood = newHood;
-        vision = newVision;
+        hood = new Hood(opMode.hardwareMap);
         subsystems.add(vision);
         subsystems.add(hood);
         return this;
+    }
+
+    /** True if auto-aim was enabled and the Limelight was found. */
+    public boolean hasAutoAim() {
+        return vision != null;
     }
 
     /** The shot auto-aim is using right now, or null if the HIVE is not in view. */
@@ -161,21 +192,45 @@ public class Robot {
         beginLoop();
         controls.update();
 
-        if (controls.shooterStopPressed()) {
-            shooterArmed = false;
+        // Switches.
+        if (controls.aimTogglePressed()) {
+            aimEnabled = !aimEnabled;
         }
-        runShooter(controls.shoot());
-
-        updateDrive();
-        updateTurret();
-
-        if (controls.blockerTogglePressed()) {
+        if (controls.intakeTogglePressed()) {
+            intakeOn = !intakeOn;
+        }
+        if (controls.flowerTogglePressed()) {
+            flowerArm.toggle();
+        }
+        // The blocker belongs to the shoot sequence while a shot is in progress.
+        if (controls.blockerTogglePressed() && !shootSequence.isActive()) {
             intake.toggleBlocker();
         }
-        if (controls.intake()) {
+
+        // Shooting.
+        if (controls.shooterStopPressed()) {
+            shootSequence.cancel();
+            shooterArmed = false;
+        }
+        if (controls.shootPressed()) {
+            shootSequence.toggle(nowSeconds());
+        }
+        shootSequence.update(nowSeconds());
+        runShooter(shootSequence.wantsShooter() || controls.manualSpin());
+
+        updateDrive();
+        runTurret(controls.turretDirection());
+
+        // Intake and transfer, highest priority first.
+        if (controls.reverse()) {
+            runIntake(Intake.Mode.REVERSE);
+        } else if (shootSequence.isFeeding()) {
+            // Intake roller and transfer together, so every ball reaches the wheel.
             runIntake(Intake.Mode.INTAKE);
         } else if (controls.transferOnly()) {
             runIntake(Intake.Mode.TRANSFER_ONLY);
+        } else if (intakeOn) {
+            runIntake(Intake.Mode.INTAKE);
         } else {
             runIntake(Intake.Mode.OFF);
         }
@@ -225,14 +280,37 @@ public class Robot {
         // Feed gating: while shooting, do not push the next ball into a wheel that has
         // not recovered from the last one.
         boolean shooting = shooter.getState() == Shooter.State.SHOOT && intake.isBlockerOpen();
+        boolean feeding = mode == Intake.Mode.INTAKE || mode == Intake.Mode.TRANSFER_ONLY;
         feedHeld = shooterAssist
                 && ShooterAssistConstants.FEED_GATING_ENABLED
                 && shooting
-                && mode != Intake.Mode.OFF
+                && feeding
                 && !shooter.isReadyToFeed();
 
         intake.setVoltageScale(voltageScale);
         intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
+    }
+
+    /**
+     * Aim the turret for this loop. With auto-aim on and the upward-facing CELL in
+     * view, the turret follows it; otherwise, or while the driver is steering it by
+     * hand, it moves only as directed.
+     *
+     * @param manualDirection +1, -1 or 0 from the driver; pass 0 in autonomous
+     */
+    public void runTurret(double manualDirection) {
+        if (manualDirection != 0 || aimTarget == null) {
+            turret.move(manualDirection, loopSeconds);
+        } else if (VisionConstants.CAMERA_ON_TURRET) {
+            turret.track(aimTarget.bearingDeg, loopSeconds);
+        } else {
+            turret.pointAt(aimTarget.bearingDeg, loopSeconds);
+        }
+    }
+
+    /** Loop timestamp in seconds, for timing sequences. */
+    public double nowSeconds() {
+        return nowNs * 1e-9;
     }
 
     /** End of every loop: logging and telemetry. */
@@ -256,8 +334,9 @@ public class Robot {
         Vision.HiveTarget target = vision.getTarget(nowNs);
 
         // Only aim at a CELL that is facing up; the other one cannot be scored in.
-        shot = target != null && target.cellUp
-                ? ShotSolver.solveForCell(target.distanceM, target.tagHeightM)
+        aimTarget = aimEnabled && target != null && target.cellUp ? target : null;
+        shot = aimTarget != null
+                ? ShotSolver.solveForCell(aimTarget.distanceM, aimTarget.tagHeightM)
                 : null;
 
         if (hasShot()) {
@@ -287,10 +366,6 @@ public class Robot {
 
         butterfly.setDown();
         drivetrain.driveFieldCentric(controls.forward(), controls.strafe(), controls.rotate());
-    }
-
-    private void updateTurret() {
-        turret.move(controls.turretDirection(), loopSeconds);
     }
 
     private void logShooterRpm(long nowNs) {
@@ -333,8 +408,16 @@ public class Robot {
             telemetry.addData("Feed held for RPM", feedHeld ? "yes" : "no");
         }
 
+        telemetry.addData("Shoot", shootSequence.getStage());
+        telemetry.addData("Intake switch", intakeOn ? "ON" : "off");
+        if (!aimNote.isEmpty()) {
+            telemetry.addLine(aimNote);
+        }
+
         if (vision != null) {
-            if (shot == null) {
+            if (!aimEnabled) {
+                telemetry.addData("Auto-aim", "SWITCHED OFF by driver");
+            } else if (shot == null) {
                 telemetry.addData("Auto-aim", "no upward CELL in view, using fixed RPM");
             } else if (!shot.reachable) {
                 telemetry.addData("Auto-aim", "OUT OF RANGE");

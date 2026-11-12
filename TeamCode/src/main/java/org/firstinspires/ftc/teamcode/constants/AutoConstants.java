@@ -13,7 +13,8 @@ import com.bylazar.configurables.annotations.Configurable;
  */
 @Configurable
 public class AutoConstants {
-    // Fall back to fixed shooter speed if the Limelight or hood servo is missing.
+    // Aim with the Limelight when it is configured; otherwise the auto shoots at the
+    // fixed TARGET_RPM without turning the turret.
     public static boolean USE_AUTO_AIM = true;
 
     // Where to shoot from, facing the HIVE.
@@ -30,13 +31,12 @@ public class AutoConstants {
     public static double COLLECT_END_Y = -60;
     public static double COLLECT_HEADING_DEG = -90;
 
-    // The wheel must read ready for this long before the first ball is fed.
-    public static double READY_SETTLE_S = 0.15;
-    // Give up waiting for the wheel and shoot anyway after this long.
-    public static double SPIN_UP_TIMEOUT_S = 3.0;
-    // How long to keep feeding for a burst of 4. Feed gating pauses the transfer
-    // whenever the wheel is slow, so allow for that.
-    public static double FIRE_S = 3.0;
+    // Lower the flower arm while collecting (for taking POLLEN from a FLOWER instead
+    // of the GARDEN). Has no effect until the flower servo is on the robot.
+    public static boolean COLLECT_WITH_FLOWER_ARM = false;
+
+    // Burst timing (spin-up wait, feed time) is shared with teleop: see the BURST_
+    // values in ShooterConstants.
     // Do not start the second cycle with less than this much of the 30 s left.
     public static double SECOND_CYCLE_MIN_TIME_LEFT_S = 12.0;
     public static double AUTO_LENGTH_S = 30.0;

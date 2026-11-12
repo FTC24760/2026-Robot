@@ -36,6 +36,15 @@ public class ShooterConstants {
     // kS is only applied above this target speed, ticks/s.
     public static double KS_DEADBAND = 50.0;
 
+    // ---- One-click shooting (ShootSequence), used by teleop and autonomous. ----
+    // The wheel must read ready for this long before the first ball is fed.
+    public static double BURST_READY_SETTLE_S = 0.15;
+    // Give up waiting for the wheel and feed anyway after this long.
+    public static double BURST_SPIN_UP_TIMEOUT_S = 3.0;
+    // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
+    // feed gating pausing the transfer whenever the wheel is slow.
+    public static double BURST_FEED_S = 3.5;
+
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.
     public static double RPM_THRESHOLD = 150;

@@ -16,6 +16,9 @@ public class VisionConstants {
     public static int POLL_RATE_HZ = 100;
 
     // ---- Where the camera is on the robot. CALIBRATE. ----
+    // True if the Limelight is mounted on the turret and turns with it; false if it is
+    // fixed to the chassis. This decides how the turret auto-aligns.
+    public static boolean CAMERA_ON_TURRET = false;
     // How far the lens points above horizontal.
     public static double CAMERA_PITCH_DEG = 45.0;
     // True when the camera is mounted upside down and the image is NOT already flipped in

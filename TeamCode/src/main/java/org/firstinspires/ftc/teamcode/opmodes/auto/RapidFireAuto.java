@@ -12,11 +12,13 @@ import org.firstinspires.ftc.teamcode.utils.Alliance;
 
 /**
  * Sample autonomous: shoot the 4 pre-loaded POLLEN as a rapid-fire burst, then (if
- * there is time) collect the 4 from our GARDEN and shoot those too.
+ * there is time) collect 4 more and shoot those too.
  *
- * The shooter spins up while the robot drives, and no ball is fed until the wheel has
- * held shooting speed for a moment. Feed gating then holds each following ball until
- * the wheel has recovered. With auto-aim on, speed and hood follow the Limelight.
+ * The shooter spins up while the robot drives. Shooting uses the same ShootSequence as
+ * the driver's shoot button: no ball is fed until the wheel has held shooting speed
+ * for a moment, and feed gating holds each following ball until the wheel has
+ * recovered. With auto-aim available, the turret, wheel speed and hood follow the
+ * Limelight; without it the shooter uses the fixed TARGET_RPM.
  *
  * All positions are in AutoConstants and are placeholders until measured on a field.
  */
@@ -24,8 +26,7 @@ public abstract class RapidFireAuto extends OpMode {
 
     private enum Step {
         DRIVE_TO_SHOOT,
-        WAIT_FOR_SPEED,
-        FIRE,
+        SHOOT,
         DRIVE_TO_POLLEN,
         COLLECT,
         DONE
@@ -34,10 +35,7 @@ public abstract class RapidFireAuto extends OpMode {
     private final Alliance alliance;
     private Robot robot;
     private Step step = Step.DRIVE_TO_SHOOT;
-    private double stepStartS;
-    private double readySinceS = -1;
     private int burstsFired;
-    private String aimNote = "";
 
     protected RapidFireAuto(Alliance alliance) {
         this.alliance = alliance;
@@ -46,19 +44,14 @@ public abstract class RapidFireAuto extends OpMode {
     @Override
     public void init() {
         robot = new Robot(this).enableShooterAssist();
-
         if (AutoConstants.USE_AUTO_AIM) {
-            try {
-                robot.enableAutoAim(alliance);
-            } catch (RuntimeException e) {
-                // No Limelight or hood servo in the configuration: shoot at the fixed RPM.
-                aimNote = "Auto-aim unavailable, using fixed RPM";
-            }
+            robot.enableAutoAim(alliance);
         }
 
         robot.drivetrain.setPose(new Pose(0, 0, 0));
+
         telemetry.addLine("Rapid Fire auto ready (" + alliance + ")");
-        telemetry.addLine(aimNote);
+        telemetry.addLine(robot.hasAutoAim() ? "Auto-aim on" : "Auto-aim off: fixed RPM, manual turret");
         telemetry.update();
     }
 
@@ -68,8 +61,10 @@ public abstract class RapidFireAuto extends OpMode {
         robot.start();
         robot.drivetrain.setPose(new Pose(0, 0, 0));
         robot.intake.setBlockerOpen(false);
+        robot.flowerArm.setDown(false);
+
         driveTo(shootPose());
-        enter(Step.DRIVE_TO_SHOOT);
+        step = Step.DRIVE_TO_SHOOT;
     }
 
     @Override
@@ -77,58 +72,48 @@ public abstract class RapidFireAuto extends OpMode {
         robot.beginLoop();
         robot.butterfly.setDown();
         robot.drivetrain.update();
+        robot.shootSequence.update(robot.nowSeconds());
 
-        boolean shoot = false;
-        Intake.Mode intakeMode = Intake.Mode.OFF;
+        boolean spinUp = false;
+        boolean collecting = false;
 
         switch (step) {
             case DRIVE_TO_SHOOT:
                 // Spin up on the way so the wheel is ready on arrival.
-                shoot = true;
+                spinUp = true;
                 if (!robot.drivetrain.isBusy()) {
-                    readySinceS = -1;
-                    enter(Step.WAIT_FOR_SPEED);
+                    robot.shootSequence.start(robot.nowSeconds());
+                    step = Step.SHOOT;
                 }
                 break;
 
-            case WAIT_FOR_SPEED:
-                shoot = true;
-                if (wheelSettled() || stepTime() > AutoConstants.SPIN_UP_TIMEOUT_S) {
-                    robot.intake.setBlockerOpen(true);
-                    enter(Step.FIRE);
-                }
-                break;
-
-            case FIRE:
-                shoot = true;
-                // Intake roller and transfer together, so all 4 balls reach the wheel.
-                intakeMode = Intake.Mode.INTAKE;
-                if (stepTime() > AutoConstants.FIRE_S) {
-                    robot.intake.setBlockerOpen(false);
+            case SHOOT:
+                // The sequence waits for speed, opens the blocker, feeds, and closes it.
+                if (!robot.shootSequence.isActive()) {
                     burstsFired++;
 
                     if (shouldRunSecondCycle()) {
                         driveTo(collectStartPose());
-                        enter(Step.DRIVE_TO_POLLEN);
+                        step = Step.DRIVE_TO_POLLEN;
                     } else {
-                        enter(Step.DONE);
+                        step = Step.DONE;
                     }
                 }
                 break;
 
             case DRIVE_TO_POLLEN:
-                intakeMode = Intake.Mode.INTAKE;
+                collecting = true;
                 if (!robot.drivetrain.isBusy()) {
                     driveTo(collectEndPose());
-                    enter(Step.COLLECT);
+                    step = Step.COLLECT;
                 }
                 break;
 
             case COLLECT:
-                intakeMode = Intake.Mode.INTAKE;
+                collecting = true;
                 if (!robot.drivetrain.isBusy()) {
                     driveTo(shootPose());
-                    enter(Step.DRIVE_TO_SHOOT);
+                    step = Step.DRIVE_TO_SHOOT;
                 }
                 break;
 
@@ -137,16 +122,20 @@ public abstract class RapidFireAuto extends OpMode {
                 break;
         }
 
+        if (AutoConstants.COLLECT_WITH_FLOWER_ARM) {
+            robot.flowerArm.setDown(collecting);
+        }
+
         // Shooter first, then intake, so feed gating sees this loop's wheel speed.
-        robot.runShooter(shoot);
-        robot.runIntake(intakeMode);
+        robot.runShooter(spinUp || robot.shootSequence.wantsShooter());
+        robot.runTurret(0);
+        robot.runIntake(collecting || robot.shootSequence.isFeeding()
+                ? Intake.Mode.INTAKE
+                : Intake.Mode.OFF);
 
         telemetry.addData("Auto step", step);
         telemetry.addData("Bursts fired", burstsFired);
         telemetry.addData("Time left s", "%.1f", timeLeft());
-        if (!aimNote.isEmpty()) {
-            telemetry.addLine(aimNote);
-        }
         robot.endLoop();
     }
 
@@ -155,18 +144,6 @@ public abstract class RapidFireAuto extends OpMode {
         if (robot != null) {
             robot.stop();
         }
-    }
-
-    // The wheel has to stay at speed for a moment, not just touch it once.
-    private boolean wheelSettled() {
-        if (!robot.shooter.isReadyToFeed()) {
-            readySinceS = -1;
-            return false;
-        }
-        if (readySinceS < 0) {
-            readySinceS = getRuntime();
-        }
-        return getRuntime() - readySinceS >= AutoConstants.READY_SETTLE_S;
     }
 
     private boolean shouldRunSecondCycle() {
@@ -178,15 +155,6 @@ public abstract class RapidFireAuto extends OpMode {
     private void driveTo(Pose target) {
         Pose from = robot.drivetrain.getPose();
         robot.drivetrain.follow(line(from, target).linear(from.heading(), target.heading()));
-    }
-
-    private void enter(Step next) {
-        step = next;
-        stepStartS = getRuntime();
-    }
-
-    private double stepTime() {
-        return getRuntime() - stepStartS;
     }
 
     private double timeLeft() {
