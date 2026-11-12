@@ -37,7 +37,7 @@ public class ShooterAssistConstants {
     // ---- 4. Idle spin: keep the wheel turning between bursts. ----
     // Starts after the first trigger pull; Y stops the wheel completely.
     public static boolean IDLE_SPIN_ENABLED = true;
-    public static double IDLE_RPM = 1200;
+    public static double IDLE_RPM = 0;
 
     // ---- 5. Less filtering, so the controller sees each ball sooner. ----
     // Replaces ShooterConstants.VELOCITY_ALPHA.

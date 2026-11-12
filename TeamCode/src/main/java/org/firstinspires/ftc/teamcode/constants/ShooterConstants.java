@@ -7,11 +7,11 @@ public class ShooterConstants {
     public static String MOTOR_NAME = "shooter";
 
     // goBILDA 5000 series, no gearbox.
-    public static final double TICKS_PER_REV = 28.0;
+    public static final double TICKS_PER_REV = 56.0;
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 1543;
+    public static double TARGET_RPM = 898;
     public static double IDLE_RPM = 0;
 
     // Software velocity controller gains, in motor power per encoder tick/second

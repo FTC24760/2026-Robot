@@ -7,6 +7,7 @@ import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
+import org.firstinspires.ftc.teamcode.controls.ManualControls;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
@@ -65,6 +66,8 @@ public class Robot {
     private final OpMode opMode;
     private final Telemetry telemetry;
     private final DriverControls controls;
+    // Set by useManualControls(); when present it replaces the one-click scheme.
+    private ManualControls manualControls;
     private final HubManager hubs;
     private final List<Subsystem> subsystems;
 
@@ -187,8 +190,23 @@ public class Robot {
         }
     }
 
+    /**
+     * Drive with the original hold-to-run controls (see ManualControls) instead of the
+     * one-click scheme: hold the right trigger to spin the shooter, hold the left
+     * trigger to intake, and open the blocker yourself.
+     */
+    public Robot useManualControls() {
+        manualControls = new ManualControls(opMode);
+        return this;
+    }
+
     /** One iteration of teleop. Call from OpMode.loop(). */
     public void update() {
+        if (manualControls != null) {
+            updateManual();
+            return;
+        }
+
         beginLoop();
         controls.update();
 
@@ -231,6 +249,39 @@ public class Robot {
             runIntake(Intake.Mode.TRANSFER_ONLY);
         } else if (intakeOn) {
             runIntake(Intake.Mode.INTAKE);
+        } else {
+            runIntake(Intake.Mode.OFF);
+        }
+
+        endLoop();
+    }
+
+    // Teleop with the original hold-to-run controls.
+    private void updateManual() {
+        beginLoop();
+        manualControls.update();
+
+        if (manualControls.shooterStopPressed()) {
+            shooterArmed = false;
+        }
+        runShooter(manualControls.shoot());
+
+        if (manualControls.resetPose()) {
+            drivetrain.resetPose();
+        }
+        butterfly.setDown();
+        drivetrain.driveFieldCentric(
+                manualControls.forward(), manualControls.strafe(), manualControls.rotate());
+
+        runTurret(manualControls.turretDirection());
+
+        if (manualControls.blockerTogglePressed()) {
+            intake.toggleBlocker();
+        }
+        if (manualControls.intake()) {
+            runIntake(Intake.Mode.INTAKE);
+        } else if (manualControls.transferOnly()) {
+            runIntake(Intake.Mode.TRANSFER_ONLY);
         } else {
             runIntake(Intake.Mode.OFF);
         }
@@ -408,8 +459,10 @@ public class Robot {
             telemetry.addData("Feed held for RPM", feedHeld ? "yes" : "no");
         }
 
-        telemetry.addData("Shoot", shootSequence.getStage());
-        telemetry.addData("Intake switch", intakeOn ? "ON" : "off");
+        if (manualControls == null) {
+            telemetry.addData("Shoot", shootSequence.getStage());
+            telemetry.addData("Intake switch", intakeOn ? "ON" : "off");
+        }
         if (!aimNote.isEmpty()) {
             telemetry.addLine(aimNote);
         }
