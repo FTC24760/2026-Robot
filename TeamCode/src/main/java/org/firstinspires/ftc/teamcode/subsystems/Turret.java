@@ -82,8 +82,8 @@ public class Turret implements Subsystem {
                 TurretConstants.MAX_POSITION
         );
 
-        leftServo.setPosition(this.position);
-        rightServo.setPosition(this.position);
+        leftServo.setPosition(this.position + TurretConstants.LEFT_SERVO_OFFSET);
+        rightServo.setPosition(this.position + TurretConstants.RIGHT_SERVO_OFFSET);
     }
 
     public double getPosition() {
