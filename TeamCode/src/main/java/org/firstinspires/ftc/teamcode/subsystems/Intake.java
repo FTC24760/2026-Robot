@@ -30,6 +30,7 @@ public class Intake implements Subsystem {
     private boolean blockerOpen;
     private double voltageScale = 1.0;
     private double transferPower;
+    private double transferPowerOverride = Double.NaN;
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, IntakeConstants.INTAKE_MOTOR_NAME);
@@ -50,6 +51,16 @@ public class Intake implements Subsystem {
         this.voltageScale = voltageScale;
     }
 
+    /**
+     * Use a different transfer power from the next setMode() on, for example a slower
+     * feed while shooting. Pass NaN to go back to IntakeConstants.TRANSFER_POWER.
+     *
+     * @param power transfer power at nominal voltage, or NaN for the default
+     */
+    public void setTransferPowerOverride(double power) {
+        transferPowerOverride = power;
+    }
+
     public void setMode(Mode mode) {
         this.mode = mode;
 
@@ -64,7 +75,10 @@ public class Intake implements Subsystem {
             transferPower = 0.0;
         } else {
             double scale = IntakeConstants.TRANSFER_VOLTAGE_COMPENSATION ? voltageScale : 1.0;
-            transferPower = MathUtil.clamp(IntakeConstants.TRANSFER_POWER * scale, 0.0, 1.0);
+            double base = Double.isNaN(transferPowerOverride)
+                    ? IntakeConstants.TRANSFER_POWER
+                    : transferPowerOverride;
+            transferPower = MathUtil.clamp(base * scale, 0.0, 1.0);
         }
 
         intakeMotor.setPower(mode == Mode.INTAKE ? IntakeConstants.INTAKE_POWER : 0.0);

@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.ManualControls;
+import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
@@ -74,6 +75,10 @@ public class Robot {
     // Set by the first trigger pull, cleared by the stop button; idle spin runs while set.
     private boolean shooterArmed;
     private boolean feedHeld;
+    private final FeedPulser feedPulser = new FeedPulser();
+    // Off unless enableRapidFire() is called: feed on a fixed beat instead of waiting
+    // for the wheel to recover after each ball.
+    private boolean rapidFire;
 
     // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
     // when the HIVE is not in view.
@@ -170,6 +175,18 @@ public class Robot {
     /** True when auto-aim can see the upward-facing CELL and has a reachable shot for it. */
     public boolean hasShot() {
         return shot != null && shot.reachable;
+    }
+
+    /**
+     * Shoot on a fixed beat instead of waiting for the wheel to recover after each ball
+     * (the default, "staggered").
+     * Faster, but later balls can fall short if the beat is too quick for the wheel.
+     * Needs enableShooterAssist(); timings are the RAPID_ values in
+     * ShooterAssistConstants.
+     */
+    public Robot enableRapidFire() {
+        rapidFire = true;
+        return this;
     }
 
     public void start() {
@@ -324,11 +341,50 @@ public class Robot {
         // not recovered from the last one.
         boolean shooting = shooter.getState() == Shooter.State.SHOOT && intake.isBlockerOpen();
         boolean feeding = mode == Intake.Mode.INTAKE || mode == Intake.Mode.TRANSFER_ONLY;
-        feedHeld = shooterAssist
+        boolean gated = shooterAssist
                 && ShooterAssistConstants.FEED_GATING_ENABLED
                 && shooting
-                && feeding
-                && !shooter.isReadyToFeed();
+                && feeding;
+
+        // Once the earlier balls have gone, stop pulsing: the last ball needs a steady push.
+        int finalPushAfter = ShooterAssistConstants.FEED_FINAL_PUSH_AFTER_PULSES;
+        boolean finalPush = finalPushAfter > 0
+                && feedPulser.getPulseCount() >= finalPushAfter
+                && !feedPulser.isPulsing();
+
+        if (!gated) {
+            feedPulser.reset();
+            feedHeld = false;
+        } else if (finalPush) {
+            feedHeld = !shooter.isReadyToFeed();
+        } else if (rapidFire) {
+            // Fixed beat: the wheel must be ready for the first ball, then no waiting.
+            boolean mayStart = feedPulser.getPulseCount() > 0 || shooter.isReadyToFeed();
+            feedHeld = !feedPulser.update(
+                    nowSeconds(),
+                    mayStart,
+                    ShooterAssistConstants.RAPID_PULSE_ON_MS,
+                    ShooterAssistConstants.RAPID_PULSE_OFF_MS);
+        } else if (ShooterAssistConstants.FEED_PULSE_ENABLED) {
+            // Staggered: one ball per pulse, and a pulse only starts when the wheel is ready.
+            feedHeld = !feedPulser.update(
+                    nowSeconds(),
+                    shooter.isReadyToFeed(),
+                    ShooterAssistConstants.FEED_PULSE_ON_MS,
+                    ShooterAssistConstants.FEED_PULSE_MIN_OFF_MS);
+        } else {
+            feedHeld = !shooter.isReadyToFeed();
+        }
+
+        // Takes effect on the next shooter update, one loop later.
+        shooter.setFeedingBurst(gated);
+
+        // While shooting, the transfer can run at its own power.
+        boolean slowFeed = shooterAssist
+                && ShooterAssistConstants.SHOOT_TRANSFER_POWER_ENABLED
+                && shooting;
+        intake.setTransferPowerOverride(
+                slowFeed ? ShooterAssistConstants.SHOOT_TRANSFER_POWER : Double.NaN);
 
         intake.setVoltageScale(voltageScale);
         intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
@@ -449,6 +505,7 @@ public class Robot {
 
         if (shooterAssist) {
             telemetry.addData("Feed held for RPM", feedHeld ? "yes" : "no");
+            telemetry.addData("Feed pulses", feedPulser.getPulseCount());
         }
 
         if (manualControls == null) {

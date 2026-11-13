@@ -38,6 +38,9 @@ public class Shooter implements Subsystem {
 
     private boolean assistEnabled;
     private boolean boosting;
+    private boolean feedingBurst;
+    // The last three raw speed readings, newest first, for the feed gate's noise filter.
+    private final double[] recentRpm = new double[3];
     // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
     private double shootRpmOverride = Double.NaN;
 
@@ -68,6 +71,11 @@ public class Shooter implements Subsystem {
         return Double.isNaN(shootRpmOverride) ? ShooterConstants.TARGET_RPM : shootRpmOverride;
     }
 
+    /** Tell the shooter a burst is being fed, so it recovers as hard as it can between balls. */
+    public void setFeedingBurst(boolean feedingBurst) {
+        this.feedingBurst = feedingBurst;
+    }
+
     public void setState(State state) {
         this.state = state;
     }
@@ -85,6 +93,9 @@ public class Shooter implements Subsystem {
      */
     public void update(long nowNs, double voltageScale) {
         actualTicksPerSecond = motor.getVelocity();
+        recentRpm[2] = recentRpm[1];
+        recentRpm[1] = recentRpm[0];
+        recentRpm[0] = getActualRpm();
 
         if (state == State.DISABLED) {
             targetTicksPerSecond = 0.0;
@@ -98,10 +109,16 @@ public class Shooter implements Subsystem {
             syncGains();
 
             // Decided on the raw reading, not the filtered one, to react as early as possible.
+            // Holding speed uses a wider deadband so reading flicker does not fire the
+            // boost; during a burst it reacts to the first step down.
+            double boostBelowRpm = targetRpm - (feedingBurst
+                    ? ShooterAssistConstants.FEED_BOOST_DEADBAND_RPM
+                    : ShooterAssistConstants.RECOVERY_BOOST_DEADBAND_RPM);
+
             boosting = assistEnabled
                     && ShooterAssistConstants.RECOVERY_BOOST_ENABLED
                     && state == State.SHOOT
-                    && getActualRpm() < targetRpm - ShooterAssistConstants.RECOVERY_BOOST_DEADBAND_RPM;
+                    && getActualRpm() < boostBelowRpm;
 
             // The controller keeps running while boosting so its filter and ramp stay
             // current, but its integral is held: the dip is the boost's job to fix.
@@ -148,15 +165,36 @@ public class Shooter implements Subsystem {
         return boosting;
     }
 
+    /**
+     * The speed the feed gate judges readiness on: the middle of the last three readings
+     * when the filter is on, otherwise the newest reading.
+     */
+    public double getGateRpm() {
+        if (!ShooterAssistConstants.FEED_GATE_FILTER_ENABLED) {
+            return recentRpm[0];
+        }
+
+        double a = recentRpm[0], b = recentRpm[1], c = recentRpm[2];
+        return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
+    }
+
     /** True when the wheel is at shooting speed, close enough to feed the next ball. */
     public boolean isReadyToFeed() {
         if (state != State.SHOOT) {
             return false;
         }
 
-        double error = getActualRpm() - getShootRpm();
-        return error >= -ShooterAssistConstants.FEED_READY_LOW_RPM
+        double error = getGateRpm() - getShootRpm();
+        boolean inWindow = error >= -ShooterAssistConstants.FEED_READY_LOW_RPM
                 && error <= ShooterAssistConstants.FEED_READY_HIGH_RPM;
+
+        // The filter lags by a loop, so on its own it would still call the wheel ready on
+        // the very sample where a ball's dip first appears. A slow newest reading always
+        // means not ready; only the high side and single-sample dither are filtered.
+        boolean newestTooSlow =
+                recentRpm[0] - getShootRpm() < -ShooterAssistConstants.FEED_READY_LOW_RPM;
+
+        return inWindow && !newestTooSlow;
     }
 
     @Override
