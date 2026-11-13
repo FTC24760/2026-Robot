@@ -30,6 +30,51 @@ public class Turret implements Subsystem {
         setPosition(position + direction * TurretConstants.MANUAL_RATE * loopSeconds);
     }
 
+    /**
+     * Auto-align from a camera fixed to the chassis: turn to the servo position that
+     * points the turret at a bearing measured from robot forward. Call every loop.
+     *
+     * @param bearingDeg  direction to the target, degrees to the left of robot forward
+     * @param loopSeconds time since the previous loop
+     */
+    public void pointAt(double bearingDeg, double loopSeconds) {
+        double wanted = TurretConstants.FORWARD_POSITION + degreesToPosition(bearingDeg);
+        double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
+        setPosition(position + MathUtil.clamp(wanted - position, -maxStep, maxStep));
+    }
+
+    /**
+     * Auto-align from a camera that rides on the turret: nudge the turret toward
+     * putting the target dead ahead of the camera. Call every loop.
+     *
+     * @param errorDeg    direction to the target, degrees to the left of where the
+     *                    turret is pointing now
+     * @param loopSeconds time since the previous loop
+     */
+    public void track(double errorDeg, double loopSeconds) {
+        if (Math.abs(errorDeg) < TurretConstants.DEADBAND_DEG) {
+            setPosition(position);
+            return;
+        }
+
+        double step = degreesToPosition(errorDeg) * TurretConstants.TRACKING_GAIN * loopSeconds;
+        double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
+        setPosition(position + MathUtil.clamp(step, -maxStep, maxStep));
+    }
+
+    /** Where the turret is pointing, in degrees to the left of robot forward. */
+    public double getAngleDeg() {
+        double sign = TurretConstants.INCREASING_POSITION_TURNS_LEFT ? 1 : -1;
+        return (position - TurretConstants.FORWARD_POSITION)
+                * TurretConstants.DEGREES_PER_FULL_TRAVEL * sign;
+    }
+
+    // A turn to the left, in degrees, as a change in servo position.
+    private static double degreesToPosition(double degreesLeft) {
+        double sign = TurretConstants.INCREASING_POSITION_TURNS_LEFT ? 1 : -1;
+        return sign * degreesLeft / TurretConstants.DEGREES_PER_FULL_TRAVEL;
+    }
+
     public void setPosition(double position) {
         this.position = MathUtil.clamp(
                 position,
@@ -52,6 +97,6 @@ public class Turret implements Subsystem {
 
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("Turret position", "%.3f", position);
+        telemetry.addData("Turret", "%.3f (%.0f deg)", position, getAngleDeg());
     }
 }

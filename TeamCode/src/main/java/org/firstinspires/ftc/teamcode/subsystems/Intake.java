@@ -17,7 +17,9 @@ public class Intake implements Subsystem {
         /** Intake roller and transfer both running. */
         INTAKE,
         /** Transfer only, to feed what is already inside the robot. */
-        TRANSFER_ONLY
+        TRANSFER_ONLY,
+        /** Intake roller and transfer both backwards, to clear a jam. */
+        REVERSE
     }
 
     private final DcMotor intakeMotor;
@@ -51,6 +53,13 @@ public class Intake implements Subsystem {
     public void setMode(Mode mode) {
         this.mode = mode;
 
+        if (mode == Mode.REVERSE) {
+            transferPower = -IntakeConstants.REVERSE_POWER;
+            intakeMotor.setPower(-IntakeConstants.REVERSE_POWER);
+            transferMotor.setPower(transferPower);
+            return;
+        }
+
         if (mode == Mode.OFF) {
             transferPower = 0.0;
         } else {
@@ -68,7 +77,7 @@ public class Intake implements Subsystem {
 
     /** True whenever the transfer is pushing toward the shooter. */
     public boolean isFeeding() {
-        return mode != Mode.OFF;
+        return mode == Mode.INTAKE || mode == Mode.TRANSFER_ONLY;
     }
 
     public void setBlockerOpen(boolean open) {

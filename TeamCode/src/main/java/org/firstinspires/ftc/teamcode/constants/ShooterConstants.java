@@ -7,11 +7,11 @@ public class ShooterConstants {
     public static String MOTOR_NAME = "shooter";
 
     // goBILDA 5000 series, no gearbox.
-    public static final double TICKS_PER_REV = 28.0;
+    public static final double TICKS_PER_REV = 56.0;
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 1543;
+    public static double TARGET_RPM = 898;
     public static double IDLE_RPM = 0;
 
     // Software velocity controller gains, in motor power per encoder tick/second
@@ -35,6 +35,15 @@ public class ShooterConstants {
     public static double VELOCITY_ALPHA = 0.7;
     // kS is only applied above this target speed, ticks/s.
     public static double KS_DEADBAND = 50.0;
+
+    // ---- One-click shooting (ShootSequence), used by teleop and autonomous. ----
+    // The wheel must read ready for this long before the first ball is fed.
+    public static double BURST_READY_SETTLE_S = 0.15;
+    // Give up waiting for the wheel and feed anyway after this long.
+    public static double BURST_SPIN_UP_TIMEOUT_S = 3.0;
+    // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
+    // feed gating pausing the transfer whenever the wheel is slow.
+    public static double BURST_FEED_S = 3.5;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

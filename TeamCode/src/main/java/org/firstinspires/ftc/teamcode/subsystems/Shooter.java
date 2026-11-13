@@ -20,7 +20,7 @@ import org.firstinspires.ftc.teamcode.utils.SpeedController;
 public class Shooter implements Subsystem {
 
     public enum State {
-        /** Hold ShooterConstants.TARGET_RPM. */
+        /** Hold the shooting speed: ShooterConstants.TARGET_RPM, or the auto-aim speed if set. */
         SHOOT,
         /** Hold the idle RPM (ShooterAssistConstants.IDLE_RPM with assist, else ShooterConstants). */
         IDLE,
@@ -38,6 +38,8 @@ public class Shooter implements Subsystem {
 
     private boolean assistEnabled;
     private boolean boosting;
+    // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
+    private double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, ShooterConstants.MOTOR_NAME);
@@ -49,6 +51,21 @@ public class Shooter implements Subsystem {
     /** Turn on the rapid-fire fixes configured in ShooterAssistConstants. */
     public void setAssistEnabled(boolean assistEnabled) {
         this.assistEnabled = assistEnabled;
+    }
+
+    /** Shoot at this speed instead of ShooterConstants.TARGET_RPM (used by auto-aim). */
+    public void setShootRpm(double rpm) {
+        shootRpmOverride = rpm;
+    }
+
+    /** Go back to shooting at ShooterConstants.TARGET_RPM. */
+    public void clearShootRpm() {
+        shootRpmOverride = Double.NaN;
+    }
+
+    /** The speed the SHOOT state aims for right now. */
+    public double getShootRpm() {
+        return Double.isNaN(shootRpmOverride) ? ShooterConstants.TARGET_RPM : shootRpmOverride;
     }
 
     public void setState(State state) {
@@ -137,7 +154,7 @@ public class Shooter implements Subsystem {
             return false;
         }
 
-        double error = getActualRpm() - ShooterConstants.TARGET_RPM;
+        double error = getActualRpm() - getShootRpm();
         return error >= -ShooterAssistConstants.FEED_READY_LOW_RPM
                 && error <= ShooterAssistConstants.FEED_READY_HIGH_RPM;
     }
@@ -189,7 +206,7 @@ public class Shooter implements Subsystem {
 
     private double getStateTargetRpm() {
         if (state == State.SHOOT) {
-            return ShooterConstants.TARGET_RPM;
+            return getShootRpm();
         }
         return assistEnabled ? ShooterAssistConstants.IDLE_RPM : ShooterConstants.IDLE_RPM;
     }
