@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.math.SpeedController;
 
-/** Shared shooter setup; neither test initializes drive, intake, or turret hardware. */
+/** Shared shooter setup, independent of drive, intake, and turret hardware. */
 public abstract class ShooterTestBase extends OpMode {
     // goBILDA 5000 series, direct drive. Change if the encoder/gearing changes.
     private static final double TICKS_PER_REV = 28.0;
