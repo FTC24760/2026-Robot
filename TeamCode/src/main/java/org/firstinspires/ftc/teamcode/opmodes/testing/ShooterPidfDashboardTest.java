@@ -8,14 +8,14 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 @Configurable
 @TeleOp(name = "Shooter PIDF Dashboard Test", group = "Testing")
 public class ShooterPidfDashboardTest extends ShooterTestBase {
-    public static double TARGET_RPM = 0.0;
+    public static double TARGET_RPM = 3500;
     // Software power coefficients, NOT REV hub setVelocityPIDFCoefficients values.
     // Tune in order: kF -> kS -> kP -> kD -> kI -> kA.
-    public static double kP = 0.0;
+    public static double kP = 0.006;
     public static double kI = 0.0;
-    public static double kD = 0.0;
-    public static double kF = 0.0;
-    public static double kS = 0.0;
+    public static double kD = 0.00001;
+    public static double kF = 0.00045;
+    public static double kS = 0.12;
     public static double kA = 0.0;
     private static final double TRANSFER_POWER = 0.8;
     // Matches INTAKE_POWER in main's constants/IntakeConstants.java.
