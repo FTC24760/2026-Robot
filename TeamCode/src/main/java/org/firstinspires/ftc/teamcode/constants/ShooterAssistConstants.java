@@ -19,20 +19,19 @@ public class ShooterAssistConstants {
     // While just holding speed: boost once the wheel reads this far below target. Keep
     // it above one encoder step (21 RPM). Below that, the normal one-step flicker of the
     // reading fires the boost several times a second and the motor audibly stutters.
-    public static double RECOVERY_BOOST_DEADBAND_RPM = 30;
+    public static double RECOVERY_BOOST_DEADBAND_RPM = 50;
     // While a burst is being fed: boost on the first step down, for the fastest recovery
     // between balls. Stutter does not matter here; the wheel is being hit anyway.
-    public static double FEED_BOOST_DEADBAND_RPM = 10;
+    public static double FEED_BOOST_DEADBAND_RPM = 21;
     public static double RECOVERY_BOOST_POWER = 1.0;
 
     // ---- 2. Feed gating: hold the transfer until the wheel is back at speed. ----
     // Only applies while shooting (trigger held and blocker open).
-    public static boolean FEED_GATING_ENABLED = true;
+    public static boolean FEED_GATING_ENABLED = false;
     // The wheel counts as ready between (target - LOW) and (target + HIGH).
-    public static double FEED_READY_LOW_RPM = 25;
-    // Allows up to two encoder steps high. 30 (one step) was tried and reverted along
-    // with the other feed changes after doubles appeared; tighten it on its own if balls
-    // go long.
+    public static double FEED_READY_LOW_RPM = 30;
+    // Allows up to two encoder steps high. Lower it to 30 (one step) if balls go long:
+    // a log showed some pulses starting 43-64 RPM fast right after a recovery overshoot.
     public static double FEED_READY_HIGH_RPM = 55;
     // Judge readiness on the middle of the last three speed readings instead of the
     // newest one. Single-sample encoder jumps (one step of dither, or a glitch as a
@@ -53,6 +52,11 @@ public class ShooterAssistConstants {
     // delay before a ball's hit shows up in the speed reading. Lower it for a faster
     // burst; raise it if a ball is fed before the previous one's dip has been seen.
     public static double FEED_PULSE_MIN_OFF_MS = 150;
+    // A staggered pulse only starts when the newest reading is no more than this far
+    // below target. One encoder step is 21 RPM, and a reading of "one step low" covers
+    // real speeds from about 1% to 3.5% slow, so at 10 a pulse needs a reading on or
+    // above target. Set to 25 to allow one step low again (slightly faster, weaker shots).
+    public static double FEED_PULSE_START_LOW_RPM = 10;
 
     // ---- 2c. Rapid fire (only with Robot.enableRapidFire()). ----
     // The staggered feed above waits to see each ball's dip before sending the next,

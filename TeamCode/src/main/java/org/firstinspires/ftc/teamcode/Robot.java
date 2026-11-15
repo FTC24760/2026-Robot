@@ -367,9 +367,11 @@ public class Robot {
                     ShooterAssistConstants.RAPID_PULSE_OFF_MS);
         } else if (ShooterAssistConstants.FEED_PULSE_ENABLED) {
             // Staggered: one ball per pulse, and a pulse only starts when the wheel is ready.
+            boolean onSpeed = shooter.getActualRpm()
+                    >= shooter.getShootRpm() - ShooterAssistConstants.FEED_PULSE_START_LOW_RPM;
             feedHeld = !feedPulser.update(
                     nowSeconds(),
-                    shooter.isReadyToFeed(),
+                    shooter.isReadyToFeed() && onSpeed,
                     ShooterAssistConstants.FEED_PULSE_ON_MS,
                     ShooterAssistConstants.FEED_PULSE_MIN_OFF_MS);
         } else {
