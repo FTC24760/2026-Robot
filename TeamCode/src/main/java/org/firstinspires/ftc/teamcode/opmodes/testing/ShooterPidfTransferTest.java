@@ -36,7 +36,9 @@ public class ShooterPidfTransferTest extends ShooterTestBase {
 
     @Override
     public void loop() {
-        transferMotor.setPower(gamepad1.right_bumper ? TRANSFER_POWER : 0.0);
+        double transferPower = gamepad1.right_bumper ? TRANSFER_POWER : 0.0;
+        transferMotor.setPower(transferPower);
+        panelsTelemetry.addData("Transfer power", transferPower);
         super.loop();
     }
 
