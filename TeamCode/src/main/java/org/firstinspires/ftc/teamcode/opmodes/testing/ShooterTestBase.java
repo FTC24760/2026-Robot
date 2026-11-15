@@ -22,6 +22,8 @@ public abstract class ShooterTestBase extends OpMode {
     @Override
     public void init() {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
+        // Panels Graph reads the numeric telemetry below. Publish at 20 Hz.
+        panelsTelemetry.setUpdateInterval(50L);
         shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter");
         shooterMotor.setPower(0.0);
         shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -39,13 +41,14 @@ public abstract class ShooterTestBase extends OpMode {
         updateCoefficients();
         double rpm = targetRpm();
         double velocity = shooterMotor.getVelocity();
+        double actualRpm = velocity * 60.0 / TICKS_PER_REV;
         double power = controller.calculate(rpm * TICKS_PER_REV / 60.0, velocity);
         shooterMotor.setPower(power);
         panelsTelemetry.addData("Target RPM", rpm);
-        panelsTelemetry.addData("Actual RPM", velocity * 60.0 / TICKS_PER_REV);
+        panelsTelemetry.addData("Actual RPM", actualRpm);
         panelsTelemetry.addData("Filtered RPM", controller.getFilteredVelocity() * 60.0 / TICKS_PER_REV);
         panelsTelemetry.addData("Profiled RPM", controller.getProfiledTarget() * 60.0 / TICKS_PER_REV);
-        panelsTelemetry.addData("RPM error", rpm - velocity * 60.0 / TICKS_PER_REV);
+        panelsTelemetry.addData("RPM error", rpm - actualRpm);
         panelsTelemetry.addData("Shooter power", power);
         panelsTelemetry.addData("Integral (ticks)", controller.getIntegral());
         // Publish the same values to Panels and the Driver Station.
