@@ -49,6 +49,7 @@ public class Shooter implements Subsystem {
         // Power is controlled in software; avoid the hub velocity loop.
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motor.setDirection(ShooterConstants.direction);
     }
 
     /** Turn on the rapid-fire fixes configured in ShooterAssistConstants. */
