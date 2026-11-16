@@ -9,11 +9,11 @@ public class ShooterConstants {
     public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.REVERSE;
 
     // goBILDA 5000 series, no gearbox.
-    public static final double TICKS_PER_REV = 56.0;
+    public static final double TICKS_PER_REV = 28.0;
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 1435;
+    public static double TARGET_RPM = 3700;
     public static double IDLE_RPM = 500;
 
     // Software velocity controller gains, in motor power per encoder tick/second
@@ -22,7 +22,7 @@ public class ShooterConstants {
     public static double kF = 0.00052;
     // Static friction/start power added with feedforward.
     public static double kS = 0.15;
-    public static double kP = 0.0062;
+    public static double kP = 0.012;
     // Integral removes steady-state error. Keep small; too high causes windup.
     public static double kI = 0.00002;
     // Derivative damps overshoot. Raise slightly if the shooter spikes past target.
