@@ -140,7 +140,9 @@ public class Shooter implements Subsystem {
                 power = Math.max(power, clamp(ShooterAssistConstants.RECOVERY_BOOST_POWER, 0, 1));
             }
         }
-
+        if (state == State.IDLE && getActualRpm() > ShooterConstants.IDLE_RPM) {
+            power = 0.01;
+        }
         motor.setPower(power);
     }
 

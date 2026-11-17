@@ -12,7 +12,7 @@ public class VisionConstants {
     public static String LIMELIGHT_NAME = "limelight";
     // The Limelight pipeline must be an AprilTag (36h11) pipeline with tag size 82.5 mm
     // (3.25 in) and full 3D enabled.
-    public static int PIPELINE = 0;
+    public static int PIPELINE = 1;
     public static int POLL_RATE_HZ = 100;
 
     // ---- Where the camera is on the robot. CALIBRATE. ----
@@ -36,7 +36,7 @@ public class VisionConstants {
     // one. Read "Tag height" in the test OpMode with the HIVE tipped each way and set this
     // halfway between the two readings. Only used when one CELL of the HIVE is visible;
     // when both are, the higher one is taken as up.
-    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.0;
+    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.4;
 
     // ---- Filtering. ----
     // A detection older than this is ignored and auto-aim falls back to fixed values.

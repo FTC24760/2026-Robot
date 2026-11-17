@@ -237,7 +237,6 @@ public class Robot {
         // Shooting.
         if (controls.shooterStopPressed()) {
             shootSequence.cancel();
-            shooterArmed = false;
         }
         if (controls.shootPressed()) {
             shootSequence.toggle(nowSeconds());
@@ -271,7 +270,6 @@ public class Robot {
         manualControls.update();
 
         if (manualControls.shooterStopPressed()) {
-            shooterArmed = false;
         }
         runShooter(manualControls.shoot());
 
@@ -323,7 +321,7 @@ public class Robot {
         if (shoot) {
             shooterArmed = true;
             shooter.setState(Shooter.State.SHOOT);
-        } else if (shooterAssist && ShooterAssistConstants.IDLE_SPIN_ENABLED && shooterArmed) {
+        } else if (shooterArmed) {
             shooter.setState(Shooter.State.IDLE);
         } else {
             shooter.setState(Shooter.State.DISABLED);

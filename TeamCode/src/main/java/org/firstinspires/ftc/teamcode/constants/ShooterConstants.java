@@ -13,7 +13,7 @@ public class ShooterConstants {
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 1435;
+    public static double TARGET_RPM = 2100;
     public static double IDLE_RPM = 500;
 
     // Software velocity controller gains, in motor power per encoder tick/second

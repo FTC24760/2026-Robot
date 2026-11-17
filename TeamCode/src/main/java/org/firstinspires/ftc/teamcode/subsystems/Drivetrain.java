@@ -49,6 +49,7 @@ public class Drivetrain implements Subsystem {
     public void setPose(Pose pose) {
         follower.setPose(pose);
         this.pose = pose;
+        driveFieldCentric(0.02, 0.02, 0.02);
     }
 
     /** Start following a path. Keep calling update() every loop until isBusy() is false. */

@@ -58,7 +58,7 @@ public class DriverControls {
         flowerTogglePressed = flowerToggle.rose(pad.y);
         aimTogglePressed = aimToggle.rose(pad.a);
         blockerTogglePressed = blockerToggle.rose(pad.dpad_down);
-        shooterStopPressed = shooterStop.rose(pad.dpad_left);
+        shooterStopPressed = shooterStop.rose(pad.right_trigger <= RobotConstants.TRIGGER_THRESHOLD);
     }
 
     // ---- Driving ----
