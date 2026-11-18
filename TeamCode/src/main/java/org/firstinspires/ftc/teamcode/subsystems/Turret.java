@@ -39,6 +39,15 @@ public class Turret implements Subsystem {
      */
     public void pointAt(double bearingDeg, double loopSeconds) {
         double wanted = TurretConstants.FORWARD_POSITION + degreesToPosition(bearingDeg);
+
+        // Ignore tiny changes: chasing every bit of camera and odometry noise makes the
+        // servo buzz back and forth.
+        double deadband = Math.abs(degreesToPosition(TurretConstants.AIM_DEADBAND_DEG));
+        if (Math.abs(wanted - position) < deadband) {
+            setPosition(position);
+            return;
+        }
+
         double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
         setPosition(position + MathUtil.clamp(wanted - position, -maxStep, maxStep));
     }

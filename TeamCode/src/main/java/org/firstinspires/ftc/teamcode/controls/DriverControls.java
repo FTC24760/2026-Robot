@@ -37,6 +37,7 @@ public class DriverControls {
     private final EdgeDetector aimToggle = new EdgeDetector();
     private final EdgeDetector blockerToggle = new EdgeDetector();
     private final EdgeDetector shooterStop = new EdgeDetector();
+    private final EdgeDetector resetPose = new EdgeDetector();
 
     private boolean shootPressed;
     private boolean intakeTogglePressed;
@@ -44,6 +45,7 @@ public class DriverControls {
     private boolean aimTogglePressed;
     private boolean blockerTogglePressed;
     private boolean shooterStopPressed;
+    private boolean resetPosePressed;
 
     public DriverControls(OpMode opMode) {
         this.opMode = opMode;
@@ -59,6 +61,7 @@ public class DriverControls {
         aimTogglePressed = aimToggle.rose(pad.a);
         blockerTogglePressed = blockerToggle.rose(pad.dpad_down);
         shooterStopPressed = shooterStop.rose(pad.right_trigger <= RobotConstants.TRIGGER_THRESHOLD);
+        resetPosePressed = resetPose.rose(driver().b);
     }
 
     // ---- Driving ----
@@ -75,8 +78,9 @@ public class DriverControls {
         return driver().right_stick_x;
     }
 
+    /** True for one loop each time B is pressed. */
     public boolean resetPose() {
-        return driver().b;
+        return resetPosePressed;
     }
 
     // ---- Everyday controls ----

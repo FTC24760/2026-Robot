@@ -48,7 +48,7 @@ public abstract class RapidFireAuto extends OpMode {
             robot.enableAutoAim(alliance);
         }
 
-        robot.drivetrain.setPose(new Pose(0, 0, 0));
+        robot.setPose(new Pose(0, 0, 0));
 
         telemetry.addLine("Rapid Fire auto ready (" + alliance + ")");
         telemetry.addLine(robot.hasAutoAim() ? "Auto-aim on" : "Auto-aim off: fixed RPM, manual turret");
@@ -59,7 +59,7 @@ public abstract class RapidFireAuto extends OpMode {
     public void start() {
         resetRuntime();
         robot.start();
-        robot.drivetrain.setPose(new Pose(0, 0, 0));
+        robot.setPose(new Pose(0, 0, 0));
         robot.intake.setBlockerOpen(false);
         robot.flowerArm.setDown(false);
 
