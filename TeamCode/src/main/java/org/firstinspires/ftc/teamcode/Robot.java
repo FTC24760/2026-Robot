@@ -4,6 +4,7 @@ import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
@@ -97,6 +98,9 @@ public class Robot {
 
     // Driver's intake on/off switch (teleop only).
     private boolean intakeOn;
+    // Flower intake side-to-side shift (teleop only); null when not shifting.
+    private Pose shiftCenter;
+    private double shiftStartS;
 
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
@@ -193,6 +197,11 @@ public class Robot {
         if (hiveTracker != null) {
             hiveTracker.onPoseReset(old, new Pose(0, 0, 0));
         }
+    }
+
+    /** True while auto-aim has an up-facing CELL to aim at (seen, or remembered). */
+    public boolean isAiming() {
+        return aiming;
     }
 
     /** The shot auto-aim is using right now, or null if there is no target. */
@@ -504,6 +513,27 @@ public class Robot {
         }
 
         butterfly.setDown();
+
+        // Flower intake: with the arm down and the sticks still, shift side to side to
+        // work the POLLEN out. Any stick input takes over at once.
+        boolean sticksStill = Math.abs(controls.forward()) < 0.05
+                && Math.abs(controls.strafe()) < 0.05
+                && Math.abs(controls.rotate()) < 0.05;
+        if (IntakeConstants.FLOWER_SHIFT_IN_TELEOP && flowerArm.isDown() && sticksStill) {
+            if (shiftCenter == null) {
+                shiftCenter = drivetrain.getPose();
+                shiftStartS = nowSeconds();
+            }
+            drivetrain.shiftAround(shiftCenter, IntakeConstants.FLOWER_SHIFT_IN,
+                    IntakeConstants.FLOWER_SHIFT_PERIOD_S, nowSeconds() - shiftStartS);
+            drivetrain.updateHold();
+            return;
+        }
+
+        if (shiftCenter != null) {
+            drivetrain.endShift();
+            shiftCenter = null;
+        }
         drivetrain.driveFieldCentric(controls.forward(), controls.strafe(), controls.rotate());
     }
 

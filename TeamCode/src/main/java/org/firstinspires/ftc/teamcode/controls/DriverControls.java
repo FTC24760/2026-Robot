@@ -18,7 +18,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   Y               flower arm up / down
  *   X (hold)        reverse intake and transfer, to clear a jam
  *   A               auto-aim on / off (turret, wheel speed and hood from the Limelight)
- *   B               reset pose (current position and heading become the field origin)
+ *   Create (PS5) / Back   reset pose (current position and heading become the field origin)
  *   bumpers (hold)  turn the turret by hand: right bumper one way, left the other.
  *                   Overrides auto-align while held.
  *
@@ -61,7 +61,8 @@ public class DriverControls {
         aimTogglePressed = aimToggle.rose(pad.a);
         blockerTogglePressed = blockerToggle.rose(pad.dpad_down);
         shooterStopPressed = shooterStop.rose(pad.right_trigger <= RobotConstants.TRIGGER_THRESHOLD);
-        resetPosePressed = resetPose.rose(driver().b);
+        // PS5 Create button; the SDK reports it as both back and share.
+        resetPosePressed = resetPose.rose(driver().back || driver().share);
     }
 
     // ---- Driving ----
@@ -78,7 +79,7 @@ public class DriverControls {
         return driver().right_stick_x;
     }
 
-    /** True for one loop each time B is pressed. */
+    /** True for one loop each time Create (PS5) / Back is pressed. */
     public boolean resetPose() {
         return resetPosePressed;
     }

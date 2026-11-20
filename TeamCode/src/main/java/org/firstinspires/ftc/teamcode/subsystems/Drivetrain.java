@@ -19,6 +19,8 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class Drivetrain implements Subsystem {
     private final Follower follower;
     private Pose pose = new Pose(0, 0, 0);
+    // +1 or -1 while shifting side to side, 0 when not.
+    private int shiftSide;
     private Velocity velocity = Velocity.zero();
     // System.nanoTime() when pose was last read from the localizer.
     private long poseNs = System.nanoTime();
@@ -63,6 +65,40 @@ public class Drivetrain implements Subsystem {
     /** Drive to a pose and hold it against being pushed. */
     public void hold(Pose pose) {
         follower.hold(pose);
+    }
+
+    /**
+     * Shift side to side around {@code center}, robot-relative: half of {@code totalIn}
+     * to the left, then half to the right, switching every {@code periodS}. Call every
+     * loop; the follower runs from update() or driveFieldCentric()'s loop.
+     *
+     * @param elapsedS seconds since the shifting began
+     */
+    public void shiftAround(Pose center, double totalIn, double periodS, double elapsedS) {
+        int side = ((int) Math.floor(elapsedS / Math.max(periodS, 0.05))) % 2 == 0 ? 1 : -1;
+        if (side == shiftSide) {
+            return;
+        }
+        shiftSide = side;
+
+        double half = side * totalIn / 2.0;
+        double h = center.heading();
+        // Robot-relative left is 90 degrees counter-clockwise from its heading.
+        follower.hold(new Pose(
+                center.x() - Math.sin(h) * half,
+                center.y() + Math.cos(h) * half,
+                h));
+    }
+
+    /** Stop shifting; the next shiftAround() starts again from its first side. */
+    public void endShift() {
+        shiftSide = 0;
+    }
+
+    /** Run the follower for one loop without new stick input (holding or shifting). */
+    public void updateHold() {
+        follower.update();
+        readPose();
     }
 
     /** True while a path is still being followed. */

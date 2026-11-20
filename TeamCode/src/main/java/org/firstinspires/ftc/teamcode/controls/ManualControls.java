@@ -15,7 +15,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   left stick            drive (field-centric)    right stick x   rotate
  *   right trigger (hold)  spin the shooter         left trigger (hold)  intake + transfer
  *   X (hold)              transfer only (feed)     A               open / close the blocker
- *   B                     reset pose               Y               stop the shooter's idle spin
+ *   Create (PS5) / Back   reset pose               Y               stop the shooter's idle spin
  *   right bumper (hold)   turret one way           left bumper (hold)   turret the other way
  */
 public class ManualControls {
@@ -36,7 +36,8 @@ public class ManualControls {
     public void update() {
         blockerTogglePressed = blockerToggle.rose(driver().a);
         shooterStopPressed = shooterStop.rose(driver().y);
-        resetPosePressed = resetPose.rose(driver().b);
+        // PS5 Create button; the SDK reports it as both back and share.
+        resetPosePressed = resetPose.rose(driver().back || driver().share);
     }
 
     public double forward() {
@@ -51,7 +52,7 @@ public class ManualControls {
         return driver().right_stick_x;
     }
 
-    /** True for one loop each time B is pressed. */
+    /** True for one loop each time Create (PS5) / Back is pressed. */
     public boolean resetPose() {
         return resetPosePressed;
     }

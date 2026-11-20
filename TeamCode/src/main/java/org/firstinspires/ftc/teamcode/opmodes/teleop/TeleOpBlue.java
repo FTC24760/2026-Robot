@@ -4,9 +4,9 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 
-@TeleOp(name = "TeleOp BLUE (full)", group = "Competition")
-public class AutoAimBlueTeleOp extends AutoAimTeleOp {
-    public AutoAimBlueTeleOp() {
+@TeleOp(name = "TeleOp: Blue", group = "Competition")
+public class TeleOpBlue extends MatchTeleOp {
+    public TeleOpBlue() {
         super(Alliance.BLUE);
     }
 }

@@ -29,4 +29,14 @@ public class IntakeConstants {
     public static String FLOWER_SERVO_NAME = "flower";
     public static double FLOWER_UP_POSITION = 0.0;
     public static double FLOWER_DOWN_POSITION = 0.5;
+
+    // Getting POLLEN out of a FLOWER: with the arm down, the robot shifts side to side
+    // to work the POLLEN out of the Retrieval Opening at the bottom.
+    // Total sideways travel (one side to the other), in inches.
+    public static double FLOWER_SHIFT_IN = 2.5;
+    // Time spent at each side before shifting back.
+    public static double FLOWER_SHIFT_PERIOD_S = 0.25;
+    // TeleOp: shift automatically while the arm is down and the drive sticks are still.
+    // Touching a stick stops it at once.
+    public static boolean FLOWER_SHIFT_IN_TELEOP = true;
 }

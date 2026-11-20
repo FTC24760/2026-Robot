@@ -16,16 +16,12 @@ import com.bylazar.configurables.annotations.Configurable;
 public class ShotConstants {
 
     // ---- Hood: servo position to launch angle (above horizontal). CALIBRATE. ----
-    // Two servos, one each side of the hood, always commanded together.
-    public static String HOOD_LEFT_SERVO_NAME = "leftHood";
-    public static String HOOD_RIGHT_SERVO_NAME = "rightHood";
-    // Servos facing each other on opposite sides usually need one reversed. Use
-    // "Test: Hood Servos" to check they turn the same way before running the shooter.
-    public static boolean HOOD_LEFT_REVERSED = false;
-    public static boolean HOOD_RIGHT_REVERSED = true;
-    // Added to each servo's position so both sides sit level (trim in the test OpMode).
-    public static double HOOD_LEFT_OFFSET = 0.0;
-    public static double HOOD_RIGHT_OFFSET = 0.0;
+    // One servo. Defaults match the old right-hand servo, which the positions below
+    // were tuned on; change the name if the remaining servo is configured differently.
+    public static String HOOD_SERVO_NAME = "rightHood";
+    public static boolean HOOD_REVERSED = false;
+    // Added to every position, to trim the hood without retuning the positions below.
+    public static double HOOD_OFFSET = 0.0;
     public static double HOOD_DOWN_POSITION = 0.7;
     public static double HOOD_DOWN_ANGLE_DEG = 54.0;
     public static double HOOD_UP_POSITION = 0.95;

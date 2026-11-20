@@ -8,18 +8,20 @@ package org.firstinspires.ftc.teamcode.utils;
  * the tiles. IDs are from the BIOBUZZ Competition Manual, section 9.9 (TU08).
  */
 public enum HiveCell {
-    RED_FAR(Alliance.RED, 30),
-    RED_AUDIENCE(Alliance.RED, 34),
-    BLUE_AUDIENCE(Alliance.BLUE, 38),
-    BLUE_FAR(Alliance.BLUE, 42);
+    RED_FAR(Alliance.RED, HiveSide.FAR, 30),
+    RED_AUDIENCE(Alliance.RED, HiveSide.AUDIENCE, 34),
+    BLUE_AUDIENCE(Alliance.BLUE, HiveSide.AUDIENCE, 38),
+    BLUE_FAR(Alliance.BLUE, HiveSide.FAR, 42);
 
     public static final int TAGS_PER_CELL = 4;
 
     public final Alliance alliance;
+    public final HiveSide side;
     public final int firstTagId;
 
-    HiveCell(Alliance alliance, int firstTagId) {
+    HiveCell(Alliance alliance, HiveSide side, int firstTagId) {
         this.alliance = alliance;
+        this.side = side;
         this.firstTagId = firstTagId;
     }
 
