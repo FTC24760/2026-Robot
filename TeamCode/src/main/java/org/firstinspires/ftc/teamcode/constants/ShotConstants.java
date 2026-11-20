@@ -15,6 +15,10 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class ShotConstants {
 
+    public static final String HOOD_LEFT_SERVO_NAME = "leftHood";
+    public static final String HOOD_RIGHT_SERVO_NAME = "rightHood";
+    public static final double LEFT_HOOD_OFFSET = 0;
+    public static final double RIGHT_HOOD_OFFSET = 1;
     // ---- Hood: servo position to launch angle (above horizontal). CALIBRATE. ----
     // Two servos, one each side of the hood, always commanded together.
     public static String HOOD_LEFT_SERVO_NAME = "leftHood";

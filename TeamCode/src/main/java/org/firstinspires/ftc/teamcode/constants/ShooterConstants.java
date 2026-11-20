@@ -6,10 +6,10 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 @Configurable
 public class ShooterConstants {
     public static String MOTOR_NAME = "shooter";
-    public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.REVERSE;
+    public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.FORWARD;
 
     // goBILDA 5000 series, no gearbox.
-    public static final double TICKS_PER_REV = 56.0;
+    public static final double TICKS_PER_REV = 28.0;
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
@@ -21,7 +21,9 @@ public class ShooterConstants {
     // Feedforward power per tick/s. Tune first so steady speed holds with little PID work.
     public static double kF = 0.00039;
     // Static friction/start power added with feedforward.
+
     public static double kS = 0.14;
+
     public static double kP = 0.012;
     // Integral removes steady-state error. Keep small; too high causes windup.
     public static double kI = 0.00002;
