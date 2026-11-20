@@ -47,9 +47,18 @@ public class ShotConstants {
     // more speed.
     public static double ENTRY_ANGLE_DEG = 50.0;
 
-    // ---- Wheel speed to ball speed. CALIBRATE. ----
-    // Ball exit speed in m/s per wheel RPM. A 72 mm wheel has a surface speed of
-    // 0.00377 m/s per RPM; the ball leaves somewhat slower than that.
+    // ---- Wheel speed to ball speed: anchored on a shot known to score. ----
+    // The underhand shooter scores from the back of the field at 2100 RPM with the hood
+    // at the bottom. The solver works out what ball speed that shot needs and scales
+    // every other shot from it, so the model is exact at that spot.
+    // To set it: park at that spot, run "Test: Hive Vision", and copy the distance and
+    // tag height it shows. CALIBRATE both.
+    public static double CAL_RPM = 1940;
+    public static double CAL_DISTANCE_M = 2.23;
+    public static double CAL_TAG_HEIGHT_M = 2.3;
+    // Hood servo position used for that shot (the bottom).
+    public static double CAL_HOOD_POSITION = HOOD_DOWN_POSITION;
+    // Used only if CAL_RPM is 0: ball exit speed in m/s per wheel RPM.
     public static double EXIT_SPEED_PER_RPM = 0.0032;
     // Air drag deceleration per (m/s)^2, in 1/m. 0.045 is the textbook value for a
     // smooth 71 mm, 25 g ball; set to 0 to ignore drag.
