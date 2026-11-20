@@ -17,13 +17,13 @@ public class ShotConstants {
 
     public static final String HOOD_LEFT_SERVO_NAME = "leftHood";
     public static final String HOOD_RIGHT_SERVO_NAME = "rightHood";
-    public static final double LEFT_HOOD_OFFSET = 0;
-    public static final double RIGHT_HOOD_OFFSET = 1;
+    public static final double LEFT_HOOD_OFFSET = 1;
+    public static final double RIGHT_HOOD_OFFSET = 0;
     // ---- Hood: servo position to launch angle (above horizontal). CALIBRATE. ----
-    public static double HOOD_DOWN_POSITION = 0.0;
-    public static double HOOD_DOWN_ANGLE_DEG = 65.0;
-    public static double HOOD_UP_POSITION = 1.0;
-    public static double HOOD_UP_ANGLE_DEG = 40.0;
+    public static double HOOD_DOWN_POSITION = 0.7;
+    public static double HOOD_DOWN_ANGLE_DEG = 54;
+    public static double HOOD_UP_POSITION = 0.95;
+    public static double HOOD_UP_ANGLE_DEG = HOOD_DOWN_ANGLE_DEG + 18;
 
     // ---- Geometry. CALIBRATE. ----
     // Height of the ball above the tiles as it leaves the shooter.
@@ -51,5 +51,5 @@ public class ShotConstants {
 
     // ---- Limits. ----
     public static double MIN_RPM = 1000;
-    public static double MAX_RPM = 3000;
+    public static double MAX_RPM = 4000;
 }

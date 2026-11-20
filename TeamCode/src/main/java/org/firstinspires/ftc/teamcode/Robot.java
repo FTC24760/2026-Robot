@@ -113,9 +113,9 @@ public class Robot {
         shooter = new Shooter(opMode.hardwareMap);
         flowerArm = new FlowerArm(opMode.hardwareMap);
         shootSequence = new ShootSequence(shooter, intake);
-
+        hood = new Hood(opMode.hardwareMap);
         subsystems = new ArrayList<>(
-                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm));
+                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm, hood));
     }
 
     /**
@@ -155,10 +155,7 @@ public class Robot {
             aimNote = "AUTO-AIM OFF: no Limelight \"" + VisionConstants.LIMELIGHT_NAME + "\" configured";
             return this;
         }
-
-        hood = new Hood(opMode.hardwareMap);
         subsystems.add(vision);
-        subsystems.add(hood);
         return this;
     }
 
@@ -233,7 +230,9 @@ public class Robot {
         if (controls.blockerTogglePressed() && !shootSequence.isActive()) {
             intake.toggleBlocker();
         }
-
+        if (!aimEnabled) {
+            hood.setPosition(0.9);
+        }
         // Shooting.
         if (controls.shooterStopPressed()) {
             shootSequence.cancel();

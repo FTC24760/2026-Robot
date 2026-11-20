@@ -16,7 +16,7 @@ import com.bylazar.configurables.annotations.Configurable;
 @TeleOp(name = "Test: Hood", group = "Test")
 public class HoodTest extends OpMode {
     private Hood hood;
-    public static double hoodAngle = 0;
+    public static double hoodAngle = 0.9;
 
     @Override
     public void init() {

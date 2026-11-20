@@ -19,9 +19,9 @@ public class ShooterConstants {
     // Software velocity controller gains, in motor power per encoder tick/second
     // (not the hub PIDF units). Tuning order: kF, kS, kP, kD, kI, kA.
     // Feedforward power per tick/s. Tune first so steady speed holds with little PID work.
-    public static double kF = 0.00052;
+    public static double kF = 0.00042;
     // Static friction/start power added with feedforward.
-    public static double kS = 0.15;
+    public static double kS = 0.06;
     public static double kP = 0.012;
     // Integral removes steady-state error. Keep small; too high causes windup.
     public static double kI = 0.00002;
@@ -32,7 +32,7 @@ public class ShooterConstants {
     // Max integral accumulator. Lower if the controller stays wound up.
     public static double MAX_INTEGRAL = 5000;
     // Target ramp limit, ticks/s^2.
-    public static double MAX_ACCEL = 6000.0;
+    public static double MAX_ACCEL = 2000;
     // Velocity low-pass filter: 0 = no filtering, closer to 1 = smoother but laggier.
     public static double VELOCITY_ALPHA = 0.7;
     // kS is only applied above this target speed, ticks/s.
