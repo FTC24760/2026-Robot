@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
+import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.ManualControls;
@@ -13,6 +15,7 @@ import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
+import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 import org.firstinspires.ftc.teamcode.utils.ShotSolver;
@@ -113,9 +116,9 @@ public class Robot {
         shooter = new Shooter(opMode.hardwareMap);
         flowerArm = new FlowerArm(opMode.hardwareMap);
         shootSequence = new ShootSequence(shooter, intake);
-        hood = new Hood(opMode.hardwareMap);
+
         subsystems = new ArrayList<>(
-                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm, hood));
+                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm));
     }
 
     /**
@@ -155,7 +158,11 @@ public class Robot {
             aimNote = "AUTO-AIM OFF: no Limelight \"" + VisionConstants.LIMELIGHT_NAME + "\" configured";
             return this;
         }
+
+        hood = new Hood(opMode.hardwareMap);
+        hiveTracker = new HiveTracker();
         subsystems.add(vision);
+        subsystems.add(hood);
         return this;
     }
 
@@ -230,9 +237,7 @@ public class Robot {
         if (controls.blockerTogglePressed() && !shootSequence.isActive()) {
             intake.toggleBlocker();
         }
-        if (!aimEnabled) {
-            hood.setPosition(0.9);
-        }
+
         // Shooting.
         if (controls.shooterStopPressed()) {
             shootSequence.cancel();

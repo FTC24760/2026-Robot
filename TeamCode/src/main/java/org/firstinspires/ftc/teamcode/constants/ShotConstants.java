@@ -15,15 +15,21 @@ import com.bylazar.configurables.annotations.Configurable;
 @Configurable
 public class ShotConstants {
 
-    public static final String HOOD_LEFT_SERVO_NAME = "leftHood";
-    public static final String HOOD_RIGHT_SERVO_NAME = "rightHood";
-    public static final double LEFT_HOOD_OFFSET = 1;
-    public static final double RIGHT_HOOD_OFFSET = 0;
     // ---- Hood: servo position to launch angle (above horizontal). CALIBRATE. ----
+    // Two servos, one each side of the hood, always commanded together.
+    public static String HOOD_LEFT_SERVO_NAME = "leftHood";
+    public static String HOOD_RIGHT_SERVO_NAME = "rightHood";
+    // Servos facing each other on opposite sides usually need one reversed. Use
+    // "Test: Hood Servos" to check they turn the same way before running the shooter.
+    public static boolean HOOD_LEFT_REVERSED = false;
+    public static boolean HOOD_RIGHT_REVERSED = true;
+    // Added to each servo's position so both sides sit level (trim in the test OpMode).
+    public static double HOOD_LEFT_OFFSET = 0.0;
+    public static double HOOD_RIGHT_OFFSET = 0.0;
     public static double HOOD_DOWN_POSITION = 0.7;
-    public static double HOOD_DOWN_ANGLE_DEG = 54;
+    public static double HOOD_DOWN_ANGLE_DEG = 54.0;
     public static double HOOD_UP_POSITION = 0.95;
-    public static double HOOD_UP_ANGLE_DEG = HOOD_DOWN_ANGLE_DEG + 18;
+    public static double HOOD_UP_ANGLE_DEG = HOOD_DOWN_ANGLE_DEG + 18.0;
 
     // ---- Geometry. CALIBRATE. ----
     // Height of the ball above the tiles as it leaves the shooter.
@@ -51,5 +57,5 @@ public class ShotConstants {
 
     // ---- Limits. ----
     public static double MIN_RPM = 1000;
-    public static double MAX_RPM = 4000;
+    public static double MAX_RPM = 3000;
 }

@@ -4,6 +4,7 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
+import com.pedropathing.math.Velocity;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -18,6 +19,9 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class Drivetrain implements Subsystem {
     private final Follower follower;
     private Pose pose = new Pose(0, 0, 0);
+    private Velocity velocity = Velocity.zero();
+    // System.nanoTime() when pose was last read from the localizer.
+    private long poseNs = System.nanoTime();
 
     public Drivetrain(HardwareMap hardwareMap) {
         follower = Constants.create(hardwareMap);
@@ -40,15 +44,15 @@ public class Drivetrain implements Subsystem {
         );
         ManualDrive.driveOrHold(follower, powers);
         follower.update();
-        pose = follower.pose();
+        readPose();
     }
 
     // ---- Autonomous ----
 
     /** Tell the localizer where the robot is. Call once at the start of an auto. */
     public void setPose(Pose pose) {
-        follower.setPose(pose);
-        this.pose = pose;
+        moveOrigin(pose);
+        driveFieldCentric(0.02, 0.02, 0.02);
     }
 
     /** Start following a path. Keep calling update() every loop until isBusy() is false. */
@@ -69,17 +73,45 @@ public class Drivetrain implements Subsystem {
     /** Run the follower and localizer for one loop of an auto. */
     public void update() {
         follower.update();
-        pose = follower.pose();
+        readPose();
     }
 
     /** Make the robot's current position and heading the field origin. */
     public void resetPose() {
-        follower.setPose(new Pose(0, 0, 0));
+        moveOrigin(new Pose(0, 0, 0));
     }
 
-    /** Pose as of the last driveFieldCentric call. */
+    /** Pose as of the last driveFieldCentric or update call. */
     public Pose getPose() {
         return pose;
+    }
+
+    /** When {@link #getPose()} was read, in System.nanoTime() terms. */
+    public long getPoseTimeNs() {
+        return poseNs;
+    }
+
+    /** Field-frame velocity: inches per second and radians per second (CCW positive). */
+    public Velocity getVelocity() {
+        return velocity;
+    }
+
+    // Tell the localizer it is now at newPose. If the follower is holding position, move
+    // the hold target too: it is stored in the old coordinates, so leaving it would make
+    // the robot drive and spin back to "where it was" in the new frame.
+    private void moveOrigin(Pose newPose) {
+        follower.setPose(newPose);
+        if (follower.holding()) {
+            follower.hold(newPose);
+        }
+        pose = newPose;
+        poseNs = System.nanoTime();
+    }
+
+    private void readPose() {
+        pose = follower.pose();
+        velocity = follower.velocity();
+        poseNs = System.nanoTime();
     }
 
     @Override

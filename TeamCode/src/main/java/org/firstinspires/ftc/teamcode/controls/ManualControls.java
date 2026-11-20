@@ -22,9 +22,11 @@ public class ManualControls {
     private final OpMode opMode;
     private final EdgeDetector blockerToggle = new EdgeDetector();
     private final EdgeDetector shooterStop = new EdgeDetector();
+    private final EdgeDetector resetPose = new EdgeDetector();
 
     private boolean blockerTogglePressed;
     private boolean shooterStopPressed;
+    private boolean resetPosePressed;
 
     public ManualControls(OpMode opMode) {
         this.opMode = opMode;
@@ -34,6 +36,7 @@ public class ManualControls {
     public void update() {
         blockerTogglePressed = blockerToggle.rose(driver().a);
         shooterStopPressed = shooterStop.rose(driver().y);
+        resetPosePressed = resetPose.rose(driver().b);
     }
 
     public double forward() {
@@ -48,8 +51,9 @@ public class ManualControls {
         return driver().right_stick_x;
     }
 
+    /** True for one loop each time B is pressed. */
     public boolean resetPose() {
-        return driver().b;
+        return resetPosePressed;
     }
 
     /** +1 while the right bumper is held, -1 for the left bumper, otherwise 0. */

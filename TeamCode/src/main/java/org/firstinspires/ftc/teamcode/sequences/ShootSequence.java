@@ -66,17 +66,13 @@ public class ShootSequence {
     public void update(double nowS) {
         switch (stage) {
             case SPINNING_UP:
-                boolean timedOut = nowS - stageStartS > ShooterConstants.BURST_SPIN_UP_TIMEOUT_S;
-                if (wheelSettled(nowS) || timedOut) {
+                if (wheelSettled(nowS)) {
                     intake.setBlockerOpen(true);
                     enter(Stage.FEEDING, nowS);
                 }
                 break;
 
             case FEEDING:
-                if (nowS - stageStartS > ShooterConstants.BURST_FEED_S) {
-                    cancel();
-                }
                 break;
 
             case IDLE:

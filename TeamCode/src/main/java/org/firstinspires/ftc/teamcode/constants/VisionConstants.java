@@ -12,7 +12,7 @@ public class VisionConstants {
     public static String LIMELIGHT_NAME = "limelight";
     // The Limelight pipeline must be an AprilTag (36h11) pipeline with tag size 82.5 mm
     // (3.25 in) and full 3D enabled.
-    public static int PIPELINE = 0;
+    public static int PIPELINE = 1;
     public static int POLL_RATE_HZ = 100;
 
     // ---- Where the camera is on the robot. CALIBRATE. ----
@@ -36,11 +36,23 @@ public class VisionConstants {
     // one. Read "Tag height" in the test OpMode with the HIVE tipped each way and set this
     // halfway between the two readings. Only used when one CELL of the HIVE is visible;
     // when both are, the higher one is taken as up.
-    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.0;
+    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.4;
 
     // ---- Filtering. ----
-    // A detection older than this is ignored and auto-aim falls back to fixed values.
+    // The camera counts as "seeing" the HIVE for this long after the last detection.
     public static double TARGET_TIMEOUT_MS = 500;
-    // Smoothing of distance and bearing: 0 = none, closer to 1 = steadier but slower.
+    // Smoothing of distance and bearing shown by the Hive Vision test OpMode.
     public static double SMOOTHING = 0.5;
+    // Smoothing of the HIVE's remembered field position, which auto-aim uses. The HIVE
+    // does not move, so this steadies the aim without making it lag when the robot turns.
+    // Raise toward 0.9 if the turret jitters while the robot is still.
+    public static double FIELD_SMOOTHING = 0.7;
+
+    // ---- Odometry fallback. ----
+    // Keep aiming from odometry at the last place the HIVE was seen when the camera
+    // loses it. It forgets the HIVE when the camera sees that CELL facing down.
+    public static boolean ODOMETRY_FALLBACK = true;
+    // Stop trusting the remembered position this many seconds after the camera last saw
+    // it, in case odometry drifts. 0 = keep it until the camera says otherwise.
+    public static double ODOMETRY_FALLBACK_MAX_S = 20.0;
 }
