@@ -266,6 +266,7 @@ public class Robot {
         if (controls.flowerTogglePressed()) {
             flowerArm.toggle();
         }
+        flowerArm.refresh();
         // The blocker belongs to the shoot sequence while a shot is in progress.
         if (controls.blockerTogglePressed() && !shootSequence.isActive()) {
             intake.toggleBlocker();

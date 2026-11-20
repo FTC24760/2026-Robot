@@ -189,7 +189,10 @@ public final class Steps {
     /**
      * Shoots for feedS seconds of actual feeding. If the HIVE tips part-way (the up CELL
      * changes), feeding stops at once so no ball goes into the CELL that is now facing
-     * down, the turret swings to the new up CELL, and feeding resumes for the time left.
+     * down. Then:
+     *   turret locked forward (AutoConstants.LOCK_TURRET_FORWARD): the step ends and sets
+     *     ctx.shotInterrupted, so the routine can drive to the other CELL's spot and finish;
+     *   turret free: it swings to the new up CELL and feeding resumes for the time left.
      */
     private static final class ShootStep implements AutoStep {
         private final double feedS;
@@ -210,6 +213,7 @@ public final class Steps {
             fedS = 0;
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
+            ctx.shotInterrupted = false;
             ctx.robot.shootSequence.start(ctx.now());
         }
 
@@ -223,6 +227,10 @@ public final class Steps {
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
                 ctx.robot.shootSequence.cancel();
+                if (AutoConstants.LOCK_TURRET_FORWARD) {
+                    ctx.shotInterrupted = true;
+                    return true;
+                }
                 pausedUntilS = now + AutoConstants.SHOOT_RETARGET_PAUSE_S;
             }
             if (pausedUntilS >= 0) {
@@ -244,7 +252,8 @@ public final class Steps {
         @Override
         public void end(AutoContext ctx) {
             ctx.robot.shootSequence.cancel();
-            if (fedS > 0) {
+            // After a tip the count restarts for the new up CELL, so only count full shots.
+            if (fedS > 0 && !ctx.shotInterrupted) {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);
             }
         }

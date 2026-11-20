@@ -21,6 +21,9 @@ public class AutoContext {
     /** Which CELL of our HIVE is up, as our drivers see it. Change it with setUpSide(). */
     public CellSide upSide;
 
+    /** True if the last shot step stopped early because the HIVE tipped part-way. */
+    public boolean shotInterrupted;
+
     /** How many collection cycles to run after the pre-loads (chosen during init). */
     public int cycles = AutoConstants.DEFAULT_CYCLES;
 

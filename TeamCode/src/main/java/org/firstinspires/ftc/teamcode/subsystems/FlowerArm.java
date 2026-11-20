@@ -29,6 +29,14 @@ public class FlowerArm implements Subsystem {
         }
     }
 
+    /**
+     * Re-send the current up/down position. Call every loop in TeleOp so a position
+     * changed live in Panels takes effect without toggling the arm.
+     */
+    public void refresh() {
+        setDown(down);
+    }
+
     public void toggle() {
         setDown(!down);
     }
@@ -48,7 +56,13 @@ public class FlowerArm implements Subsystem {
 
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("Flower arm", "%s%s", down ? "DOWN" : "up",
-                servo == null ? " (no servo configured)" : "");
+        if (servo == null) {
+            telemetry.addData("Flower arm", "NO SERVO \"%s\" in the configuration",
+                    IntakeConstants.FLOWER_SERVO_NAME);
+            return;
+        }
+        telemetry.addData("Flower arm", "%s, servo at %.3f  (up %.3f, down %.3f)",
+                down ? "DOWN" : "up", servo.getPosition(),
+                IntakeConstants.FLOWER_UP_POSITION, IntakeConstants.FLOWER_DOWN_POSITION);
     }
 }

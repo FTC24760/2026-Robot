@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Vision;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
@@ -179,10 +180,15 @@ public abstract class AutoOpMode extends OpMode {
         }
     }
 
-    // With a Limelight target the turret follows it. Without one, point it at the CELL we
-    // believe is up, from odometry and its known position, so a shot never waits on the
-    // camera and never goes to the CELL facing down.
+    // Normally the turret is held straight ahead and the robot's heading aims (shots are
+    // taken straight on). If LOCK_TURRET_FORWARD is off: with a Limelight target the
+    // turret follows it; without one it points at the CELL we believe is up, from
+    // odometry and the CELL's known position.
     private void aimTurret() {
+        if (AutoConstants.LOCK_TURRET_FORWARD) {
+            robot.turret.setPosition(TurretConstants.FORWARD_POSITION);
+            return;
+        }
         if (robot.isAiming()) {
             robot.runTurret(0);
             return;

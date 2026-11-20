@@ -5,8 +5,8 @@ import com.bylazar.configurables.annotations.Configurable;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 /**
- * Settings shared by every autonomous routine. Each routine's own poses and options live
- * in its class under auto/routines.
+ * Every autonomous setting: shared options, and the poses and options for Auto: Red /
+ * Blue (the FullAuto routine). Field positions are in FieldConstants.
  *
  * Coordinates, in inches, as in Figure 10-2 of the manual (red on the left, audience at
  * the bottom):
@@ -34,10 +34,48 @@ public class AutoConstants {
 
     public static double FIELD_SIZE_IN = 144;
 
+    // ==== Poses for Auto: Red / Blue (written for red; see the frame above). ====
+    // Starting guesses read off Figure 10-2, not measured on a field. Field features
+    // (CELLS, FLOWERS, GARDEN, LOADING ZONE) are in FieldConstants.
+
+    // ---- Start: touching our wall, just toward the audience from the LOADING ZONE. ----
+    public static double START_X = 9, START_Y = 84, START_H = 0;
+
+    // ---- Shooting: straight on to the up CELL. ----
+    // The robot lines up level with the up CELL (same Y as it in FieldConstants), faces it
+    // squarely (heading 0), and keeps the turret centred, so every shot is taken from the
+    // same place along the same line. SHOOT_X is how far from our wall that spot is.
+    public static double SHOOT_X = 12;
+    // Keep the turret straight ahead while shooting in auto, so only the robot's heading
+    // aims. Set false to let the turret aim at the CELL as in TeleOp.
+    public static boolean LOCK_TURRET_FORWARD = true;
+
     // ---- Collection cycles after the pre-loads. ----
+    public enum CycleSource {
+        FAR_FLOWER,
+        WALL_FLOWER,
+        GARDEN
+    }
+
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 2;
     public static int MAX_CYCLES = 3;
+    // The order they run in. Default: nearest first.
+    public static CycleSource CYCLE_1 = CycleSource.WALL_FLOWER;
+    public static CycleSource CYCLE_2 = CycleSource.GARDEN;
+    public static CycleSource CYCLE_3 = CycleSource.FAR_FLOWER;
+    // Skip a cycle that starts with less than this much of the auto left.
+    public static double CYCLE_MIN_TIME_LEFT_S = 9;
+
+    // ---- GARDEN: drive along the audience wall toward our corner, intake first. ----
+    public static double GARDEN_APPROACH_X = 32, GARDEN_APPROACH_Y = 10;
+    public static double GARDEN_END_X = 10, GARDEN_END_Y = 10;
+    public static double GARDEN_H = 180;
+
+    // ---- Park partly in the LOADING ZONE (worth PARK points in AUTO). ----
+    public static boolean PARK_ENABLED = true;
+    public static double PARK_MIN_TIME_LEFT_S = 3;
+    public static double PARK_X = 12, PARK_Y = 108, PARK_H = 0;
 
     // ---- Following the HIVE when it tips. ----
     // The Limelight is the main way the auto knows which CELL is up. As a backup when it
