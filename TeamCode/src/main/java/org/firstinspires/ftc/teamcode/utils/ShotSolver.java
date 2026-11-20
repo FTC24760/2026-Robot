@@ -5,8 +5,9 @@ import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 /**
  * Works out how to shoot into a CELL from a measured distance.
  *
- * The CELL faces upwards, so the ball must arrive falling. The solver:
- *   1. picks the launch angle that makes the ball arrive at ENTRY_ANGLE_DEG below
+ * The solver:
+ *   1. picks the launch angle: the calibration shot's hood angle when PIN_HOOD_TO_CAL
+ *      is on, otherwise the angle that makes the ball arrive ENTRY_ANGLE_DEG below
  *      horizontal (drag-free geometry), limited to what the hood can reach;
  *   2. finds the exit speed that passes through the target at that angle, including
  *      air drag, by simulating the flight;
@@ -60,22 +61,23 @@ public final class ShotSolver {
             return unreachable(maxAngle);
         }
 
-        // Drag-free parabola through (range, rise): the slope on arrival is
-        // 2*rise/range - tan(launch). Setting it to -tan(entry) gives the launch angle.
-        double entry = Math.toRadians(ShotConstants.ENTRY_ANGLE_DEG);
-        double wanted = Math.toDegrees(Math.atan(2 * riseM / rangeM + Math.tan(entry)));
-        double angleDeg = MathUtil.clamp(wanted, minAngle, maxAngle);
+        double angleDeg;
+        if (ShotConstants.PIN_HOOD_TO_CAL) {
+            // Keep the hood where the known-good calibration shot had it; only the wheel
+            // speed changes with distance.
+            angleDeg = angleForHoodPosition(ShotConstants.CAL_HOOD_POSITION);
+        } else {
+            // Drag-free parabola through (range, rise): the slope on arrival is
+            // 2*rise/range - tan(launch). Setting it to -tan(entry) gives the angle.
+            double entry = Math.toRadians(ShotConstants.ENTRY_ANGLE_DEG);
+            double wanted = Math.toDegrees(Math.atan(2 * riseM / rangeM + Math.tan(entry)));
+            angleDeg = MathUtil.clamp(wanted, minAngle, maxAngle);
+        }
         double angle = Math.toRadians(angleDeg);
 
         // The target must be below the launch line, or no speed gets there.
         double drop = rangeM * Math.tan(angle) - riseM;
         if (drop <= 0) {
-            return unreachable(angleDeg);
-        }
-
-        // If the hood limit flattened the shot so much that the ball would still be
-        // rising at the CELL, it cannot drop in.
-        if (2 * riseM / rangeM - Math.tan(angle) >= 0) {
             return unreachable(angleDeg);
         }
 

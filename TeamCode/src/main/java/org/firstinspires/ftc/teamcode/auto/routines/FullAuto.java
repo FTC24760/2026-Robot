@@ -14,19 +14,17 @@ import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
-import org.firstinspires.ftc.teamcode.constants.FieldConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shoot the pre-loads straight on at the up CELL, run up to three collection cycles
+ * Shoot the pre-loads from the start, run up to three collection cycles
  * (each one FLOWER or the GARDEN, then back to shoot), then park.
  *
- * This file is only the order of steps. Every pose and option is in AutoConstants, and
- * field positions are in FieldConstants; all are read when each step starts, so Panels
- * changes apply without re-initialising.
+ * This file is only the order of steps. Every robot pose and option is in AutoConstants
+ * and is read when each step starts, so Panels changes apply without re-initialising.
  *
  * To make a new auto: copy this file, change the step list, add any new poses to
  * AutoConstants, and add an OpMode for each alliance like AutoRed.
@@ -68,22 +66,18 @@ public final class FullAuto {
 
     private static AutoStep collect(CycleSource source) {
         switch (source) {
-            case FAR_FLOWER:
-                return collectFromFlower("far FLOWER", c -> c.flowerApproach(
-                        FieldConstants.FAR_FLOWER_X, FieldConstants.FAR_FLOWER_Y,
-                        FieldConstants.FAR_FLOWER_FACING_DEG));
+            case BACK_FLOWER:
+                return collectFromFlower("back FLOWER", c -> c.pose(AutoConstants.BACK_FLOWER_X,
+                        AutoConstants.BACK_FLOWER_Y, AutoConstants.BACK_FLOWER_H));
             case WALL_FLOWER:
-                return collectFromFlower("wall FLOWER", c -> c.flowerApproach(
-                        FieldConstants.WALL_FLOWER_X, FieldConstants.WALL_FLOWER_Y,
-                        FieldConstants.WALL_FLOWER_FACING_DEG));
+                return collectFromFlower("wall FLOWER", c -> c.pose(AutoConstants.WALL_FLOWER_X,
+                        AutoConstants.WALL_FLOWER_Y, AutoConstants.WALL_FLOWER_H));
             case GARDEN:
             default:
                 return sequence("GARDEN",
                         intake(Intake.Mode.INTAKE),
-                        driveTo("to GARDEN", c -> c.pose(AutoConstants.GARDEN_APPROACH_X,
-                                AutoConstants.GARDEN_APPROACH_Y, AutoConstants.GARDEN_H)),
-                        driveTo("along GARDEN", c -> c.pose(AutoConstants.GARDEN_END_X,
-                                AutoConstants.GARDEN_END_Y, AutoConstants.GARDEN_H)));
+                        driveTo("along GARDEN", c -> c.pose(AutoConstants.GARDEN_X,
+                                AutoConstants.GARDEN_Y, AutoConstants.GARDEN_H)));
         }
     }
 
@@ -101,11 +95,12 @@ public final class FullAuto {
                 spinUp(false));
     }
 
+    // Already there for the pre-loads (SHOOT is the start), so that drive takes no time.
     private static AutoStep driveToShot() {
         return byUpSide(
-                driveTo("to shot (LEFT CELL up)",
-                        c -> c.pose(AutoConstants.SHOOT_X, FieldConstants.LEFT_CELL_Y, 0)),
-                driveTo("to shot (RIGHT CELL up)",
-                        c -> c.pose(AutoConstants.SHOOT_X, FieldConstants.RIGHT_CELL_Y, 0)));
+                driveTo("to shot (LEFT CELL up)", c -> c.pose(AutoConstants.SHOOT_LEFT_UP_X,
+                        AutoConstants.SHOOT_LEFT_UP_Y, AutoConstants.SHOOT_LEFT_UP_H)),
+                driveTo("to shot", c -> c.pose(AutoConstants.SHOOT_X,
+                        AutoConstants.SHOOT_Y, AutoConstants.SHOOT_H)));
     }
 }

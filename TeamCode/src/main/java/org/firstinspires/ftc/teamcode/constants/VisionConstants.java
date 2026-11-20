@@ -27,16 +27,16 @@ public class VisionConstants {
     // Which way the lens faces, measured to the left of robot forward (0 = straight ahead).
     public static double CAMERA_YAW_DEG = 0.0;
     // Lens position relative to the centre of the robot at floor level.
-    public static double CAMERA_FORWARD_M = 0.0;
+    public static double CAMERA_FORWARD_M = 0.195;
     public static double CAMERA_LEFT_M = 0.0;
-    public static double CAMERA_UP_M = 0.25;
+    public static double CAMERA_UP_M = 0.2525;
 
     // ---- Which CELL is up. CALIBRATE. ----
     // A CELL whose tags sit higher than this above the tiles counts as the upward-facing
     // one. Read "Tag height" in the test OpMode with the HIVE tipped each way and set this
     // halfway between the two readings. Only used when one CELL of the HIVE is visible;
     // when both are, the higher one is taken as up.
-    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.4;
+    public static double CELL_UP_MIN_TAG_HEIGHT_M = 1.8;
 
     // ---- Filtering. ----
     // The camera counts as "seeing" the HIVE for this long after the last detection.

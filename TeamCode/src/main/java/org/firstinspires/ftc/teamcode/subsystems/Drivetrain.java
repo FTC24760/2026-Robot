@@ -21,6 +21,7 @@ public class Drivetrain implements Subsystem {
     private Pose pose = new Pose(0, 0, 0);
     // +1 or -1 while shifting side to side, 0 when not.
     private int shiftSide;
+    private double shiftSideStartS;
     private Velocity velocity = Velocity.zero();
     // System.nanoTime() when pose was last read from the localizer.
     private long poseNs = System.nanoTime();
@@ -68,26 +69,29 @@ public class Drivetrain implements Subsystem {
     }
 
     /**
-     * Shift side to side around {@code center}, robot-relative: half of {@code totalIn}
-     * to the left, then half to the right, switching every {@code periodS}. Call every
-     * loop; the follower runs from update() or driveFieldCentric()'s loop.
-     *
-     * @param elapsedS seconds since the shifting began
+     * Shake side to side around {@code center}: strafe left under power until the robot is
+     * half of {@code totalIn} left of it, then right until it is half to the right, and
+     * so on. Switches early after {@code maxSideS} on one side. Call every loop; the
+     * follower runs from update() or updateHold().
      */
-    public void shiftAround(Pose center, double totalIn, double periodS, double elapsedS) {
-        int side = ((int) Math.floor(elapsedS / Math.max(periodS, 0.05))) % 2 == 0 ? 1 : -1;
-        if (side == shiftSide) {
-            return;
-        }
-        shiftSide = side;
-
-        double half = side * totalIn / 2.0;
+    public void shiftAround(Pose center, double totalIn, double power, double maxSideS, double nowS) {
         double h = center.heading();
-        // Robot-relative left is 90 degrees counter-clockwise from its heading.
-        follower.hold(new Pose(
-                center.x() - Math.sin(h) * half,
-                center.y() + Math.cos(h) * half,
-                h));
+        // How far the robot is to the left of the centre, along its own left.
+        double offset = -(pose.x() - center.x()) * Math.sin(h) + (pose.y() - center.y()) * Math.cos(h);
+        double half = totalIn / 2.0;
+
+        if (shiftSide == 0) {
+            shiftSide = 1;
+            shiftSideStartS = nowS;
+        }
+        boolean reached = shiftSide > 0 ? offset >= half : offset <= -half;
+        if (reached || nowS - shiftSideStartS >= maxSideS) {
+            shiftSide = -shiftSide;
+            shiftSideStartS = nowS;
+        }
+
+        // Robot-centric; Pedro's strafe is positive to the left.
+        follower.manual(new DrivePowers(0, shiftSide * power, 0));
     }
 
     /** Stop shifting; the next shiftAround() starts again from its first side. */

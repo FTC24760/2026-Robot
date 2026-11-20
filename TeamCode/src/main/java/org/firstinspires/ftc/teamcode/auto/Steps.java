@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.auto;
 
 import static com.pedropathing.api.Paths.line;
+import static com.pedropathing.api.Paths.curve;
 
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
@@ -47,12 +48,34 @@ public final class Steps {
         return new FollowStep(name, path, timeoutS);
     }
 
-    /** Drive straight to a pose, turning steadily to its heading on the way. */
+    /**
+     * Drive to a pose. Straight there when the HIVE is not in the way. A drive that
+     * crosses from the audience half of the field to the far half (or back) follows one
+     * smooth curve bulging out toward our wall (AROUND_HIVE_X) instead, so it never
+     * touches the HIVE. Any turn is spread over the whole drive, the shortest way round.
+     */
     public static AutoStep driveTo(String name, Function<AutoContext, Pose> target) {
         return follow(name, (ctx, from) -> {
             Pose to = target.apply(ctx);
-            return line(from, to).linear(from.heading(), to.heading());
+            double middle = AutoConstants.FIELD_SIZE_IN / 2;
+            boolean crossesHive = (ctx.redY(from) - middle) * (ctx.redY(to) - middle) < 0;
+
+            Path path;
+            if (crossesHive) {
+                double x = ctx.pose(AutoConstants.AROUND_HIVE_X, 0, 0).x();
+                path = curve(from, new Pose(x, from.y(), 0), new Pose(x, to.y(), 0), to);
+            } else {
+                path = line(from, to);
+            }
+            return headingAlong(path, from.heading(), to.heading());
         });
+    }
+
+    // Hold the heading when there is no real turn (so the robot does not hunt), otherwise
+    // turn steadily; Pedro takes the shortest way round.
+    private static Path headingAlong(Path path, double fromH, double toH) {
+        double turn = Math.atan2(Math.sin(toH - fromH), Math.cos(toH - fromH));
+        return Math.abs(turn) < Math.toRadians(3) ? path.constant(toH) : path.linear(fromH, toH);
     }
 
     // ---- Shooting ----
@@ -69,18 +92,27 @@ public final class Steps {
     // ---- FLOWERS ----
 
     /**
-     * Collect from a FLOWER: drive up to it, lower the arm, run the intake, shift side to
-     * side for FLOWER_COLLECT_S, then raise the arm. The intake is left running.
+     * Collect from a FLOWER: drive to a point FLOWER_LINE_UP_IN back from the FLOWER pose,
+     * lower the arm there, creep the rest of the way in (short and slow, so it does not
+     * overshoot), shake side to side for FLOWER_COLLECT_S, raise the arm. The intake
+     * runs throughout and is left running.
      *
-     * @param approach where the robot stops, facing the FLOWER
+     * @param approach the robot pose in front of the FLOWER where it stops to collect
      */
     public static AutoStep collectFromFlower(String name, Function<AutoContext, Pose> approach) {
         return sequence(name,
                 intake(Intake.Mode.INTAKE),
-                driveTo("to " + name, approach),
+                driveTo("line up at " + name, c -> backOff(approach.apply(c), AutoConstants.FLOWER_LINE_UP_IN)),
                 flowerArm(true),
+                driveTo("into " + name, approach),
                 shiftSideToSide(AutoConstants.FLOWER_COLLECT_S),
                 flowerArm(false));
+    }
+
+    // A pose moved straight back (opposite to where it faces) by the given distance.
+    private static Pose backOff(Pose pose, double inches) {
+        double h = pose.heading();
+        return new Pose(pose.x() - Math.cos(h) * inches, pose.y() - Math.sin(h) * inches, h);
     }
 
     /** Shift side to side in place (see IntakeConstants.FLOWER_SHIFT_IN). */
@@ -281,10 +313,10 @@ public final class Steps {
 
         @Override
         public boolean update(AutoContext ctx) {
-            double elapsed = ctx.now() - startS;
             ctx.robot.drivetrain.shiftAround(center, IntakeConstants.FLOWER_SHIFT_IN,
-                    IntakeConstants.FLOWER_SHIFT_PERIOD_S, elapsed);
-            return elapsed >= seconds;
+                    IntakeConstants.FLOWER_SHIFT_POWER, IntakeConstants.FLOWER_SHIFT_PERIOD_S,
+                    ctx.now());
+            return ctx.now() - startS >= seconds;
         }
 
         @Override

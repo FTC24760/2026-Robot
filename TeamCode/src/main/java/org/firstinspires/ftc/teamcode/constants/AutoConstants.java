@@ -5,8 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 /**
- * Every autonomous setting: shared options, and the poses and options for Auto: Red /
- * Blue (the FullAuto routine). Field positions are in FieldConstants.
+ * Every autonomous setting, including every robot pose the auto drives to.
  *
  * Coordinates, in inches, as in Figure 10-2 of the manual (red on the left, audience at
  * the bottom):
@@ -34,48 +33,79 @@ public class AutoConstants {
 
     public static double FIELD_SIZE_IN = 144;
 
-    // ==== Poses for Auto: Red / Blue (written for red; see the frame above). ====
-    // Starting guesses read off Figure 10-2, not measured on a field. Field features
-    // (CELLS, FLOWERS, GARDEN, LOADING ZONE) are in FieldConstants.
+    // ==== ROBOT POSES for Auto: Red / Blue ====
+    // Each is where the ROBOT CENTRE goes and which way the robot FRONT faces
+    // (x, y in inches, heading in degrees; frame described at the top of this file).
+    // Written for red; blue is worked out automatically. The shooter fires forward.
+    // These are the only positions the auto uses. Defaults are read off the field
+    // drawing and still need checking on a real field.
 
-    // ---- Start: touching our wall, just toward the audience from the LOADING ZONE. ----
-    public static double START_X = 9, START_Y = 84, START_H = 0;
+    // The robot is 17 in wide and 18 in deep, so against a wall its centre is 8.5 in
+    // (side on) or 9 in (front or back on) from it.
 
-    // ---- Shooting: straight on to the up CELL. ----
-    // The robot lines up level with the up CELL (same Y as it in FieldConstants), faces it
-    // squarely (heading 0), and keeps the turret centred, so every shot is taken from the
-    // same place along the same line. SHOOT_X is how far from our wall that spot is.
-    public static double SHOOT_X = 12;
-    // Keep the turret straight ahead while shooting in auto, so only the robot's heading
-    // aims. Set false to let the turret aim at the CELL as in TeleOp.
-    public static boolean LOCK_TURRET_FORWARD = true;
+    // Start: LEFT side against the audience wall, front facing our alliance wall (square
+    // to it; heading 180). The turret aims at the CELL, so the pre-loads go straight away.
+    public static double START_X = 59, START_Y = 8.5, START_H = 180;
+
+    // Shooting position while our RIGHT CELL is up (the normal case). Same as the start:
+    // the GARDEN run is straight there and straight back, and the turret aims.
+    public static double SHOOT_X = 59, SHOOT_Y = 8.5, SHOOT_H = 180;
+
+    // Shooting position if our LEFT CELL is up instead (HIVE tipped): against the far
+    // wall. Same heading as everywhere else, so getting there needs no turn; the turret
+    // aims.
+    public static double SHOOT_LEFT_UP_X = 59, SHOOT_LEFT_UP_Y = 135.5, SHOOT_LEFT_UP_H = 180;
+
+    // FLOWER poses are where the robot STOPS to collect. It lines up FLOWER_LINE_UP_IN
+    // further back first, lowers the arm there, then creeps in. If it still goes in too
+    // far, move these back (away from the FLOWER).
+
+    // In front of the FLOWER on our wall (the left one from the start), ready to collect.
+    public static double WALL_FLOWER_X = 19, WALL_FLOWER_Y = 48, WALL_FLOWER_H = 180;
+
+    // In front of the FLOWER on the far (back) wall, ready to collect.
+    public static double BACK_FLOWER_X = 48, BACK_FLOWER_Y = 125, BACK_FLOWER_H = 90;
+
+    // GARDEN: from the shooting position, drive straight along the audience wall with the
+    // intake running until the front reaches our wall, then straight back.
+    public static double GARDEN_X = 9, GARDEN_Y = 8.5, GARDEN_H = 180;
+
+    // Park partly in the LOADING ZONE (worth PARK points in AUTO).
+    public static boolean PARK_ENABLED = true;
+    public static double PARK_MIN_TIME_LEFT_S = 3;
+    public static double PARK_X = 12, PARK_Y = 108, PARK_H = 180;
+
+    // Getting past the HIVE: a drive that crosses from the audience half to the far half
+    // (or back) follows one smooth curve that bulges out toward our wall instead of going
+    // straight through the HIVE. AROUND_HIVE_X sets how far it bulges: smaller = wider
+    // berth. Checked clear of the HIVE for every drive in the auto at 20.
+    public static double AROUND_HIVE_X = 20;
+
+    // The turret aims in auto: at the Limelight's target when it has one, otherwise at
+    // the up CELL's aim point below, from odometry. Set true to hold it straight ahead
+    // and aim with the robot's heading instead.
+    public static boolean LOCK_TURRET_FORWARD = false;
+    // Where the turret aims when the Limelight has no target: the middle of each CELL of
+    // our HIVE (as our drivers see them; RIGHT is up at the start).
+    public static double RIGHT_CELL_X = 59, RIGHT_CELL_Y = 61;
+    public static double LEFT_CELL_X = 59, LEFT_CELL_Y = 88;
 
     // ---- Collection cycles after the pre-loads. ----
     public enum CycleSource {
-        FAR_FLOWER,
         WALL_FLOWER,
-        GARDEN
+        GARDEN,
+        BACK_FLOWER
     }
 
     // How many the auto runs; the driver can change it during init with the d-pad.
-    public static int DEFAULT_CYCLES = 2;
+    public static int DEFAULT_CYCLES = 0;
     public static int MAX_CYCLES = 3;
     // The order they run in. Default: nearest first.
-    public static CycleSource CYCLE_1 = CycleSource.WALL_FLOWER;
-    public static CycleSource CYCLE_2 = CycleSource.GARDEN;
-    public static CycleSource CYCLE_3 = CycleSource.FAR_FLOWER;
+    public static CycleSource CYCLE_1 = CycleSource.GARDEN;
+    public static CycleSource CYCLE_2 = CycleSource.WALL_FLOWER;
+    public static CycleSource CYCLE_3 = CycleSource.BACK_FLOWER;
     // Skip a cycle that starts with less than this much of the auto left.
     public static double CYCLE_MIN_TIME_LEFT_S = 9;
-
-    // ---- GARDEN: drive along the audience wall toward our corner, intake first. ----
-    public static double GARDEN_APPROACH_X = 32, GARDEN_APPROACH_Y = 10;
-    public static double GARDEN_END_X = 10, GARDEN_END_Y = 10;
-    public static double GARDEN_H = 180;
-
-    // ---- Park partly in the LOADING ZONE (worth PARK points in AUTO). ----
-    public static boolean PARK_ENABLED = true;
-    public static double PARK_MIN_TIME_LEFT_S = 3;
-    public static double PARK_X = 12, PARK_Y = 108, PARK_H = 0;
 
     // ---- Following the HIVE when it tips. ----
     // The Limelight is the main way the auto knows which CELL is up. As a backup when it
@@ -88,8 +118,11 @@ public class AutoConstants {
     public static double SHOOT_RETARGET_PAUSE_S = 0.35;
 
     // ---- FLOWER collection. ----
+    // How far back from the FLOWER pose the robot lines up and lowers the arm, before
+    // creeping the rest of the way in.
+    public static double FLOWER_LINE_UP_IN = 10;
     // How long to shift side to side with the arm down at each FLOWER.
-    public static double FLOWER_COLLECT_S = 1.5;
+    public static double FLOWER_COLLECT_S = 2.5;
 
     // ---- Step defaults. ----
     // Give up on a path that has not finished after this long (stuck or pushed).

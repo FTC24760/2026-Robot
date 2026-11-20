@@ -180,10 +180,9 @@ public abstract class AutoOpMode extends OpMode {
         }
     }
 
-    // Normally the turret is held straight ahead and the robot's heading aims (shots are
-    // taken straight on). If LOCK_TURRET_FORWARD is off: with a Limelight target the
-    // turret follows it; without one it points at the CELL we believe is up, from
-    // odometry and the CELL's known position.
+    // The turret follows the Limelight's target when it has one. Without one it points
+    // at the CELL we believe is up, from odometry and that CELL's aim point, so a shot
+    // never waits on the camera. LOCK_TURRET_FORWARD holds it straight ahead instead.
     private void aimTurret() {
         if (AutoConstants.LOCK_TURRET_FORWARD) {
             robot.turret.setPosition(TurretConstants.FORWARD_POSITION);
@@ -193,8 +192,10 @@ public abstract class AutoOpMode extends OpMode {
             robot.runTurret(0);
             return;
         }
+        Pose cell = ctx.upSide == CellSide.LEFT
+                ? ctx.pose(AutoConstants.LEFT_CELL_X, AutoConstants.LEFT_CELL_Y, 0)
+                : ctx.pose(AutoConstants.RIGHT_CELL_X, AutoConstants.RIGHT_CELL_Y, 0);
         Pose me = robot.drivetrain.getPose();
-        Pose cell = ctx.cellPose(ctx.upSide);
         double bearing = Math.atan2(cell.y() - me.y(), cell.x() - me.x()) - me.heading();
         bearing = Math.atan2(Math.sin(bearing), Math.cos(bearing));
         robot.turret.pointAt(Math.toDegrees(bearing), robot.getLoopSeconds());

@@ -4,7 +4,6 @@ import com.pedropathing.math.Pose;
 
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
-import org.firstinspires.ftc.teamcode.constants.FieldConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
@@ -98,20 +97,8 @@ public class AutoContext {
         return new Pose(size - x, size - y, h + Math.PI);
     }
 
-    /** Field position of one of our CELLS (heading unused). */
-    public Pose cellPose(CellSide side) {
-        return side == CellSide.LEFT
-                ? pose(FieldConstants.LEFT_CELL_X, FieldConstants.LEFT_CELL_Y, 0)
-                : pose(FieldConstants.RIGHT_CELL_X, FieldConstants.RIGHT_CELL_Y, 0);
-    }
-
-    /**
-     * Where the robot stops to collect from a FLOWER, written for red: FLOWER_STANDOFF_IN
-     * back from the FLOWER, facing it.
-     */
-    public Pose flowerApproach(double flowerX, double flowerY, double facingDeg) {
-        double f = Math.toRadians(facingDeg);
-        double d = FieldConstants.FLOWER_STANDOFF_IN;
-        return pose(flowerX - d * Math.cos(f), flowerY - d * Math.sin(f), facingDeg);
+    /** A pose's distance from the audience wall as red sees it, for either alliance. */
+    public double redY(Pose pose) {
+        return alliance == Alliance.BLUE ? AutoConstants.FIELD_SIZE_IN - pose.y() : pose.y();
     }
 }

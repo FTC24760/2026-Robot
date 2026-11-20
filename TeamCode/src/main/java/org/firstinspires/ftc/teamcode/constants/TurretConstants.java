@@ -20,7 +20,7 @@ public class TurretConstants {
     // Servo position at which the turret points straight ahead on the robot.
     public static double FORWARD_POSITION = 0.5;
     // How many degrees the turret turns between servo position 0 and position 1.
-    public static double DEGREES_PER_FULL_TRAVEL = 330;
+    public static double DEGREES_PER_FULL_TRAVEL = 300;
     // True if raising the servo position turns the turret to the left (seen from above).
     // If auto-align turns away from the HIVE, flip this.
     public static boolean INCREASING_POSITION_TURNS_LEFT = true;

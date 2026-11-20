@@ -49,11 +49,17 @@ public class ShotConstants {
     // every other shot from it, so the model is exact at that spot.
     // To set it: park at that spot, run "Test: Hive Vision", and copy the distance and
     // tag height it shows. CALIBRATE both.
-    public static double CAL_RPM = 1940;
-    public static double CAL_DISTANCE_M = 2.23;
-    public static double CAL_TAG_HEIGHT_M = 2.3;
+    public static double CAL_RPM = 3350;
+    public static double CAL_DISTANCE_M = 2.60;
+    public static double CAL_TAG_HEIGHT_M = 2.0;
     // Hood servo position used for that shot (the bottom).
-    public static double CAL_HOOD_POSITION = HOOD_DOWN_POSITION;
+    public static double CAL_HOOD_POSITION = 0.9;
+    // The hood also sits here whenever auto-aim has no shot (start of the match, no CELL
+    // known, out of range, or auto-aim off), so the fallback is the known-good shot.
+    // Keep the hood at CAL_HOOD_POSITION for every auto-aim shot and vary only the wheel
+    // speed, so the calibration shot is reproduced exactly at its spot. Set false to let
+    // the solver also choose the hood angle (aiming for ENTRY_ANGLE_DEG).
+    public static boolean PIN_HOOD_TO_CAL = false;
     // Used only if CAL_RPM is 0: ball exit speed in m/s per wheel RPM.
     public static double EXIT_SPEED_PER_RPM = 0.0032;
     // Air drag deceleration per (m/s)^2, in 1/m. 0.045 is the textbook value for a
@@ -61,6 +67,9 @@ public class ShotConstants {
     public static double DRAG_PER_M = 0.045;
 
     // ---- Limits. ----
+    // A shot needing a speed outside these counts as out of range. MAX_RPM must be above
+    // CAL_RPM, or even the calibration shot is "out of range" and auto-aim never sets
+    // the hood.
     public static double MIN_RPM = 1000;
-    public static double MAX_RPM = 3000;
+    public static double MAX_RPM = 4000;
 }
