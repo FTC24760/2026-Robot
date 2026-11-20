@@ -33,10 +33,10 @@ public class Hood implements Subsystem {
 
         this.position = MathUtil.clamp(position, low, high);
         if (leftHood != null) {
-            leftHood.setPosition(ShotConstants.LEFT_HOOD_OFFSET - this.position);
+            leftHood.setPosition(ShotConstants.HOOD_LEFT_OFFSET - this.position);
         }
         if (rightHood != null) {
-            rightHood.setPosition(ShotConstants.RIGHT_HOOD_OFFSET + this.position);
+            rightHood.setPosition(ShotConstants.HOOD_RIGHT_OFFSET + this.position);
         }
     }
 
