@@ -12,13 +12,16 @@ import org.firstinspires.ftc.teamcode.utils.MathUtil;
  * exists, every call does nothing, so auto-aim still works on a fixed-hood robot (set
  * the two hood angles in ShotConstants to the same value in that case).
  */
+
 public class Hood implements Subsystem {
-    private final Servo servo;
+    private final Servo leftHood;
+    private final Servo rightHood;
     private double position = Double.NaN;
 
     /** Does not move the servo; it first moves on the first call to setPosition. */
     public Hood(HardwareMap hardwareMap) {
-        servo = hardwareMap.tryGet(Servo.class, ShotConstants.HOOD_SERVO_NAME);
+        leftHood = hardwareMap.tryGet(Servo.class, ShotConstants.HOOD_LEFT_SERVO_NAME);
+        rightHood = hardwareMap.tryGet(Servo.class, ShotConstants.HOOD_RIGHT_SERVO_NAME);
     }
 
     public void setPosition(double position) {
@@ -26,8 +29,11 @@ public class Hood implements Subsystem {
         double high = Math.max(ShotConstants.HOOD_DOWN_POSITION, ShotConstants.HOOD_UP_POSITION);
 
         this.position = MathUtil.clamp(position, low, high);
-        if (servo != null) {
-            servo.setPosition(this.position);
+        if (leftHood != null) {
+            leftHood.setPosition(ShotConstants.LEFT_HOOD_OFFSET + this.position);
+        }
+        if (rightHood != null) {
+            rightHood.setPosition(ShotConstants.RIGHT_HOOD_OFFSET - this.position);
         }
     }
 
@@ -35,9 +41,6 @@ public class Hood implements Subsystem {
         setPosition(ShotConstants.HOOD_DOWN_POSITION);
     }
 
-    public boolean isInstalled() {
-        return servo != null;
-    }
 
     public double getPosition() {
         return position;
@@ -50,10 +53,6 @@ public class Hood implements Subsystem {
 
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        if (servo == null) {
-            telemetry.addData("Hood", "no servo \"%s\" configured", ShotConstants.HOOD_SERVO_NAME);
-        } else {
-            telemetry.addData("Hood position", "%.3f", position);
-        }
+        telemetry.addData("Hood position", "%.3f", position);
     }
 }

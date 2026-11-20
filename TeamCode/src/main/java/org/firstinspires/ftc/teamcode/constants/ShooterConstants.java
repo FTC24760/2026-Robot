@@ -6,7 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 @Configurable
 public class ShooterConstants {
     public static String MOTOR_NAME = "shooter";
-    public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.REVERSE;
+    public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.FORWARD;
 
     // goBILDA 5000 series, no gearbox.
     public static final double TICKS_PER_REV = 28.0;
