@@ -13,15 +13,17 @@ public class ShooterConstants {
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 3700;
+    public static double TARGET_RPM = 2100;
     public static double IDLE_RPM = 500;
 
     // Software velocity controller gains, in motor power per encoder tick/second
     // (not the hub PIDF units). Tuning order: kF, kS, kP, kD, kI, kA.
     // Feedforward power per tick/s. Tune first so steady speed holds with little PID work.
-    public static double kF = 0.00052;
+    public static double kF = 0.00039;
     // Static friction/start power added with feedforward.
-    public static double kS = 0.15;
+
+    public static double kS = 0.14;
+
     public static double kP = 0.012;
     // Integral removes steady-state error. Keep small; too high causes windup.
     public static double kI = 0.00002;

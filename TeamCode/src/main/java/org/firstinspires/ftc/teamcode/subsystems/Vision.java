@@ -76,12 +76,28 @@ public class Vision implements Subsystem {
         }
     }
 
+    /** The CELL chosen from one new camera frame, unsmoothed, with when it was captured. */
+    public static class Fix {
+        public final CellSighting sighting;
+        public final boolean cellUp;
+        /** System.nanoTime() at which the camera captured the frame. */
+        public final long captureNs;
+
+        Fix(CellSighting sighting, boolean cellUp, long captureNs) {
+            this.sighting = sighting;
+            this.cellUp = cellUp;
+            this.captureNs = captureNs;
+        }
+    }
+
     private final Limelight3A limelight;
     private final Map<HiveCell, CellSighting> sightings = new EnumMap<>(HiveCell.class);
 
     private Alliance alliance;
     private HiveTarget target;
     private long targetNs;
+    private Fix fix;
+    private long lastFrameStampNs;
 
     /** @param alliance whose HIVE to aim at, or null to take whichever CELL is nearest */
     public Vision(HardwareMap hardwareMap, Alliance alliance) {
@@ -100,10 +116,15 @@ public class Vision implements Subsystem {
     /** Read the newest Limelight frame. Call once per loop. */
     public void update(long nowNs) {
         sightings.clear();
+        fix = null;
 
         LLResult result = limelight.getLatestResult();
+        boolean newFrame = false;
         if (result != null && result.isValid()) {
             readSightings(result);
+            long stamp = result.getControlHubTimeStampNanos();
+            newFrame = stamp != lastFrameStampNs;
+            lastFrameStampNs = stamp;
         }
 
         CellSighting best = chooseCell();
@@ -112,6 +133,12 @@ public class Vision implements Subsystem {
         }
 
         boolean up = isUp(best);
+        if (newFrame) {
+            // Age of the image: time on the Limelight plus time since it reached the hub.
+            double ageMs = result.getCaptureLatency() + result.getTargetingLatency()
+                    + result.getStaleness();
+            fix = new Fix(best, up, nowNs - MathUtil.msToNs(ageMs));
+        }
         double distance = best.distanceM();
         double bearing = best.bearingDeg();
         double height = best.heightM;
@@ -126,6 +153,15 @@ public class Vision implements Subsystem {
 
         target = new HiveTarget(best.cell, distance, bearing, height, up, best.tagCount);
         targetNs = nowNs;
+    }
+
+    /**
+     * The CELL from a camera frame that arrived since the previous {@link #update}, or
+     * null if no new frame showed one. Unlike {@link #getTarget} this is not smoothed,
+     * so it can be combined with odometry from the moment the frame was captured.
+     */
+    public Fix getFix() {
+        return fix;
     }
 
     /** @return the current target, or null if no HIVE tag has been seen recently. */

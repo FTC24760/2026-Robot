@@ -1,10 +1,12 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
+import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.ManualControls;
@@ -13,6 +15,7 @@ import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
+import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 import org.firstinspires.ftc.teamcode.utils.ShotSolver;
@@ -81,10 +84,13 @@ public class Robot {
     private boolean rapidFire;
 
     // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
-    // when the HIVE is not in view.
+    // when there is no target.
     private ShotSolver.Solution shot;
-    // The upward-facing CELL of our HIVE, or null if it is not in view.
-    private Vision.HiveTarget aimTarget;
+    // Where the upward-facing CELL of our HIVE is on the field, from the camera and
+    // odometry; null without auto-aim.
+    private HiveTracker hiveTracker;
+    // True while the turret should follow hiveTracker.
+    private boolean aiming;
     // The driver can switch auto-aim off mid-match if the camera misbehaves.
     private boolean aimEnabled = true;
     private String aimNote = "";
@@ -157,6 +163,7 @@ public class Robot {
         }
 
         hood = new Hood(opMode.hardwareMap);
+        hiveTracker = new HiveTracker();
         subsystems.add(vision);
         subsystems.add(hood);
         return this;
@@ -167,7 +174,28 @@ public class Robot {
         return vision != null;
     }
 
-    /** The shot auto-aim is using right now, or null if the HIVE is not in view. */
+    /**
+     * Tell odometry where the robot is (e.g. at the start of an auto). Use this rather
+     * than drivetrain.setPose() so auto-aim's remembered HIVE position moves with it.
+     */
+    public void setPose(Pose pose) {
+        Pose old = drivetrain.getPose();
+        drivetrain.setPose(pose);
+        if (hiveTracker != null) {
+            hiveTracker.onPoseReset(old, pose);
+        }
+    }
+
+    /** Make the robot's current position and heading the field origin. */
+    public void resetPose() {
+        Pose old = drivetrain.getPose();
+        drivetrain.resetPose();
+        if (hiveTracker != null) {
+            hiveTracker.onPoseReset(old, new Pose(0, 0, 0));
+        }
+    }
+
+    /** The shot auto-aim is using right now, or null if there is no target. */
     public ShotSolver.Solution getShot() {
         return shot;
     }
@@ -237,7 +265,6 @@ public class Robot {
         // Shooting.
         if (controls.shooterStopPressed()) {
             shootSequence.cancel();
-            shooterArmed = false;
         }
         if (controls.shootPressed()) {
             shootSequence.toggle(nowSeconds());
@@ -271,12 +298,11 @@ public class Robot {
         manualControls.update();
 
         if (manualControls.shooterStopPressed()) {
-            shooterArmed = false;
         }
         runShooter(manualControls.shoot());
 
         if (manualControls.resetPose()) {
-            drivetrain.resetPose();
+            resetPose();
         }
         butterfly.setDown();
         drivetrain.driveFieldCentric(
@@ -323,7 +349,7 @@ public class Robot {
         if (shoot) {
             shooterArmed = true;
             shooter.setState(Shooter.State.SHOOT);
-        } else if (shooterAssist && ShooterAssistConstants.IDLE_SPIN_ENABLED && shooterArmed) {
+        } else if (shooterArmed) {
             shooter.setState(Shooter.State.IDLE);
         } else {
             shooter.setState(Shooter.State.DISABLED);
@@ -393,20 +419,22 @@ public class Robot {
     }
 
     /**
-     * Aim the turret for this loop. With auto-aim on and the upward-facing CELL in
-     * view, the turret follows it; otherwise, or while the driver is steering it by
-     * hand, it moves only as directed.
+     * Aim the turret for this loop. With auto-aim on and a target (seen now, or
+     * remembered and followed with odometry), the turret points at it from the latest
+     * pose; otherwise, or while the driver is steering it by hand, it moves only as
+     * directed. Call after the drivetrain has updated this loop.
      *
      * @param manualDirection +1, -1 or 0 from the driver; pass 0 in autonomous
      */
     public void runTurret(double manualDirection) {
-        if (manualDirection != 0 || aimTarget == null) {
+        if (manualDirection != 0 || !aiming) {
             turret.move(manualDirection, loopSeconds);
-        } else if (VisionConstants.CAMERA_ON_TURRET) {
-            turret.track(aimTarget.bearingDeg, loopSeconds);
-        } else {
-            turret.pointAt(aimTarget.bearingDeg, loopSeconds);
+            return;
         }
+
+        double bearing = hiveTracker.turretBearingDeg(
+                drivetrain.getPose(), drivetrain.getVelocity(), TurretConstants.AIM_LEAD_SECONDS);
+        turret.pointAt(bearing, loopSeconds);
     }
 
     /** Loop timestamp in seconds, for timing sequences. */
@@ -431,13 +459,23 @@ public class Robot {
             return;
         }
 
+        hiveTracker.recordPose(drivetrain.getPoseTimeNs(), drivetrain.getPose());
         vision.update(nowNs);
-        Vision.HiveTarget target = vision.getTarget(nowNs);
 
         // Only aim at a CELL that is facing up; the other one cannot be scored in.
-        aimTarget = aimEnabled && target != null && target.cellUp ? target : null;
-        shot = aimTarget != null
-                ? ShotSolver.solveForCell(aimTarget.distanceM, aimTarget.tagHeightM)
+        Vision.Fix fix = vision.getFix();
+        if (fix != null) {
+            if (fix.cellUp) {
+                hiveTracker.addSighting(fix, turret.getAngleDeg());
+            } else {
+                hiveTracker.sawCellDown(fix.sighting.cell);
+            }
+        }
+
+        aiming = aimEnabled && hiveTracker.hasTarget(nowNs);
+        shot = aiming
+                ? ShotSolver.solveForCell(
+                        hiveTracker.distanceM(drivetrain.getPose()), hiveTracker.getTagHeightM())
                 : null;
 
         if (hasShot()) {
@@ -462,7 +500,7 @@ public class Robot {
 
     private void updateDrive() {
         if (controls.resetPose()) {
-            drivetrain.resetPose();
+            resetPose();
         }
 
         butterfly.setDown();
@@ -522,11 +560,15 @@ public class Robot {
             if (!aimEnabled) {
                 telemetry.addData("Auto-aim", "SWITCHED OFF by driver");
             } else if (shot == null) {
-                telemetry.addData("Auto-aim", "no upward CELL in view, using fixed RPM");
+                telemetry.addData("Auto-aim", "no upward CELL known, using fixed RPM");
             } else if (!shot.reachable) {
                 telemetry.addData("Auto-aim", "OUT OF RANGE");
             } else {
                 telemetry.addData("Auto-aim", "%.0f RPM at %.1f deg", shot.rpm, shot.launchAngleDeg);
+            }
+            if (aiming) {
+                telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)
+                        ? "camera" : "odometry (camera lost it)");
             }
         }
 

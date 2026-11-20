@@ -82,7 +82,7 @@ public final class ShotSolver {
         double dragFree = Math.sqrt(G * rangeM * rangeM / (2 * Math.cos(angle) * Math.cos(angle) * drop));
         double speed = solveSpeedWithDrag(rangeM, riseM, angle, dragFree);
 
-        double rpm = speed / ShotConstants.EXIT_SPEED_PER_RPM;
+        double rpm = speed / exitSpeedPerRpm();
         boolean reachable = !Double.isNaN(speed)
                 && rpm >= ShotConstants.MIN_RPM
                 && rpm <= ShotConstants.MAX_RPM;
@@ -94,6 +94,62 @@ public final class ShotSolver {
                 MathUtil.clamp(rpm, ShotConstants.MIN_RPM, ShotConstants.MAX_RPM),
                 hoodPositionFor(angleDeg)
         );
+    }
+
+    /**
+     * Ball exit speed per wheel RPM. Taken from the calibration shot (CAL_RPM at
+     * CAL_DISTANCE_M with the hood at CAL_HOOD_POSITION) when one is set, otherwise
+     * EXIT_SPEED_PER_RPM. Cached until a constant it depends on changes.
+     */
+    public static double exitSpeedPerRpm() {
+        if (ShotConstants.CAL_RPM <= 0) {
+            return ShotConstants.EXIT_SPEED_PER_RPM;
+        }
+
+        double[] key = {
+                ShotConstants.CAL_RPM, ShotConstants.CAL_DISTANCE_M, ShotConstants.CAL_TAG_HEIGHT_M,
+                ShotConstants.CAL_HOOD_POSITION, ShotConstants.HOOD_DOWN_POSITION,
+                ShotConstants.HOOD_DOWN_ANGLE_DEG, ShotConstants.HOOD_UP_POSITION,
+                ShotConstants.HOOD_UP_ANGLE_DEG, ShotConstants.EXIT_HEIGHT_M,
+                ShotConstants.EXIT_FORWARD_M, ShotConstants.TARGET_ABOVE_TAG_M,
+                ShotConstants.DRAG_PER_M
+        };
+        if (java.util.Arrays.equals(key, calKey)) {
+            return calRatio;
+        }
+
+        double range = ShotConstants.CAL_DISTANCE_M - ShotConstants.EXIT_FORWARD_M;
+        double rise = ShotConstants.CAL_TAG_HEIGHT_M + ShotConstants.TARGET_ABOVE_TAG_M
+                - ShotConstants.EXIT_HEIGHT_M;
+        double angle = Math.toRadians(angleForHoodPosition(ShotConstants.CAL_HOOD_POSITION));
+        double drop = range * Math.tan(angle) - rise;
+
+        double ratio = ShotConstants.EXIT_SPEED_PER_RPM;
+        if (range > 0.05 && drop > 0) {
+            double dragFree = Math.sqrt(G * range * range / (2 * Math.cos(angle) * Math.cos(angle) * drop));
+            double speed = solveSpeedWithDrag(range, rise, angle, dragFree);
+            if (!Double.isNaN(speed)) {
+                ratio = speed / ShotConstants.CAL_RPM;
+            }
+        }
+
+        calKey = key;
+        calRatio = ratio;
+        return ratio;
+    }
+
+    private static double[] calKey;
+    private static double calRatio;
+
+    /** Launch angle for a hood servo position, the inverse of {@link #hoodPositionFor}. */
+    public static double angleForHoodPosition(double position) {
+        double span = ShotConstants.HOOD_UP_POSITION - ShotConstants.HOOD_DOWN_POSITION;
+        if (Math.abs(span) < 1e-9) {
+            return ShotConstants.HOOD_DOWN_ANGLE_DEG;
+        }
+        double t = MathUtil.clamp((position - ShotConstants.HOOD_DOWN_POSITION) / span, 0, 1);
+        return ShotConstants.HOOD_DOWN_ANGLE_DEG
+                + t * (ShotConstants.HOOD_UP_ANGLE_DEG - ShotConstants.HOOD_DOWN_ANGLE_DEG);
     }
 
     /** Hood servo position for a launch angle, by straight-line fit between the two calibrated points. */
