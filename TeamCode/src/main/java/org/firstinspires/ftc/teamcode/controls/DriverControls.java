@@ -14,7 +14,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  */
 public class DriverControls {
     private final OpMode opMode;
-
+    public boolean shootHeld = false;
     private final EdgeDetector shoot = new EdgeDetector();
     private final EdgeDetector rpmUp = new EdgeDetector();
     private final EdgeDetector rpmDown = new EdgeDetector();
@@ -40,6 +40,7 @@ public class DriverControls {
         Gamepad pad = driver();
 
         shootPressed = shoot.rose(pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD);
+        shootHeld = pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD;
         rpmUpPressed = rpmUp.rose(pad.dpad_up);
         rpmDownPressed = rpmDown.rose(pad.dpad_down);
         flowerTogglePressed = flowerToggle.rose(pad.y);
@@ -85,7 +86,7 @@ public class DriverControls {
     }
 
     public boolean intake() {
-        return driver().right_bumper;
+        return driver().left_trigger > 0.2;
     }
 
     public boolean flowerTogglePressed() {

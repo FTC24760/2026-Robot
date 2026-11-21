@@ -17,7 +17,7 @@ public class SpeedController {
         public double kF, kS, kA;
         public double maxIntegral = 5000;
         // Limit on how fast the profiled target may ramp, velocity units per second.
-        public double maxAccel = 6000;
+        public double maxAccel = 1000;
         // Measured-velocity low-pass filter: 0 = unfiltered, closer to 1 = smoother.
         public double velocityAlpha = 0.7;
         // kS is only applied when the profiled target is above this speed.

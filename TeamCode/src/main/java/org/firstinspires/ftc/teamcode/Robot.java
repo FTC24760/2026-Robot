@@ -16,6 +16,7 @@ import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
+import org.firstinspires.ftc.teamcode.sequences.AutoShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
@@ -58,6 +59,7 @@ public class Robot {
     public final FlowerArm flowerArm;
     /** One-click shooting: spin up, open the blocker, feed, close. */
     public final ShootSequence shootSequence;
+    public final AutoShootSequence autoShootSequence;
     // Only present after enableAutoAim(); null otherwise, so robots without a Limelight
     // configured can still run.
     public Vision vision;
@@ -123,9 +125,12 @@ public class Robot {
         intake = new Intake(opMode.hardwareMap);
         turret = new Turret(opMode.hardwareMap);
         shooter = new Shooter(opMode.hardwareMap);
+        shooter.alwaysFullSpeed = true;
+
         flowerArm = new FlowerArm(opMode.hardwareMap);
         hood = new Hood(opMode.hardwareMap);
         shootSequence = new ShootSequence(shooter, intake);
+        autoShootSequence = new AutoShootSequence(shooter, intake);
 
         subsystems = new ArrayList<>(
                 Arrays.asList(drivetrain, intake, turret, shooter, flowerArm, hood));
@@ -274,6 +279,9 @@ public class Robot {
         hood.setPosition(Configurables.HOOD_POSITION);
         shooter.clearShootRpm();
         runShooter(shootSequence.wantsShooter());
+        if (!controls.shootHeld && !operator.shootHeld) {
+            shootSequence.cancel();
+        }
         shootSequence.update(nowSeconds());
 
         updateDrive();
@@ -283,7 +291,7 @@ public class Robot {
         if (reversing) {
             runIntake(Intake.Mode.REVERSE);
         } else if (shootSequence.isFeeding()) {
-            runIntake(Intake.Mode.TRANSFER_ONLY);
+            runIntake(Intake.Mode.INTAKE);
         } else if (shootSequence.isActive()) {
             runIntake(Intake.Mode.OFF);
         } else if (intakeOn) {
@@ -449,7 +457,7 @@ public class Robot {
 
         if (hasShot()) {
             shooter.setShootRpm(shot.rpm);
-            hood.setPosition(shot.hoodPosition);
+            //hood.setPosition(shot.hoodPosition);
         } else {
             // No usable shot: fixed TARGET_RPM with the hood at its matching position.
             shooter.clearShootRpm();

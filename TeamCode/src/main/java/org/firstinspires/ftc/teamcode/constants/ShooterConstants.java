@@ -31,9 +31,8 @@ public class ShooterConstants {
     // Max integral accumulator. Lower if the controller stays wound up.
     public static double MAX_INTEGRAL = 5000;
     // Target ramp limit, ticks/s^2.
-    public static double MAX_ACCEL = 6000.0;
+    public static double MAX_ACCEL = 700;
     // Velocity low-pass filter: 0 = no filtering, closer to 1 = smoother but laggier.
-    public static double VELOCITY_ALPHA = 0.7;
     // kS is only applied above this target speed, ticks/s.
     public static double KS_DEADBAND = 50.0;
 
@@ -45,7 +44,7 @@ public class ShooterConstants {
     // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
     // feed gating pausing the transfer whenever the wheel is slow.
     // Allow the blocker to open before starting the transfer; calibrate.
-    public static double BLOCKER_OPEN_SETTLE_S = 0.15;
+    public static double BLOCKER_OPEN_SETTLE_S = 0.3;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

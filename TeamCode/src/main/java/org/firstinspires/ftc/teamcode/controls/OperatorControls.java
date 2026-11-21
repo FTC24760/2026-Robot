@@ -15,6 +15,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  */
 public class OperatorControls {
     private final OpMode opMode;
+    public boolean shootHeld;
 
     private final EdgeDetector shoot = new EdgeDetector();
     private final EdgeDetector rpmUp = new EdgeDetector();
@@ -36,7 +37,7 @@ public class OperatorControls {
     public void update() {
         Gamepad pad = operator();
         boolean trigger = pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD;
-
+        shootHeld = pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD;
         shootPressed = shoot.rose(trigger);
         rpmUpPressed = rpmUp.rose(pad.dpad_up);
         rpmDownPressed = rpmDown.rose(pad.dpad_down);

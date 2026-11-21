@@ -246,7 +246,7 @@ public final class Steps {
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
             ctx.shotInterrupted = false;
-            ctx.robot.shootSequence.start(ctx.now());
+            ctx.robot.autoShootSequence.start(ctx.now());
         }
 
         @Override
@@ -258,7 +258,7 @@ public final class Steps {
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
-                ctx.robot.shootSequence.cancel();
+                ctx.robot.autoShootSequence.cancel();
                 if (AutoConstants.LOCK_TURRET_FORWARD) {
                     ctx.shotInterrupted = true;
                     return true;
@@ -270,10 +270,10 @@ public final class Steps {
                     return false;
                 }
                 pausedUntilS = -1;
-                ctx.robot.shootSequence.start(now);
+                ctx.robot.autoShootSequence.start(now);
             }
 
-            if (ctx.robot.shootSequence.isFeeding()) {
+            if (ctx.robot.autoShootSequence.isFeeding()) {
                 fedS += dt;
                 return fedS >= feedS;
             }
@@ -283,7 +283,7 @@ public final class Steps {
 
         @Override
         public void end(AutoContext ctx) {
-            ctx.robot.shootSequence.cancel();
+            ctx.robot.autoShootSequence.cancel();
             // After a tip the count restarts for the new up CELL, so only count full shots.
             if (fedS > 0 && !ctx.shotInterrupted) {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);

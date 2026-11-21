@@ -32,6 +32,7 @@ public class ShootSequence {
     private Stage stage = Stage.IDLE;
     private double stageStartS;
     private double readySinceS = -1;
+    private double blockerS = -1;
 
     public ShootSequence(Shooter shooter, Intake intake) {
         this.shooter = shooter;
@@ -67,27 +68,22 @@ public class ShootSequence {
     public void update(double nowS) {
         switch (stage) {
             case SPINNING_UP:
-                if (nowS - stageStartS >= ShooterConstants.BURST_SPIN_UP_TIMEOUT_S) {
-                    cancel();
-                } else if (wheelSettled(nowS)) {
+                if (wheelSettled(nowS)) {
                     intake.setBlockerOpen(true);
+                    blockerS = nowS;
                     enter(Stage.OPENING_GATE, nowS);
                 }
                 break;
-
             case OPENING_GATE:
                 if (!shooter.isReadyToFeed()) {
                     cancel();
                     start(nowS);
-                } else if (nowS - stageStartS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
+                } else if (nowS - blockerS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
                     enter(Stage.FEEDING, nowS);
                 }
                 break;
 
             case FEEDING:
-                if (nowS - stageStartS >= Configurables.SHOOT_FEED_SECONDS) {
-                    cancel();
-                }
                 break;
 
             case IDLE:

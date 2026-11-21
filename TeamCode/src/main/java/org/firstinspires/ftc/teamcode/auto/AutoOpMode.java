@@ -125,11 +125,11 @@ public abstract class AutoOpMode extends OpMode {
 
         // Background jobs. Shooter before intake, so feed gating uses this loop's speed.
         robot.flowerArm.setDown(ctx.flowerDown);
-        robot.runShooter(ctx.spinUp || robot.shootSequence.wantsShooter());
-        robot.shootSequence.update(robot.nowSeconds());
+        robot.runShooter(ctx.spinUp || robot.autoShootSequence.wantsShooter());
+        robot.autoShootSequence.update(robot.nowSeconds());
         aimTurret();
-        robot.runIntake(robot.shootSequence.isFeeding() ? Intake.Mode.TRANSFER_ONLY
-                : robot.shootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
+        robot.runIntake(robot.autoShootSequence.isFeeding() ? Intake.Mode.TRANSFER_ONLY
+                : robot.autoShootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
         telemetry.addData("Auto step", routine.currentStep());
         telemetry.addData("Up CELL", "%s%s", ctx.upSide, robot.isAiming() ? " (Limelight)" : " (odometry)");

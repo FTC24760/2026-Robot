@@ -23,7 +23,7 @@ public abstract class MatchTeleOp extends RobotTeleOp {
 
     @Override
     protected Robot createRobot() {
-        Robot robot = new Robot(this).enableShooterAssist();
+        Robot robot = new Robot(this).enableShooterAssist().enableAutoAim(alliance);
         robot.setPose(TeleOpConstants.startingPose(alliance));
         telemetry.addData("Alliance", alliance);
         telemetry.addData("Start X (in)", robot.drivetrain.getPose().x());

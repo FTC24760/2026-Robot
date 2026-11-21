@@ -19,7 +19,7 @@ import org.firstinspires.ftc.teamcode.utils.SpeedController;
  * With assist enabled it also applies the rapid-fire fixes in ShooterAssistConstants.
  */
 public class Shooter implements Subsystem {
-
+    public boolean alwaysFullSpeed = false;
     public enum State {
         /** Hold the shooting speed: Configurables.SHOOTER_RPM, or the auto-aim speed if set. */
         SHOOT,
@@ -69,8 +69,11 @@ public class Shooter implements Subsystem {
     }
 
     /** The speed the SHOOT state aims for right now. */
-    public double getShootRpm() {
+    /*public double getShootRpm() {
         return Double.isNaN(shootRpmOverride) ? Configurables.SHOOTER_RPM : shootRpmOverride;
+    }*/
+    public double getShootRpm() {
+        return Configurables.SHOOTER_RPM;
     }
 
     /** Tell the shooter a burst is being fed, so it recovers as hard as it can between balls. */
@@ -122,7 +125,7 @@ public class Shooter implements Subsystem {
             );
 
         }
-        if (state == State.IDLE && getActualRpm() > ShooterConstants.IDLE_RPM) {
+        if (state == State.IDLE && getActualRpm() > getStateTargetRpm()) {
             power = 0.01;
         }
         motor.setPower(power);
@@ -217,7 +220,7 @@ public class Shooter implements Subsystem {
         gains.kA = ShooterConstants.kA;
         gains.maxIntegral = ShooterConstants.MAX_INTEGRAL;
         gains.maxAccel = ShooterConstants.MAX_ACCEL;
-        gains.velocityAlpha = ShooterConstants.VELOCITY_ALPHA;
+        gains.velocityAlpha = ShooterAssistConstants.VELOCITY_ALPHA;
         gains.kSDeadband = ShooterConstants.KS_DEADBAND;
 
         if (assistEnabled) {
@@ -228,9 +231,10 @@ public class Shooter implements Subsystem {
     }
 
     private double getStateTargetRpm() {
-        if (state == State.SHOOT) {
+        if (state == State.SHOOT || alwaysFullSpeed) {
             return getShootRpm();
         }
-        else return ShooterConstants.IDLE_RPM;
+
+        return ShooterConstants.IDLE_RPM;
     }
 }
