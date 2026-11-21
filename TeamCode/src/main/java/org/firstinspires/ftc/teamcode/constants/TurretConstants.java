@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
-@Configurable
 public class TurretConstants {
     public static String LEFT_SERVO_NAME = "leftturret";
     public static String RIGHT_SERVO_NAME = "rightturret";

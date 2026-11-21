@@ -1,19 +1,17 @@
 package org.firstinspires.ftc.teamcode;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
-import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
-import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.controls.DriverControls;
-import org.firstinspires.ftc.teamcode.controls.ManualControls;
 import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
@@ -45,15 +43,14 @@ import java.util.List;
  *
  *   loop() -> robot.beginLoop();
  *             robot.drivetrain.update();      // follow the current path
- *             robot.shootSequence.update(robot.nowSeconds());
  *             robot.runShooter(true);         // spin up / hold speed
+ *             robot.shootSequence.update(robot.nowSeconds());
  *             robot.runTurret(0);             // auto-align if the HIVE is in view
  *             robot.runIntake(mode);          // feed, held back until the wheel is ready
  *             robot.endLoop();
  */
 public class Robot {
     public final Drivetrain drivetrain;
-    public final Butterfly butterfly;
     public final Intake intake;
     public final Turret turret;
     public final Shooter shooter;
@@ -70,8 +67,6 @@ public class Robot {
     private final Telemetry telemetry;
     private final DriverControls controls;
     private final OperatorControls operator;
-    // Set by useManualControls(); when present it replaces the one-click scheme.
-    private ManualControls manualControls;
     private final HubManager hubs;
     private final List<Subsystem> subsystems;
 
@@ -103,17 +98,10 @@ public class Robot {
     private boolean aimEnabled = true;
     private String aimNote = "";
 
-    // Operator's manual aim (teleop only): turret, hood and wheel speed set by hand.
-    private boolean manualAim;
-    private double manualTurret;
-    private double manualHood;
-    private double manualRpm;
-
     // Driver's intake on/off switch (teleop only).
     private boolean intakeOn;
     // Flower intake side-to-side shift (teleop only); null when not shifting.
     private Pose shiftCenter;
-    private double shiftStartS;
 
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
@@ -131,7 +119,6 @@ public class Robot {
         operator = new OperatorControls(opMode);
 
         drivetrain = new Drivetrain(opMode.hardwareMap);
-        butterfly = new Butterfly(opMode.hardwareMap);
         intake = new Intake(opMode.hardwareMap);
         turret = new Turret(opMode.hardwareMap);
         shooter = new Shooter(opMode.hardwareMap);
@@ -140,7 +127,7 @@ public class Robot {
         shootSequence = new ShootSequence(shooter, intake);
 
         subsystems = new ArrayList<>(
-                Arrays.asList(drivetrain, butterfly, intake, turret, shooter, flowerArm, hood));
+                Arrays.asList(drivetrain, intake, turret, shooter, flowerArm, hood));
     }
 
     /**
@@ -167,7 +154,7 @@ public class Robot {
      * and hood angle from the measured distance.
      *
      * If there is no Limelight in the robot configuration, auto-aim stays off and the
-     * robot still runs with manual aiming and the fixed ShooterConstants.TARGET_RPM; a
+     * robot still runs with manual aiming and the fixed Configurables.SHOOTER_RPM; a
      * warning is shown on telemetry. A missing hood servo is tolerated the same way.
      * When the upward-facing CELL is not in view, the shooter also falls back to
      * TARGET_RPM and the turret and hood stay where they were.
@@ -241,7 +228,7 @@ public class Robot {
 
     public void start() {
         // Put the hood somewhere known; without a Limelight nothing else ever moves it.
-        hood.setPosition(ShotConstants.CAL_HOOD_POSITION);
+        hood.setPosition(Configurables.HOOD_POSITION);
 
         startNs = System.nanoTime();
         lastRpmLoggedNs = 0;
@@ -252,64 +239,45 @@ public class Robot {
         }
     }
 
-    /**
-     * Drive with the original hold-to-run controls (see ManualControls) instead of the
-     * one-click scheme: hold the right trigger to spin the shooter, hold the left
-     * trigger to intake, and open the blocker yourself.
-     */
-    public Robot useManualControls() {
-        manualControls = new ManualControls(opMode);
-        return this;
-    }
-
     /** One iteration of teleop. Call from OpMode.loop(). */
     public void update() {
-        if (manualControls != null) {
-            updateManual();
-            return;
-        }
-
         beginLoop();
         controls.update();
         operator.update();
-        updateManualAim();
 
         // Switches (driver or operator).
         if (controls.aimTogglePressed() || operator.aimTogglePressed()) {
             aimEnabled = !aimEnabled;
         }
-        intakeOn = controls.driver().left_trigger > 0.2;
+        intakeOn = controls.intake() || operator.intake();
         if (controls.flowerTogglePressed() || operator.flowerTogglePressed()) {
             flowerArm.toggle();
         }
         flowerArm.refresh();
-        // The blocker belongs to the shoot sequence while a shot is in progress.
-        if ((controls.blockerTogglePressed() || operator.blockerTogglePressed())
-                && !shootSequence.isActive()) {
-            intake.toggleBlocker();
-        }
-
-        // Shooting.
-        if (controls.shooterStopPressed() || operator.shootReleased()) {
+        // A reverse request cancels shooting; the gate remains closed during collection.
+        boolean reversing = controls.reverse() || operator.reverse();
+        boolean stopShot = controls.shooterStopPressed() || reversing;
+        if (stopShot) {
             shootSequence.cancel();
-        }
-        if (controls.shootPressed() || operator.shootPressed()) {
+            shooterArmed = false;
+        } else if (controls.shootPressed() || operator.shootPressed()) {
             shootSequence.toggle(nowSeconds());
         }
+        hood.setPosition(Configurables.HOOD_POSITION);
+        shooter.clearShootRpm();
+        runShooter(shootSequence.wantsShooter() || (!stopShot && controls.manualSpin()));
         shootSequence.update(nowSeconds());
-        runShooter(shootSequence.wantsShooter() || controls.manualSpin());
 
         updateDrive();
-        runTeleopTurret(controls.turretDirection());
+        runTeleopTurret();
 
         // Intake and transfer, highest priority first.
-        if (controls.reverse() || operator.reverse()) {
+        if (reversing) {
             runIntake(Intake.Mode.REVERSE);
         } else if (shootSequence.isFeeding()) {
-            // Intake roller and transfer together, so every ball reaches the wheel.
-            runIntake(Intake.Mode.INTAKE);
-        } else if (controls.transferOnly()) {
             runIntake(Intake.Mode.TRANSFER_ONLY);
+        } else if (shootSequence.isActive()) {
+            runIntake(Intake.Mode.OFF);
         } else if (intakeOn) {
             runIntake(Intake.Mode.INTAKE);
         } else {
@@ -319,96 +287,9 @@ public class Robot {
         endLoop();
     }
 
-    // Teleop with the original hold-to-run controls.
-    private void updateManual() {
-        beginLoop();
-        manualControls.update();
-        operator.update();
-        updateManualAim();
-
-        if (manualControls.shooterStopPressed()) {
-        }
-        runShooter(manualControls.shoot());
-
-        if (manualControls.resetPose()) {
-            resetPose();
-        }
-        butterfly.setDown();
-        drivetrain.driveFieldCentric(
-                manualControls.forward(), manualControls.strafe(), manualControls.rotate());
-
-        runTeleopTurret(manualControls.turretDirection());
-
-        if (manualControls.blockerTogglePressed()) {
-            intake.toggleBlocker();
-        }
-        if (manualControls.intake()) {
-            runIntake(Intake.Mode.INTAKE);
-        } else if (manualControls.transferOnly()) {
-            runIntake(Intake.Mode.TRANSFER_ONLY);
-        } else {
-            runIntake(Intake.Mode.OFF);
-        }
-
-        endLoop();
-    }
-
-    // Operator's manual aim: toggled on gamepad 2, then turret, hood and wheel speed follow
-    // the operator instead of auto-aim. Runs after beginLoop(), so it overrides what
-    // auto-aim set this loop, and before runShooter(), so the wheel uses it.
-    private void updateManualAim() {
-        if (operator.manualTogglePressed()) {
-            manualAim = !manualAim;
-            if (manualAim) {
-                // Start from where things are now so nothing jumps.
-                manualTurret = turret.getPosition();
-                double h = hood.getPosition();
-                manualHood = Double.isNaN(h) ? ShotConstants.HOOD_DOWN_POSITION : h;
-                manualRpm = shooter.getShootRpm();
-            } else {
-                shooter.clearShootRpm();
-            }
-        }
-        if (!manualAim) {
-            return;
-        }
-
-        manualTurret = MathUtil.clamp(
-                manualTurret + operator.turret() * OperatorConstants.TURRET_RATE * loopSeconds,
-                TurretConstants.MIN_POSITION, TurretConstants.MAX_POSITION);
-
-        // D-pad up always raises the hood, whichever way its positions run.
-        double up = Math.signum(ShotConstants.HOOD_UP_POSITION - ShotConstants.HOOD_DOWN_POSITION);
-        manualHood = MathUtil.clamp(
-                manualHood + up * operator.hood() * OperatorConstants.HOOD_RATE * loopSeconds,
-                Math.min(ShotConstants.HOOD_DOWN_POSITION, ShotConstants.HOOD_UP_POSITION),
-                Math.max(ShotConstants.HOOD_DOWN_POSITION, ShotConstants.HOOD_UP_POSITION));
-
-        if (operator.rpmUpPressed()) {
-            manualRpm += OperatorConstants.RPM_STEP;
-        }
-        if (operator.rpmDownPressed()) {
-            manualRpm -= OperatorConstants.RPM_STEP;
-        }
-        manualRpm = MathUtil.clamp(manualRpm, OperatorConstants.MIN_RPM, OperatorConstants.MAX_RPM);
-
-        shooter.setShootRpm(manualRpm);
-        hood.setPosition(manualHood);
-    }
-
-    // In manual aim the operator holds the turret; otherwise auto-aim or the driver's
-    // bumpers move it.
-    private void runTeleopTurret(double driverDirection) {
-        if (manualAim) {
-            turret.setPosition(manualTurret);
-        } else {
-            runTurret(driverDirection);
-        }
-    }
-
-    /** True while the operator is aiming by hand. */
-    public boolean isManualAim() {
-        return manualAim;
+    // Operator right stick aims the turret; driver bumpers are exclusively intake/outtake.
+    private void runTeleopTurret() {
+        runTurret(operator.turret());
     }
 
     // ---- Building blocks, also used directly by autonomous OpModes ----
@@ -494,13 +375,6 @@ public class Robot {
         // Takes effect on the next shooter update, one loop later.
         shooter.setFeedingBurst(gated);
 
-        // While shooting, the transfer can run at its own power.
-        boolean slowFeed = shooterAssist
-                && ShooterAssistConstants.SHOOT_TRANSFER_POWER_ENABLED
-                && shooting;
-        intake.setTransferPowerOverride(
-                slowFeed ? ShooterAssistConstants.SHOOT_TRANSFER_POWER : Double.NaN);
-
         intake.setVoltageScale(voltageScale);
         intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
     }
@@ -571,11 +445,12 @@ public class Robot {
         } else {
             // No usable shot: fixed TARGET_RPM with the hood at its matching position.
             shooter.clearShootRpm();
-            hood.setPosition(ShotConstants.CAL_HOOD_POSITION);
+            hood.setPosition(Configurables.HOOD_POSITION);
         }
     }
 
     public void stop() {
+        shootSequence.cancel();
         for (Subsystem subsystem : subsystems) {
             subsystem.stop();
         }
@@ -592,8 +467,6 @@ public class Robot {
             resetPose();
         }
 
-        butterfly.setDown();
-
         // Flower intake: with the arm down and the sticks still, shift side to side to
         // work the POLLEN out. Any stick input takes over at once.
         boolean sticksStill = Math.abs(controls.forward()) < 0.05
@@ -602,7 +475,6 @@ public class Robot {
         if (IntakeConstants.FLOWER_SHIFT_IN_TELEOP && flowerArm.isDown() && sticksStill) {
             if (shiftCenter == null) {
                 shiftCenter = drivetrain.getPose();
-                shiftStartS = nowSeconds();
             }
             drivetrain.shiftAround(shiftCenter, IntakeConstants.FLOWER_SHIFT_IN,
                     IntakeConstants.FLOWER_SHIFT_POWER, IntakeConstants.FLOWER_SHIFT_PERIOD_S,
@@ -659,17 +531,10 @@ public class Robot {
             telemetry.addData("Feed pulses", feedPulser.getPulseCount());
         }
 
-        if (manualControls == null) {
-            telemetry.addData("Shoot", shootSequence.getStage());
-            telemetry.addData("Intake switch", intakeOn ? "ON" : "off");
-        }
+        telemetry.addData("Shoot", shootSequence.getStage());
+        telemetry.addData("Intake held", intakeOn ? "yes" : "no");
         if (!aimNote.isEmpty()) {
             telemetry.addLine(aimNote);
-        }
-
-        if (manualAim) {
-            telemetry.addData("MANUAL AIM (operator)", "turret %.3f  hood %.3f  %.0f RPM",
-                    manualTurret, manualHood, manualRpm);
         }
 
         if (vision != null) {

@@ -1,13 +1,11 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 /**
  * Limelight mounting and HIVE detection. Distances are in metres, angles in degrees.
  * Everything marked CALIBRATE is a starting guess: check it with the "Test: Hive Vision"
  * OpMode against a tape measure before trusting auto-aim.
  */
-@Configurable
 public class VisionConstants {
     public static String LIMELIGHT_NAME = "limelight";
     // The Limelight pipeline must be an AprilTag (36h11) pipeline with tag size 82.5 mm

@@ -3,23 +3,20 @@ package org.firstinspires.ftc.teamcode.opmodes.test;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.ImuMecanumDrive;
 
 /**
- * Drivetrain and butterflies only, for checking the drive base without the other mechanisms.
+ * Mecanum drivetrain only, for checking the drive base without the other mechanisms.
  * Field-relative by default; hold left bumper for robot-relative.
- * A resets heading, right bumper inverts the butterflies.
+ * A resets heading.
  */
 @TeleOp(name = "Test: Drive", group = "Test")
 public class DriveTest extends OpMode {
     private ImuMecanumDrive drivetrain;
-    private Butterfly butterfly;
 
     @Override
     public void init() {
         drivetrain = new ImuMecanumDrive(hardwareMap);
-        butterfly = new Butterfly(hardwareMap);
     }
 
     @Override
@@ -33,15 +30,12 @@ public class DriveTest extends OpMode {
             drivetrain.resetYaw();
         }
 
-        butterfly.update(forward, strafe, rotate, gamepad1.right_bumper);
-
         if (robotRelative) {
             drivetrain.driveRobotCentric(forward, strafe, rotate);
         } else {
             drivetrain.driveFieldCentric(forward, strafe, rotate);
         }
 
-        butterfly.addTelemetry(telemetry);
         telemetry.addData("Drive Mode", robotRelative ? "Robot Relative" : "Field Relative");
         telemetry.update();
     }

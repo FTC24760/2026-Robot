@@ -1,9 +1,7 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
-@Configurable
 public class ShooterConstants {
     public static String MOTOR_NAME = "shooter";
     public static DcMotorSimple.Direction direction = DcMotorSimple.Direction.FORWARD;
@@ -13,7 +11,6 @@ public class ShooterConstants {
 
     // The hub reports speed in steps of 20 ticks/s = 42.86 RPM (..., 1500, 1543, 1586, ...).
     // Keep this on a step so the controller reads zero error when it is on target.
-    public static double TARGET_RPM = 3350;
     public static double IDLE_RPM = 500;
 
     // Software velocity controller gains, in motor power per encoder tick/second
@@ -43,11 +40,12 @@ public class ShooterConstants {
     // ---- One-click shooting (ShootSequence), used by teleop and autonomous. ----
     // The wheel must read ready for this long before the first ball is fed.
     public static double BURST_READY_SETTLE_S = 0.15;
-    // Give up waiting for the wheel and feed anyway after this long.
+    // Cancel without feeding if RPM or hood readiness takes too long.
     public static double BURST_SPIN_UP_TIMEOUT_S = 3.0;
     // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
     // feed gating pausing the transfer whenever the wheel is slow.
-    public static double BURST_FEED_S = 3.5;
+    // Allow the blocker to open before starting the transfer; calibrate.
+    public static double BLOCKER_OPEN_SETTLE_S = 0.15;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

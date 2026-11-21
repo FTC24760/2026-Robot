@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -110,7 +111,7 @@ public abstract class AutoOpMode extends OpMode {
     @Override
     public void loop() {
         robot.beginLoop();
-        robot.butterfly.setDown();
+        robot.hood.setPosition(Configurables.HOOD_POSITION);
         robot.drivetrain.update();
         trackUpSide();
 
@@ -120,14 +121,15 @@ public abstract class AutoOpMode extends OpMode {
             routineStarted = true;
         }
 
-        robot.shootSequence.update(robot.nowSeconds());
         routine.update(ctx);
 
         // Background jobs. Shooter before intake, so feed gating uses this loop's speed.
         robot.flowerArm.setDown(ctx.flowerDown);
         robot.runShooter(ctx.spinUp || robot.shootSequence.wantsShooter());
+        robot.shootSequence.update(robot.nowSeconds());
         aimTurret();
-        robot.runIntake(robot.shootSequence.isFeeding() ? Intake.Mode.INTAKE : ctx.intakeMode);
+        robot.runIntake(robot.shootSequence.isFeeding() ? Intake.Mode.TRANSFER_ONLY
+                : robot.shootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
         telemetry.addData("Auto step", routine.currentStep());
         telemetry.addData("Up CELL", "%s%s", ctx.upSide, robot.isAiming() ? " (Limelight)" : " (odometry)");

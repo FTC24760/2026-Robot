@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import static org.firstinspires.ftc.teamcode.utils.MathUtil.clamp;
 import static org.firstinspires.ftc.teamcode.utils.MathUtil.rpmToTicksPerSecond;
 import static org.firstinspires.ftc.teamcode.utils.MathUtil.ticksPerSecondToRpm;
@@ -20,7 +21,7 @@ import org.firstinspires.ftc.teamcode.utils.SpeedController;
 public class Shooter implements Subsystem {
 
     public enum State {
-        /** Hold the shooting speed: ShooterConstants.TARGET_RPM, or the auto-aim speed if set. */
+        /** Hold the shooting speed: Configurables.SHOOTER_RPM, or the auto-aim speed if set. */
         SHOOT,
         /** Hold the idle RPM (ShooterAssistConstants.IDLE_RPM with assist, else ShooterConstants). */
         IDLE,
@@ -41,7 +42,7 @@ public class Shooter implements Subsystem {
     private boolean feedingBurst;
     // The last three raw speed readings, newest first, for the feed gate's noise filter.
     private final double[] recentRpm = new double[3];
-    // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
+    // Shooting speed chosen by auto-aim; NaN means use Configurables.SHOOTER_RPM.
     private double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {
@@ -57,19 +58,19 @@ public class Shooter implements Subsystem {
         this.assistEnabled = assistEnabled;
     }
 
-    /** Shoot at this speed instead of ShooterConstants.TARGET_RPM (used by auto-aim). */
+    /** Shoot at this speed instead of Configurables.SHOOTER_RPM (used by auto-aim). */
     public void setShootRpm(double rpm) {
         shootRpmOverride = rpm;
     }
 
-    /** Go back to shooting at ShooterConstants.TARGET_RPM. */
+    /** Go back to shooting at Configurables.SHOOTER_RPM. */
     public void clearShootRpm() {
         shootRpmOverride = Double.NaN;
     }
 
     /** The speed the SHOOT state aims for right now. */
     public double getShootRpm() {
-        return Double.isNaN(shootRpmOverride) ? ShooterConstants.TARGET_RPM : shootRpmOverride;
+        return Double.isNaN(shootRpmOverride) ? Configurables.SHOOTER_RPM : shootRpmOverride;
     }
 
     /** Tell the shooter a burst is being fed, so it recovers as hard as it can between balls. */

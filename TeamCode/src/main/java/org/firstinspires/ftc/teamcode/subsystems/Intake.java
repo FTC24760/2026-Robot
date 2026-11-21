@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
@@ -30,7 +31,6 @@ public class Intake implements Subsystem {
     private boolean blockerOpen;
     private double voltageScale = 1.0;
     private double transferPower;
-    private double transferPowerOverride = Double.NaN;
 
     public Intake(HardwareMap hardwareMap) {
         intakeMotor = hardwareMap.get(DcMotor.class, IntakeConstants.INTAKE_MOTOR_NAME);
@@ -51,22 +51,13 @@ public class Intake implements Subsystem {
         this.voltageScale = voltageScale;
     }
 
-    /**
-     * Use a different transfer power from the next setMode() on, for example a slower
-     * feed while shooting. Pass NaN to go back to IntakeConstants.TRANSFER_POWER.
-     *
-     * @param power transfer power at nominal voltage, or NaN for the default
-     */
-    public void setTransferPowerOverride(double power) {
-        transferPowerOverride = power;
-    }
-
     public void setMode(Mode mode) {
         this.mode = mode;
+        setBlockerOpen(blockerOpen);
 
         if (mode == Mode.REVERSE) {
-            transferPower = -IntakeConstants.REVERSE_POWER;
-            intakeMotor.setPower(-IntakeConstants.REVERSE_POWER);
+            transferPower = -Configurables.OUTTAKE_POWER;
+            intakeMotor.setPower(-Configurables.OUTTAKE_POWER);
             transferMotor.setPower(transferPower);
             return;
         }
@@ -75,13 +66,11 @@ public class Intake implements Subsystem {
             transferPower = 0.0;
         } else {
             double scale = IntakeConstants.TRANSFER_VOLTAGE_COMPENSATION ? voltageScale : 1.0;
-            double base = Double.isNaN(transferPowerOverride)
-                    ? IntakeConstants.TRANSFER_POWER
-                    : transferPowerOverride;
+            double base = Configurables.TRANSFER_POWER;
             transferPower = MathUtil.clamp(base * scale, 0.0, 1.0);
         }
 
-        intakeMotor.setPower(mode == Mode.INTAKE ? IntakeConstants.INTAKE_POWER : 0.0);
+        intakeMotor.setPower(mode == Mode.INTAKE ? Configurables.INTAKE_POWER : 0.0);
         transferMotor.setPower(transferPower);
     }
 
@@ -97,8 +86,8 @@ public class Intake implements Subsystem {
     public void setBlockerOpen(boolean open) {
         blockerOpen = open;
         blockerServo.setPosition(open
-                ? IntakeConstants.BLOCKER_OPEN_POSITION
-                : IntakeConstants.BLOCKER_CLOSED_POSITION);
+                ? Configurables.BLOCKER_OPEN_POSITION
+                : Configurables.BLOCKER_CLOSED_POSITION);
     }
 
     public void toggleBlocker() {

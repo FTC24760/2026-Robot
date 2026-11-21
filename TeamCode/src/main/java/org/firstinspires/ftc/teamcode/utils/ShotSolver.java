@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.utils;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 
 /**
@@ -65,7 +66,7 @@ public final class ShotSolver {
         if (ShotConstants.PIN_HOOD_TO_CAL) {
             // Keep the hood where the known-good calibration shot had it; only the wheel
             // speed changes with distance.
-            angleDeg = angleForHoodPosition(ShotConstants.CAL_HOOD_POSITION);
+            angleDeg = angleForHoodPosition(Configurables.HOOD_POSITION);
         } else {
             // Drag-free parabola through (range, rise): the slope on arrival is
             // 2*rise/range - tan(launch). Setting it to -tan(entry) gives the angle.
@@ -110,7 +111,7 @@ public final class ShotSolver {
 
         double[] key = {
                 ShotConstants.CAL_RPM, ShotConstants.CAL_DISTANCE_M, ShotConstants.CAL_TAG_HEIGHT_M,
-                ShotConstants.CAL_HOOD_POSITION, ShotConstants.HOOD_DOWN_POSITION,
+                Configurables.HOOD_POSITION, ShotConstants.HOOD_DOWN_POSITION,
                 ShotConstants.HOOD_DOWN_ANGLE_DEG, ShotConstants.HOOD_UP_POSITION,
                 ShotConstants.HOOD_UP_ANGLE_DEG, ShotConstants.EXIT_HEIGHT_M,
                 ShotConstants.EXIT_FORWARD_M, ShotConstants.TARGET_ABOVE_TAG_M,
@@ -123,7 +124,7 @@ public final class ShotSolver {
         double range = ShotConstants.CAL_DISTANCE_M - ShotConstants.EXIT_FORWARD_M;
         double rise = ShotConstants.CAL_TAG_HEIGHT_M + ShotConstants.TARGET_ABOVE_TAG_M
                 - ShotConstants.EXIT_HEIGHT_M;
-        double angle = Math.toRadians(angleForHoodPosition(ShotConstants.CAL_HOOD_POSITION));
+        double angle = Math.toRadians(angleForHoodPosition(Configurables.HOOD_POSITION));
         double drop = range * Math.tan(angle) - rise;
 
         double ratio = ShotConstants.EXIT_SPEED_PER_RPM;

@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
@@ -16,11 +15,10 @@ import org.firstinspires.ftc.teamcode.utils.CellSide;
  * Every routine is written for RED. The field is the same for blue turned half a circle
  * about its centre, so blue poses are worked out automatically.
  */
-@Configurable
 public class AutoConstants {
     // Aim (turret, wheel speed, hood) with the Limelight when it is configured. Without
-    // it the auto shoots at ShooterConstants.TARGET_RPM and the turret stays put.
-    public static boolean USE_AUTO_AIM = true;
+    // it the auto shoots at Configurables.SHOOTER_RPM and the turret stays put.
+    public static boolean USE_AUTO_AIM = false;
 
     // ---- Which CELL of our HIVE is up at the start, as seen by our drivers. ----
     // By the manual (10.3.1 and Figure 10-2, TU08) every match starts with each

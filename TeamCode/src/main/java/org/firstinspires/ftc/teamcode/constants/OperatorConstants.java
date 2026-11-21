@@ -1,13 +1,11 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 /**
  * The operator's manual aiming (gamepad 2, see OperatorControls). Turret and hood stay
  * inside their own limits: TurretConstants.MIN/MAX_POSITION and
  * ShotConstants.HOOD_DOWN/UP_POSITION.
  */
-@Configurable
 public class OperatorConstants {
     // Stick input smaller than this is ignored.
     public static double STICK_DEADZONE = 0.1;
