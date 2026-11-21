@@ -32,7 +32,7 @@ public class DriverControls {
     private final OpMode opMode;
 
     private final EdgeDetector shoot = new EdgeDetector();
-    private final EdgeDetector intakeToggle = new EdgeDetector();
+    public final EdgeDetector intakeToggle = new EdgeDetector();
     private final EdgeDetector flowerToggle = new EdgeDetector();
     private final EdgeDetector aimToggle = new EdgeDetector();
     private final EdgeDetector blockerToggle = new EdgeDetector();
@@ -141,7 +141,7 @@ public class DriverControls {
     }
 
     // Read through the OpMode every time rather than caching the Gamepad object.
-    private Gamepad driver() {
+    public Gamepad driver() {
         return opMode.gamepad1;
     }
 }

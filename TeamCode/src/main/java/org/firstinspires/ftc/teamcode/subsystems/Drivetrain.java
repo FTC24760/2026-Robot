@@ -45,7 +45,7 @@ public class Drivetrain implements Subsystem {
                 -rotate,
                 follower.pose().heading()
         );
-        ManualDrive.driveOrHold(follower, powers);
+        follower.manual(powers);
         follower.update();
         readPose();
     }

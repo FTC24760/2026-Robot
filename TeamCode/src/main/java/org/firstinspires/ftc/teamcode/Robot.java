@@ -278,9 +278,7 @@ public class Robot {
         if (controls.aimTogglePressed() || operator.aimTogglePressed()) {
             aimEnabled = !aimEnabled;
         }
-        if (controls.intakeTogglePressed() || operator.intakeTogglePressed()) {
-            intakeOn = !intakeOn;
-        }
+        intakeOn = controls.driver().left_trigger > 0.2;
         if (controls.flowerTogglePressed() || operator.flowerTogglePressed()) {
             flowerArm.toggle();
         }

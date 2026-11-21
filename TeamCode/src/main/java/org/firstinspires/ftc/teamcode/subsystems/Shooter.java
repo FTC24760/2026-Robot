@@ -108,18 +108,7 @@ public class Shooter implements Subsystem {
 
             targetTicksPerSecond = rpmToTicksPerSecond(targetRpm, ShooterConstants.TICKS_PER_REV);
             syncGains();
-
-            // Decided on the raw reading, not the filtered one, to react as early as possible.
-            // Holding speed uses a wider deadband so reading flicker does not fire the
-            // boost; during a burst it reacts to the first step down.
-            double boostBelowRpm = targetRpm - (feedingBurst
-                    ? ShooterAssistConstants.FEED_BOOST_DEADBAND_RPM
-                    : ShooterAssistConstants.RECOVERY_BOOST_DEADBAND_RPM);
-
-            boosting = assistEnabled
-                    && ShooterAssistConstants.RECOVERY_BOOST_ENABLED
-                    && state == State.SHOOT
-                    && getActualRpm() < boostBelowRpm;
+            boosting = false;
 
             // The controller keeps running while boosting so its filter and ramp stay
             // current, but its integral is held: the dip is the boost's job to fix.
@@ -131,14 +120,6 @@ public class Shooter implements Subsystem {
                     boosting
             );
 
-            if (assistEnabled) {
-                // Never drive the wheel backwards to slow it; let it coast down instead.
-                power = Math.max(power, 0.0);
-            }
-
-            if (boosting) {
-                power = Math.max(power, clamp(ShooterAssistConstants.RECOVERY_BOOST_POWER, 0, 1));
-            }
         }
         if (state == State.IDLE && getActualRpm() > ShooterConstants.IDLE_RPM) {
             power = 0.01;
@@ -249,6 +230,6 @@ public class Shooter implements Subsystem {
         if (state == State.SHOOT) {
             return getShootRpm();
         }
-        return assistEnabled ? ShooterAssistConstants.IDLE_RPM : ShooterConstants.IDLE_RPM;
+        else return ShooterConstants.IDLE_RPM;
     }
 }
