@@ -12,7 +12,7 @@ public class IntakeConstants {
 
     public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.REVERSE;
 
-    public static double INTAKE_POWER = 0.9;
+    public static double INTAKE_POWER = 1.0;
     // Transfer power at RobotConstants.NOMINAL_VOLTAGE.
     public static double TRANSFER_POWER = 0.8;
     // Backup: power for running the intake and transfer backwards to clear a jam.
