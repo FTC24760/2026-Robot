@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import org.firstinspires.ftc.teamcode.constants.Configurables;
+import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -244,6 +245,13 @@ public class Robot {
         beginLoop();
         controls.update();
         operator.update();
+        int rpmDirection = (controls.rpmUpPressed() || operator.rpmUpPressed() ? 1 : 0)
+                - (controls.rpmDownPressed() || operator.rpmDownPressed() ? 1 : 0);
+        if (rpmDirection != 0) {
+            Configurables.SHOOTER_RPM = MathUtil.clamp(
+                    Configurables.SHOOTER_RPM + rpmDirection * OperatorConstants.RPM_STEP,
+                    OperatorConstants.MIN_RPM, OperatorConstants.MAX_RPM);
+        }
 
         // Switches (driver or operator).
         if (controls.aimTogglePressed() || operator.aimTogglePressed()) {
@@ -265,7 +273,7 @@ public class Robot {
         }
         hood.setPosition(Configurables.HOOD_POSITION);
         shooter.clearShootRpm();
-        runShooter(shootSequence.wantsShooter() || (!stopShot && controls.manualSpin()));
+        runShooter(shootSequence.wantsShooter());
         shootSequence.update(nowSeconds());
 
         updateDrive();

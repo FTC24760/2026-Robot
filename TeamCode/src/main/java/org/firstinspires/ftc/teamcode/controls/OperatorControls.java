@@ -10,12 +10,17 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
 /**
  * Right trigger: press to start/cancel shooting. Right bumper: hold intake.
  * Left bumper: hold outtake (takes priority). Y: toggle flower arm.
- * Right stick X aims the turret. Hood and RPM are set in Panels Configurables.
+ * Right stick X aims the turret. D-pad up/down adjusts RPM by 50 per press.
+ * Hood and RPM are also set in Panels Configurables.
  */
 public class OperatorControls {
     private final OpMode opMode;
 
     private final EdgeDetector shoot = new EdgeDetector();
+    private final EdgeDetector rpmUp = new EdgeDetector();
+    private final EdgeDetector rpmDown = new EdgeDetector();
+    private boolean rpmUpPressed;
+    private boolean rpmDownPressed;
     private final EdgeDetector flowerToggle = new EdgeDetector();
     private final EdgeDetector aimToggle = new EdgeDetector();
 
@@ -33,6 +38,8 @@ public class OperatorControls {
         boolean trigger = pad.right_trigger > RobotConstants.TRIGGER_THRESHOLD;
 
         shootPressed = shoot.rose(trigger);
+        rpmUpPressed = rpmUp.rose(pad.dpad_up);
+        rpmDownPressed = rpmDown.rose(pad.dpad_down);
         flowerTogglePressed = flowerToggle.rose(pad.y);
         aimTogglePressed = aimToggle.rose(pad.a);
     }
@@ -41,6 +48,14 @@ public class OperatorControls {
 
     public boolean shootPressed() {
         return shootPressed;
+    }
+
+    public boolean rpmUpPressed() {
+        return rpmUpPressed;
+    }
+
+    public boolean rpmDownPressed() {
+        return rpmDownPressed;
     }
 
     public boolean intake() {
