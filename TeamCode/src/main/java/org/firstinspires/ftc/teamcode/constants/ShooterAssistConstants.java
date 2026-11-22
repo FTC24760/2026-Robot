@@ -27,7 +27,7 @@ public class ShooterAssistConstants {
     // Only applies while shooting (trigger held and blocker open).
     public static boolean FEED_GATING_ENABLED = false;
     // The wheel counts as ready between (target - LOW) and (target + HIGH).
-    public static double FEED_READY_LOW_RPM = 30;
+    public static double FEED_READY_LOW_RPM = 55;
     // Allows up to two encoder steps high. Lower it to 30 (one step) if balls go long:
     // a log showed some pulses starting 43-64 RPM fast right after a recovery overshoot.
     public static double FEED_READY_HIGH_RPM = 55;

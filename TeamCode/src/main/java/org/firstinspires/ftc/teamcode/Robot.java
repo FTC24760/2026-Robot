@@ -6,7 +6,6 @@ import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
@@ -101,10 +100,12 @@ public class Robot {
     private boolean aimEnabled = true;
     private String aimNote = "";
 
+    /** Feed in timed push/retract pulses while shooting. Operator X in teleop. */
+    public boolean pulseShoot = true;
+    private double pulseStartS = -1;
+
     // Driver's intake on/off switch (teleop only).
     private boolean intakeOn;
-    // Flower intake side-to-side shift (teleop only); null when not shifting.
-    private Pose shiftCenter;
 
     // Shooter diagnostics (off unless enableShooterLogging() is called).
     private AsyncRpmLogger rpmLogger;
@@ -263,6 +264,9 @@ public class Robot {
             aimEnabled = !aimEnabled;
         }
         intakeOn = controls.intake() || operator.intake();
+        if (operator.pulseTogglePressed()) {
+            pulseShoot = !pulseShoot;
+        }
         if (controls.flowerTogglePressed() || operator.flowerTogglePressed()) {
             flowerArm.toggle();
         }
@@ -288,8 +292,11 @@ public class Robot {
         runTeleopTurret();
 
         // Intake and transfer, highest priority first.
+        boolean pulsing = pulseActive(shootSequence.getStage() == ShootSequence.Stage.FEEDING);
         if (reversing) {
             runIntake(Intake.Mode.REVERSE);
+        } else if (pulsing) {
+            runIntake(pulseFeedMode());
         } else if (shootSequence.isFeeding()) {
             runIntake(Intake.Mode.INTAKE);
         } else if (shootSequence.isActive()) {
@@ -301,6 +308,34 @@ public class Robot {
         }
 
         endLoop();
+    }
+
+    /**
+     * True while pulse shoot should drive the transfer: it is switched on and a shoot
+     * sequence is in its feeding stage. Call once per loop; restarts the timer otherwise.
+     */
+    public boolean pulseActive(boolean feedingStage) {
+        boolean on = pulseShoot && feedingStage;
+        if (!on) {
+            pulseStartS = -1;
+        }
+        return on;
+    }
+
+    /**
+     * Pulse shoot, on a timer: push one ball in, pull the transfer back a little so the
+     * next ball waits off the wheel, repeat for PULSE_BALLS balls, then keep pushing.
+     */
+    public Intake.Mode pulseFeedMode() {
+        if (pulseStartS < 0) {
+            pulseStartS = nowSeconds();
+        }
+        double cycle = Configurables.PULSE_PUSH_SECONDS + Configurables.PULSE_RETRACT_SECONDS;
+        double t = nowSeconds() - pulseStartS;
+        if (t >= cycle * Configurables.PULSE_BALLS || t % cycle < Configurables.PULSE_PUSH_SECONDS) {
+            return Intake.Mode.INTAKE;
+        }
+        return Intake.Mode.RETRACT;
     }
 
     // Operator right stick aims the turret; driver bumpers are exclusively intake/outtake.
@@ -339,6 +374,15 @@ public class Robot {
             shooter.setState(Shooter.State.DISABLED);
         }
 
+        shooter.update(nowNs, voltageScale);
+    }
+
+    /**
+     * Run the shooter for this loop with no idle: shooting speed or fully off. The auto
+     * uses this so the wheel does not draw battery while driving between shots.
+     */
+    public void runShooterOrStop(boolean shoot) {
+        shooter.setState(shoot ? Shooter.State.SHOOT : Shooter.State.DISABLED);
         shooter.update(nowNs, voltageScale);
     }
 
@@ -483,26 +527,6 @@ public class Robot {
             resetPose();
         }
 
-        // Flower intake: with the arm down and the sticks still, shift side to side to
-        // work the POLLEN out. Any stick input takes over at once.
-        boolean sticksStill = Math.abs(controls.forward()) < 0.05
-                && Math.abs(controls.strafe()) < 0.05
-                && Math.abs(controls.rotate()) < 0.05;
-        if (IntakeConstants.FLOWER_SHIFT_IN_TELEOP && flowerArm.isDown() && sticksStill) {
-            if (shiftCenter == null) {
-                shiftCenter = drivetrain.getPose();
-            }
-            drivetrain.shiftAround(shiftCenter, IntakeConstants.FLOWER_SHIFT_IN,
-                    IntakeConstants.FLOWER_SHIFT_POWER, IntakeConstants.FLOWER_SHIFT_PERIOD_S,
-                    nowSeconds());
-            drivetrain.updateHold();
-            return;
-        }
-
-        if (shiftCenter != null) {
-            drivetrain.endShift();
-            shiftCenter = null;
-        }
         drivetrain.driveFieldCentric(controls.forward(), controls.strafe(), controls.rotate());
     }
 
@@ -548,6 +572,7 @@ public class Robot {
         }
 
         telemetry.addData("Shoot", shootSequence.getStage());
+        telemetry.addData("Pulse shoot (op X)", pulseShoot ? "ON" : "off");
         telemetry.addData("Intake held", intakeOn ? "yes" : "no");
         if (!aimNote.isEmpty()) {
             telemetry.addLine(aimNote);

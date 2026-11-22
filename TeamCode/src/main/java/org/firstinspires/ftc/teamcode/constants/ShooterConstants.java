@@ -38,13 +38,11 @@ public class ShooterConstants {
 
     // ---- One-click shooting (ShootSequence), used by teleop and autonomous. ----
     // The wheel must read ready for this long before the first ball is fed.
-    public static double BURST_READY_SETTLE_S = 0.15;
-    // Cancel without feeding if RPM or hood readiness takes too long.
-    public static double BURST_SPIN_UP_TIMEOUT_S = 3.0;
+    public static double BURST_READY_SETTLE_S = 0.2;
     // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
     // feed gating pausing the transfer whenever the wheel is slow.
     // Allow the blocker to open before starting the transfer; calibrate.
-    public static double BLOCKER_OPEN_SETTLE_S = 0.3;
+    public static double BLOCKER_OPEN_SETTLE_S = 0.49;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

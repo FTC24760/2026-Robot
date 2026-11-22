@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
 
 /**
  * Right trigger: press to start/cancel shooting. Right bumper: hold intake.
- * Left bumper: hold outtake (takes priority). Y: toggle flower arm.
+ * Left bumper: hold outtake (takes priority). Y: toggle flower arm. X: toggle pulse shoot.
  * Right stick X aims the turret. D-pad up/down adjusts RPM by 50 per press.
  * Hood and RPM are also set in Panels Configurables.
  */
@@ -28,6 +28,8 @@ public class OperatorControls {
     private boolean shootPressed;
     private boolean flowerTogglePressed;
     private boolean aimTogglePressed;
+    private final EdgeDetector pulseToggle = new EdgeDetector();
+    private boolean pulseTogglePressed;
 
     public OperatorControls(OpMode opMode) {
         this.opMode = opMode;
@@ -43,6 +45,12 @@ public class OperatorControls {
         rpmDownPressed = rpmDown.rose(pad.dpad_down);
         flowerTogglePressed = flowerToggle.rose(pad.y);
         aimTogglePressed = aimToggle.rose(pad.a);
+        pulseTogglePressed = pulseToggle.rose(pad.x);
+    }
+
+    /** X: switch pulse shooting on/off. */
+    public boolean pulseTogglePressed() {
+        return pulseTogglePressed;
     }
 
     // ---- Same as the driver ----

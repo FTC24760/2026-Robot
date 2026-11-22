@@ -67,9 +67,9 @@ public class AutoShootSequence {
     public void update(double nowS) {
         switch (stage) {
             case SPINNING_UP:
-                if (nowS - stageStartS >= ShooterConstants.BURST_SPIN_UP_TIMEOUT_S) {
-                    cancel();
-                } else if (wheelSettled(nowS)) {
+                // Same as teleop: wait for the wheel. The auto's ShootStep gives up if
+                // the first ball never goes.
+                if (wheelSettled(nowS)) {
                     intake.setBlockerOpen(true);
                     enter(Stage.OPENING_GATE, nowS);
                 }

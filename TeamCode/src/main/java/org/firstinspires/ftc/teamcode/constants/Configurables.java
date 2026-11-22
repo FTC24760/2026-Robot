@@ -15,7 +15,13 @@ public class Configurables {
     public static double OUTTAKE_POWER = 0.6;
     public static double BLOCKER_OPEN_POSITION = 0.032;
     public static double BLOCKER_CLOSED_POSITION = 0.0;
-    public static double FLOWER_UP_POSITION = 0.59;
-    public static double FLOWER_DOWN_POSITION = 0.69;
+    public static double FLOWER_UP_POSITION = 0.9184;
+    public static double FLOWER_DOWN_POSITION = 0.7909;
     public static double SHOOT_FEED_SECONDS = 5.5;
+    // Pulse shoot (operator X toggles it): push for PUSH, pull back for RETRACT, repeat
+    // for PULSE_BALLS balls, then keep pushing.
+    public static double PULSE_PUSH_SECONDS = 0.18;
+    public static double PULSE_RETRACT_SECONDS = 0.18;
+    public static double PULSE_RETRACT_POWER = 0.5;
+    public static int PULSE_BALLS = 4;
 }

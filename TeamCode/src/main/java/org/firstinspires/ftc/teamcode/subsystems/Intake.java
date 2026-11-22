@@ -20,7 +20,9 @@ public class Intake implements Subsystem {
         /** Transfer only, to feed what is already inside the robot. */
         TRANSFER_ONLY,
         /** Intake roller and transfer both backwards, to clear a jam. */
-        REVERSE
+        REVERSE,
+        /** Transfer only, backwards: pull the next ball back off the wheel. */
+        RETRACT
     }
 
     private final DcMotor intakeMotor;
@@ -58,6 +60,13 @@ public class Intake implements Subsystem {
         if (mode == Mode.REVERSE) {
             transferPower = -Configurables.OUTTAKE_POWER;
             intakeMotor.setPower(-Configurables.OUTTAKE_POWER);
+            transferMotor.setPower(transferPower);
+            return;
+        }
+
+        if (mode == Mode.RETRACT) {
+            transferPower = -Configurables.PULSE_RETRACT_POWER;
+            intakeMotor.setPower(0.0);
             transferMotor.setPower(transferPower);
             return;
         }

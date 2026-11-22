@@ -30,7 +30,4 @@ public class IntakeConstants {
     // Longest time on one side before switching, in case it cannot reach (e.g. pressed
     // against the FLOWER).
     public static double FLOWER_SHIFT_PERIOD_S = 0.25;
-    // TeleOp: shift automatically while the arm is down and the drive sticks are still.
-    // Touching a stick stops it at once.
-    public static boolean FLOWER_SHIFT_IN_TELEOP = true;
 }
