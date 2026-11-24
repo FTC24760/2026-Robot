@@ -5,11 +5,10 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.subsystems.Vision;
 import org.firstinspires.ftc.teamcode.utils.HiveCell;
-import org.firstinspires.ftc.teamcode.utils.ShotSolver;
 
 /**
  * Limelight only: shows every HIVE CELL in view with its distance, bearing and tag
- * height, and the shot the solver would pick. Nothing moves, so the hood and shooter
+ * height, and which CELL it would target. Nothing moves, so the hood and shooter
  * do not need to be connected.
  *
  * Use it to calibrate VisionConstants:
@@ -56,14 +55,8 @@ public class HiveVisionTest extends OpMode {
 
         Vision.HiveTarget target = vision.getTarget(nowNs);
         if (target != null) {
-            ShotSolver.Solution shot = ShotSolver.solveForCell(target.distanceM, target.tagHeightM);
-
             telemetry.addLine("=== Chosen target ===");
             telemetry.addData("cell", "%s, %s", target.cell, target.cellUp ? "UP" : "DOWN");
-            telemetry.addData("shot", shot.reachable
-                    ? String.format("%.0f RPM, %.1f deg, hood %.3f",
-                            shot.rpm, shot.launchAngleDeg, shot.hoodPosition)
-                    : "OUT OF RANGE");
         }
 
         telemetry.update();
