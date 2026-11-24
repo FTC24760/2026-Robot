@@ -5,7 +5,7 @@ import com.bylazar.configurables.annotations.Configurable;
 /**
  * The operator's manual aiming (gamepad 2, see OperatorControls). Turret and hood stay
  * inside their own limits: TurretConstants.MIN/MAX_POSITION and
- * ShotConstants.HOOD_DOWN/UP_POSITION.
+ * HoodConstants.HOOD_DOWN/UP_POSITION.
  */
 @Configurable
 public class OperatorConstants {

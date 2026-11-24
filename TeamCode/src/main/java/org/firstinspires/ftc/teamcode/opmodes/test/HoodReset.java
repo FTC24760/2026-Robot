@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.constants.ShotConstants;
+import org.firstinspires.ftc.teamcode.constants.HoodConstants;
 
 /** Drives the hood servo to the end of its travel, for fitting the horn or linkage. */
 @TeleOp(name = "Test: Hood Reset", group = "Test")
@@ -13,13 +13,13 @@ public class HoodReset extends OpMode {
 
     @Override
     public void init() {
-        hood = hardwareMap.tryGet(Servo.class, ShotConstants.HOOD_SERVO_NAME);
+        hood = hardwareMap.tryGet(Servo.class, HoodConstants.HOOD_SERVO_NAME);
     }
 
     @Override
     public void loop() {
         if (hood == null) {
-            telemetry.addLine("No servo \"" + ShotConstants.HOOD_SERVO_NAME + "\" in the configuration");
+            telemetry.addLine("No servo \"" + HoodConstants.HOOD_SERVO_NAME + "\" in the configuration");
         } else {
             hood.setPosition(1);
             telemetry.addData("Hood servo", "at 1.0");
