@@ -98,12 +98,10 @@ public class Turret implements Subsystem {
     public double getPosition() {
         return position;
     }
-
     @Override
     public void stop() {
         // Servos hold their last position; nothing to power down.
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Turret", "%.3f (%.0f deg)", position, getAngleDeg());

@@ -3,9 +3,8 @@ package org.firstinspires.ftc.teamcode.opmodes.test;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
-import org.firstinspires.ftc.teamcode.subsystems.ImuMecanumDrive;
+
 import com.bylazar.configurables.annotations.Configurable;
 /**
  * Drivetrain and butterflies only, for checking the drive base without the other mechanisms.

@@ -29,7 +29,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   left            stop the shooter completely (cancels a shot and the idle spin)
  */
 public class DriverControls {
-    private final OpMode opMode;
+    private static OpMode opMode = null;
 
     private final EdgeDetector shoot = new EdgeDetector();
     public final EdgeDetector intakeToggle = new EdgeDetector();
@@ -48,7 +48,7 @@ public class DriverControls {
     private boolean resetPosePressed;
 
     public DriverControls(OpMode opMode) {
-        this.opMode = opMode;
+        DriverControls.opMode = opMode;
     }
 
     /** Call once per loop before reading any "pressed" (edge-triggered) control. */

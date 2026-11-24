@@ -47,12 +47,10 @@ public class Hood implements Subsystem {
     public double getPosition() {
         return position;
     }
-
     @Override
     public void stop() {
         // The servo holds its last position; nothing to power down.
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         if (servo == null) {

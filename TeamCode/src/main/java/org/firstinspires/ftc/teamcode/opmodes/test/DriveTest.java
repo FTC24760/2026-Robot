@@ -2,23 +2,36 @@ package org.firstinspires.ftc.teamcode.opmodes.test;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 
 import org.firstinspires.ftc.teamcode.subsystems.Butterfly;
-import org.firstinspires.ftc.teamcode.subsystems.ImuMecanumDrive;
 
-/**
- * Drivetrain and butterflies only, for checking the drive base without the other mechanisms.
- * Field-relative by default; hold left bumper for robot-relative.
- * A resets heading, right bumper inverts the butterflies.
- */
-@TeleOp(name = "Test: Drive", group = "Test")
+@TeleOp(name = "Robot: Normal Mecanum Drive", group = "Robot")
 public class DriveTest extends OpMode {
-    private ImuMecanumDrive drivetrain;
+
+    private DcMotor frontLeftDrive;
+    private DcMotor frontRightDrive;
+    private DcMotor backLeftDrive;
+    private DcMotor backRightDrive;
+
     private Butterfly butterfly;
 
     @Override
     public void init() {
-        drivetrain = new ImuMecanumDrive(hardwareMap);
+        frontLeftDrive = hardwareMap.get(DcMotor.class, "lf");
+        frontRightDrive = hardwareMap.get(DcMotor.class, "rf");
+        backLeftDrive = hardwareMap.get(DcMotor.class, "lb");
+        backRightDrive = hardwareMap.get(DcMotor.class, "rb");
+
+        backLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+        frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
+
+        frontLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        frontRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        backRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+
         butterfly = new Butterfly(hardwareMap);
     }
 
@@ -27,22 +40,37 @@ public class DriveTest extends OpMode {
         double forward = -gamepad1.left_stick_y;
         double strafe = gamepad1.left_stick_x;
         double rotate = gamepad1.right_stick_x;
-        boolean robotRelative = gamepad1.left_bumper;
 
-        if (gamepad1.a) {
-            drivetrain.resetYaw();
-        }
 
-        butterfly.update(forward, strafe, rotate, gamepad1.right_bumper);
+        butterfly.update(
+                forward,
+                strafe,
+                rotate,
+                gamepad1.right_bumper
+        );
 
-        if (robotRelative) {
-            drivetrain.driveRobotCentric(forward, strafe, rotate);
-        } else {
-            drivetrain.driveFieldCentric(forward, strafe, rotate);
-        }
+        drive(forward, strafe, rotate);
 
-        butterfly.addTelemetry(telemetry);
-        telemetry.addData("Drive Mode", robotRelative ? "Robot Relative" : "Field Relative");
+        telemetry.addData("Butterfly", butterfly.getState());
         telemetry.update();
+    }
+
+    private void drive(double forward, double right, double rotate) {
+        double frontLeftPower = forward + right + rotate;
+        double frontRightPower = forward - right - rotate;
+        double backRightPower = forward + right - rotate;
+        double backLeftPower = forward - right + rotate;
+
+        double maxPower = Math.max(1.0,
+                Math.max(
+                        Math.max(Math.abs(frontLeftPower), Math.abs(frontRightPower)),
+                        Math.max(Math.abs(backLeftPower), Math.abs(backRightPower))
+                )
+        );
+
+        frontLeftDrive.setPower(frontLeftPower / maxPower);
+        frontRightDrive.setPower(frontRightPower / maxPower);
+        backLeftDrive.setPower(backLeftPower / maxPower);
+        backRightDrive.setPower(backRightPower / maxPower);
     }
 }

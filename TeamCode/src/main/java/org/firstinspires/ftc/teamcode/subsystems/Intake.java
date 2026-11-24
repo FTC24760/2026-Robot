@@ -108,12 +108,10 @@ public class Intake implements Subsystem {
     public boolean isBlockerOpen() {
         return blockerOpen;
     }
-
     @Override
     public void stop() {
         setMode(Mode.OFF);
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Intake", mode);

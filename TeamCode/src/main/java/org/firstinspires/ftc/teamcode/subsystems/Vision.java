@@ -182,12 +182,10 @@ public class Vision implements Subsystem {
     public boolean isConnected() {
         return limelight.isConnected();
     }
-
     @Override
     public void stop() {
         limelight.stop();
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         if (target == null) {

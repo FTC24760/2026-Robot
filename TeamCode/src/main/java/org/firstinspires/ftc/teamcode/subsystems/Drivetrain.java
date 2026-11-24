@@ -19,15 +19,12 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
 public class Drivetrain implements Subsystem {
     private final Follower follower;
     private Pose pose = new Pose(0, 0, 0);
-    // +1 or -1 while shifting side to side, 0 when not.
-    private int shiftSide;
-    private double shiftSideStartS;
     private Velocity velocity = Velocity.zero();
     // System.nanoTime() when pose was last read from the localizer.
     private long poseNs = System.nanoTime();
 
-    public Drivetrain(HardwareMap hardwareMap) {
-        follower = Constants.create(hardwareMap);
+    public Drivetrain(HardwareMap hardwareMap, Follower follower) {
+        this.follower = follower;
     }
 
     /**
@@ -58,46 +55,6 @@ public class Drivetrain implements Subsystem {
         driveFieldCentric(0.02, 0.02, 0.02);
     }
 
-    /** Start following a path. Keep calling update() every loop until isBusy() is false. */
-    public void follow(Path path) {
-        follower.follow(path);
-    }
-
-    /** Drive to a pose and hold it against being pushed. */
-    public void hold(Pose pose) {
-        follower.hold(pose);
-    }
-
-    /**
-     * Shake side to side around {@code center}: strafe left under power until the robot is
-     * half of {@code totalIn} left of it, then right until it is half to the right, and
-     * so on. Switches early after {@code maxSideS} on one side. Call every loop; the
-     * follower runs from update() or updateHold().
-     */
-    public void shiftAround(Pose center, double totalIn, double power, double maxSideS, double nowS) {
-        double h = center.heading();
-        // How far the robot is to the left of the centre, along its own left.
-        double offset = -(pose.x() - center.x()) * Math.sin(h) + (pose.y() - center.y()) * Math.cos(h);
-        double half = totalIn / 2.0;
-
-        if (shiftSide == 0) {
-            shiftSide = 1;
-            shiftSideStartS = nowS;
-        }
-        boolean reached = shiftSide > 0 ? offset >= half : offset <= -half;
-        if (reached || nowS - shiftSideStartS >= maxSideS) {
-            shiftSide = -shiftSide;
-            shiftSideStartS = nowS;
-        }
-
-        // Robot-centric; Pedro's strafe is positive to the left.
-        follower.manual(new DrivePowers(0, shiftSide * power, 0));
-    }
-
-    /** Stop shifting; the next shiftAround() starts again from its first side. */
-    public void endShift() {
-        shiftSide = 0;
-    }
 
     /** Run the follower for one loop without new stick input (holding or shifting). */
     public void updateHold() {
@@ -153,16 +110,13 @@ public class Drivetrain implements Subsystem {
         velocity = follower.velocity();
         poseNs = System.nanoTime();
     }
-
-    @Override
-    public void stop() {
-        // The SDK cuts motor power when the OpMode stops.
-    }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Robot X", pose.x());
         telemetry.addData("Robot Y", pose.y());
         telemetry.addData("Robot Heading", Math.toDegrees(pose.heading()));
+    }
+    @Override
+    public void stop() {
     }
 }

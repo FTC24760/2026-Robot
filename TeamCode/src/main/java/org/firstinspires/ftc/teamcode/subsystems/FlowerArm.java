@@ -48,12 +48,10 @@ public class FlowerArm implements Subsystem {
     public boolean isInstalled() {
         return servo != null;
     }
-
     @Override
     public void stop() {
         // The servo holds its last position; nothing to power down.
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         if (servo == null) {

@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
-import static org.firstinspires.ftc.teamcode.utils.MathUtil.clamp;
 import static org.firstinspires.ftc.teamcode.utils.MathUtil.rpmToTicksPerSecond;
 import static org.firstinspires.ftc.teamcode.utils.MathUtil.ticksPerSecondToRpm;
 
@@ -9,7 +8,6 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.utils.SpeedController;
 
@@ -20,11 +18,7 @@ import org.firstinspires.ftc.teamcode.utils.SpeedController;
 public class Shooter implements Subsystem {
 
     public enum State {
-        /** Hold the shooting speed: ShooterConstants.TARGET_RPM, or the auto-aim speed if set. */
-        SHOOT,
-        /** Hold the idle RPM (ShooterAssistConstants.IDLE_RPM with assist, else ShooterConstants). */
-        IDLE,
-        /** Motor off and controller reset; the flywheel coasts. */
+        ENABLED,
         DISABLED
     }
 
@@ -35,26 +29,15 @@ public class Shooter implements Subsystem {
     private double targetTicksPerSecond;
     private double actualTicksPerSecond;
     private double power;
-
-    private boolean assistEnabled;
-    private boolean boosting;
-    private boolean feedingBurst;
-    // The last three raw speed readings, newest first, for the feed gate's noise filter.
     private final double[] recentRpm = new double[3];
     // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
     private double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, ShooterConstants.MOTOR_NAME);
-        // Power is controlled in software; avoid the hub velocity loop.
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         motor.setDirection(ShooterConstants.direction);
-    }
-
-    /** Turn on the rapid-fire fixes configured in ShooterAssistConstants. */
-    public void setAssistEnabled(boolean assistEnabled) {
-        this.assistEnabled = assistEnabled;
     }
 
     /** Shoot at this speed instead of ShooterConstants.TARGET_RPM (used by auto-aim). */
@@ -69,18 +52,14 @@ public class Shooter implements Subsystem {
 
     /** The speed the SHOOT state aims for right now. */
     public double getShootRpm() {
-        return Double.isNaN(shootRpmOverride) ? ShooterConstants.TARGET_RPM : shootRpmOverride;
+        if (!Double.isNaN(shootRpmOverride)) {
+            return shootRpmOverride;
+        }
+        return ShooterConstants.TARGET_RPM;
     }
-
-    /** Tell the shooter a burst is being fed, so it recovers as hard as it can between balls. */
-    public void setFeedingBurst(boolean feedingBurst) {
-        this.feedingBurst = feedingBurst;
-    }
-
     public void setState(State state) {
         this.state = state;
     }
-
     public State getState() {
         return state;
     }
@@ -102,13 +81,11 @@ public class Shooter implements Subsystem {
             targetTicksPerSecond = 0.0;
             controller.reset();
             power = 0.0;
-            boosting = false;
         } else {
             double targetRpm = getStateTargetRpm();
 
             targetTicksPerSecond = rpmToTicksPerSecond(targetRpm, ShooterConstants.TICKS_PER_REV);
             syncGains();
-            boosting = false;
 
             // The controller keeps running while boosting so its filter and ramp stay
             // current, but its integral is held: the dip is the boost's job to fix.
@@ -116,13 +93,9 @@ public class Shooter implements Subsystem {
                     targetTicksPerSecond,
                     actualTicksPerSecond,
                     voltageScale,
-                    nowNs,
-                    boosting
+                    nowNs
             );
 
-        }
-        if (state == State.IDLE && getActualRpm() > ShooterConstants.IDLE_RPM) {
-            power = 0.01;
         }
         motor.setPower(power);
     }
@@ -144,51 +117,16 @@ public class Shooter implements Subsystem {
         return power;
     }
 
-    /** True while the recovery boost is overriding the controller with full power. */
-    public boolean isBoosting() {
-        return boosting;
-    }
 
-    /**
-     * The speed the feed gate judges readiness on: the middle of the last three readings
-     * when the filter is on, otherwise the newest reading.
-     */
-    public double getGateRpm() {
-        if (!ShooterAssistConstants.FEED_GATE_FILTER_ENABLED) {
-            return recentRpm[0];
-        }
-
-        double a = recentRpm[0], b = recentRpm[1], c = recentRpm[2];
-        return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c));
-    }
 
     /** True when the wheel is at shooting speed, close enough to feed the next ball. */
-    public boolean isReadyToFeed() {
-        if (state != State.SHOOT) {
-            return false;
-        }
-
-        double error = getGateRpm() - getShootRpm();
-        boolean inWindow = error >= -ShooterAssistConstants.FEED_READY_LOW_RPM
-                && error <= ShooterAssistConstants.FEED_READY_HIGH_RPM;
-
-        // The filter lags by a loop, so on its own it would still call the wheel ready on
-        // the very sample where a ball's dip first appears. A slow newest reading always
-        // means not ready; only the high side and single-sample dither are filtered.
-        boolean newestTooSlow =
-                recentRpm[0] - getShootRpm() < -ShooterAssistConstants.FEED_READY_LOW_RPM;
-
-        return inWindow && !newestTooSlow;
-    }
 
     @Override
     public void stop() {
         state = State.DISABLED;
-        boosting = false;
         motor.setPower(0);
         controller.reset();
     }
-
     @Override
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Target RPM", getTargetRpm());
@@ -196,13 +134,6 @@ public class Shooter implements Subsystem {
         telemetry.addData("Profiled RPM", "%.1f", getProfiledRpm());
         telemetry.addData("Shooter power", "%.3f", power);
         telemetry.addData("Feedforward", ShooterConstants.kF);
-
-        if (assistEnabled) {
-            telemetry.addData("Shooter state", state);
-            telemetry.addData("Ready to feed", isReadyToFeed() ? "yes" : "no");
-            telemetry.addData("Boosting", boosting ? "yes" : "no");
-            telemetry.addData("Integral power", "%.3f", controller.getIntegral() * controller.gains.kI);
-        }
     }
 
     // Copied every loop so live edits to ShooterConstants take effect immediately.
@@ -219,17 +150,12 @@ public class Shooter implements Subsystem {
         gains.velocityAlpha = ShooterConstants.VELOCITY_ALPHA;
         gains.kSDeadband = ShooterConstants.KS_DEADBAND;
 
-        if (assistEnabled) {
-            gains.kI = ShooterAssistConstants.kI;
-            gains.maxIntegral = ShooterAssistConstants.MAX_INTEGRAL;
-            gains.velocityAlpha = ShooterAssistConstants.VELOCITY_ALPHA;
-        }
     }
 
     private double getStateTargetRpm() {
-        if (state == State.SHOOT) {
+        if (state == State.ENABLED) {
             return getShootRpm();
         }
-        else return ShooterConstants.IDLE_RPM;
+        else return 0;
     }
 }
