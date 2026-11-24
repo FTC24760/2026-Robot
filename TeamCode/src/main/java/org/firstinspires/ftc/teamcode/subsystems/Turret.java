@@ -13,11 +13,16 @@ public class Turret implements Subsystem {
     private final Servo rightServo;
 
     private double position = TurretConstants.START_POSITION;
+    private double feedforward = 0;
 
     /** Does not move the servos; they first move on the first call to {@link #move}. */
     public Turret(HardwareMap hardwareMap) {
         leftServo = hardwareMap.get(Servo.class, TurretConstants.LEFT_SERVO_NAME);
         rightServo = hardwareMap.get(Servo.class, TurretConstants.RIGHT_SERVO_NAME);
+    }
+
+    public void setFeedforward(double angularVelocity) {
+        feedforward = angularVelocity * TurretConstants.kF;
     }
 
     /**
@@ -91,8 +96,8 @@ public class Turret implements Subsystem {
                 TurretConstants.MAX_POSITION
         );
 
-        leftServo.setPosition(this.position + TurretConstants.LEFT_SERVO_OFFSET);
-        rightServo.setPosition(this.position + TurretConstants.RIGHT_SERVO_OFFSET);
+        leftServo.setPosition(this.position + TurretConstants.LEFT_SERVO_OFFSET + feedforward);
+        rightServo.setPosition(this.position + TurretConstants.RIGHT_SERVO_OFFSET + feedforward);
     }
 
     public double getPosition() {

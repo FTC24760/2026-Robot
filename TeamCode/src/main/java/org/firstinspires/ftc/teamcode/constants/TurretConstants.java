@@ -6,7 +6,7 @@ import com.bylazar.configurables.annotations.Configurable;
 public class TurretConstants {
     public static String LEFT_SERVO_NAME = "leftturret";
     public static String RIGHT_SERVO_NAME = "rightturret";
-
+    public static double kF;
     public static double LEFT_SERVO_OFFSET = 0.0;
     public static double RIGHT_SERVO_OFFSET = 0.0;
 

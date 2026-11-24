@@ -81,6 +81,8 @@ public class Robot {
     public void update() {
         hubManager.clearBulkCache();
         Drive();
+        UpdateTurret();
+
         updateTelemetry();
     }
 
@@ -91,6 +93,9 @@ public class Robot {
 
         drivetrain.driveFieldCentric(forward, strafe, rotate);
         drivetrain.update();
+    }
+    private void UpdateTurret() {
+        turret.setFeedforward(follower.velocity().omega);
     }
     public void setAlliance(Alliance alliance) {
         this.alliance = alliance;
