@@ -15,6 +15,11 @@ public class ShootGateConstants {
     // TurretConstants.AIM_DEADBAND_DEG of where it should point) for this long. The
     // servos have no feedback, so this also covers their travel lag.
     public static double AIM_SETTLE_S = 0.15;
+    // The hood servo has no feedback either: a shot waits until the commanded hood position
+    // has stayed within HOOD_SETTLE_DEADBAND (servo units, 0-1) for this long. PLACEHOLDER:
+    // set to the hood's measured full-travel time. 0 turns the wait off.
+    public static double HOOD_SETTLE_S = 0.3;
+    public static double HOOD_SETTLE_DEADBAND = 0.005;
     // The robot must be moving slower than this (inches per second) and turning slower
     // than MAX_TURN_DEG_PER_S. PLACEHOLDERS: measure what still scores.
     public static double MAX_SPEED_IN_PER_S = 15;

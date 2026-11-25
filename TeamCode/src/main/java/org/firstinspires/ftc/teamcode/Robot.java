@@ -294,6 +294,9 @@ public class Robot {
         if (turret.isAutoAiming() && !turret.isSettledOnTarget(ShootGateConstants.AIM_SETTLE_S)) {
             return "turret settling";
         }
+        if (!hood.isSettled(ShootGateConstants.HOOD_SETTLE_S)) {
+            return "hood settling";
+        }
         com.pedropathing.math.Velocity v = drivetrain.getVelocity();
         if (v != null) {
             if (Math.hypot(v.vx, v.vy) > ShootGateConstants.MAX_SPEED_IN_PER_S) {
