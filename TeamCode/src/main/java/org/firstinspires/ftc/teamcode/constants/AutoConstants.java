@@ -31,6 +31,11 @@ public class AutoConstants {
     public static boolean DETECT_UP_SIDE = true;
 
     public static double FIELD_SIZE_IN = 144;
+    // In AUTO we may not go onto the opposing side (G402): red is field columns A-C, i.e.
+    // x <= 72 in the red frame. A pose centre must stay this far inside, about half the
+    // robot's longest side, so the robot's body stays on our side too.
+    public static double OWN_SIDE_MAX_X_IN = 72;
+    public static double OWN_SIDE_MARGIN_IN = 9;
 
     // ==== ROBOT POSES for Auto: Red / Blue ====
     // Each is where the ROBOT CENTRE goes and which way the robot FRONT faces

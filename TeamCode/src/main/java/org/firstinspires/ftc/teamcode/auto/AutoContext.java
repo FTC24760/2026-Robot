@@ -2,6 +2,9 @@ package org.firstinspires.ftc.teamcode.auto;
 
 import com.pedropathing.math.Pose;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -35,6 +38,9 @@ public class AutoContext {
     public boolean flowerDown;
 
     private double startS;
+
+    // Poses written past our side of the field (G402), found while the routine was built.
+    private final List<String> sideWarnings = new ArrayList<>();
 
     public AutoContext(Robot robot, Alliance alliance, CellSide upSide) {
         this.robot = robot;
@@ -89,12 +95,36 @@ public class AutoContext {
      */
     public Pose pose(double x, double y, double headingDeg) {
         double h = Math.toRadians(headingDeg);
+        if (x > AutoConstants.OWN_SIDE_MAX_X_IN - AutoConstants.OWN_SIDE_MARGIN_IN
+                && sideWarnings.size() < 5) {
+            sideWarnings.add(String.format("x %.0f y %.0f", x, y));
+        }
         if (alliance != Alliance.BLUE) {
             return new Pose(x, y, h);
         }
 
         double size = AutoConstants.FIELD_SIZE_IN;
         return new Pose(size - x, size - y, h + Math.PI);
+    }
+
+    /**
+     * Run the fixed route poses through pose() so any that are past our side of the field
+     * are reported at init (the routine's own poses are only computed as each step starts).
+     */
+    public void checkRouteConstants() {
+        pose(AutoConstants.START_A_X, AutoConstants.START_A_Y, 0);
+        pose(AutoConstants.START_B_X, AutoConstants.START_B_Y, 0);
+        pose(AutoConstants.SHOOT_X, AutoConstants.SHOOT_Y, 0);
+        pose(AutoConstants.SHOOT_LEFT_UP_X, AutoConstants.SHOOT_LEFT_UP_Y, 0);
+        pose(AutoConstants.WALL_FLOWER_X, AutoConstants.WALL_FLOWER_Y, 0);
+        pose(AutoConstants.BACK_FLOWER_X, AutoConstants.BACK_FLOWER_Y, 0);
+        pose(AutoConstants.GARDEN_X, AutoConstants.GARDEN_Y, 0);
+        pose(AutoConstants.PARK_X, AutoConstants.PARK_Y, 0);
+    }
+
+    /** Poses the routine uses that are past our side of the field in AUTO (red frame). */
+    public List<String> sideWarnings() {
+        return sideWarnings;
     }
 
     /** A pose's distance from the audience wall as red sees it, for either alliance. */

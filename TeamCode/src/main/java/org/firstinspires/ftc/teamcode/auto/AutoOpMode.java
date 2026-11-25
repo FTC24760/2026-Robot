@@ -72,6 +72,7 @@ public abstract class AutoOpMode extends OpMode {
         ctx = new AutoContext(robot, alliance, defaultSide());
         routine = buildRoutine(ctx);
         robot.setPose(routine.startPose(ctx));
+        ctx.checkRouteConstants();
     }
 
     @Override
@@ -141,6 +142,9 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
         telemetry.addLine("X = LEFT CELL up, B = RIGHT CELL up, Y = automatic");
         telemetry.addLine("Hands off the controller once the countdown starts (G401)");
+        if (!ctx.sideWarnings().isEmpty()) {
+            telemetry.addLine("!! Route goes past our side of the field (G402): " + ctx.sideWarnings());
+        }
         telemetry.addData("Limelight sees", seenSide == null ? "nothing" : seenSide + " up");
         telemetry.addLine(robot.hasAutoAim() ? "Auto-aim on" : "Auto-aim OFF: fixed RPM, turret still");
         telemetry.update();

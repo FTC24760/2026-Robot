@@ -125,6 +125,8 @@ Controllers (no hardware of their own):
 
 Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window length; `BALLS_TO_TIP` (unknown; the manual only says "enough"); `SHOOT_FEED_S`; aim-settle time; speed limit for firing; B preset x within 60-63.
 
+- Own-side check (G402: red = columns A-C, x <= 72): `AutoContext.pose()` records any pose with red-frame x past `OWN_SIDE_MAX_X_IN - OWN_SIDE_MARGIN_IN`; `checkRouteConstants()` runs the fixed route poses through it at init, and the init screen shows `!! Route goes past our side`. All current poses pass (max x 61.5).
+
 ## 9. Assumptions and open items
 
 - Robot capacity 4 balls, no NECTAR intake (stated by the team).
