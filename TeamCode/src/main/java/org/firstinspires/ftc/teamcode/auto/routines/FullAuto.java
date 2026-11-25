@@ -74,9 +74,11 @@ public final class FullAuto {
         steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
                 sequence("park",
                         // FIRST leaves early so the partner has the shooting area.
-                        when("park delay", c -> AutoSelection.slot != AutoSelection.Slot.FIRST,
-                                waitSeconds(AutoConstants.PARK_DELAY_S),
-                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S)),
+                        when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
+                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S),
+                                when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.SOLO,
+                                        waitSeconds(AutoConstants.SOLO_PARK_DELAY_S),
+                                        waitSeconds(AutoConstants.PARK_DELAY_S))),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
                                 sequence("park drive",
@@ -131,7 +133,12 @@ public final class FullAuto {
                 when("after a tip", c -> c.shotInterrupted,
                         sequence("finish at other CELL", driveToShot(), spinUp(true), shoot()),
                         null),
-                spinUp(false));
+                spinUp(false),
+                // Let the HIVE tip and the camera see it before the next trip is planned.
+                when("tip settle",
+                        c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
+                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
+                        waitSeconds(AutoConstants.TIP_SETTLE_S), null));
     }
 
     // The shooter goes off only if the robot actually drives (see Steps.driveTo).

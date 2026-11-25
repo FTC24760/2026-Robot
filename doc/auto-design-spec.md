@@ -88,7 +88,7 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 
 - PARK pose: partly in the LOADING ZONE (red: x 0-11, y 96-119), current `(12, 108, 180)`. LEAVE = no longer touching the perimeter wall, so driving toward PARK satisfies it.
 - Skip rule: a cycle starts only if `timeLeft >= cycleEstimate + parkWindow`. Cycle estimate is measured, not guessed; start with the current `CYCLE_MIN_TIME_LEFT_S = 9`.
-- PASSIVE partner: same plan, delay 0.
+- PASSIVE partner, or a partner that only parks (SOLO): shoot the pre-loads at once, then keep cycling for as long as time allows (`DEFAULT_CYCLES` = 3 is a maximum; each cycle needs `CYCLE_MIN_TIME_LEFT_S`). After each burst the robot waits `TIP_SETTLE_S` (camera only) so the up CELL is known; the next trip goes back to the same spot if the HIVE did not tip, or to the other CELL's spot if it did. No idle wait before parking (`SOLO_PARK_DELAY_S` = 0); the reserve window banks PARK. Without a camera the tip is not seen, so every cycle shoots at the CELL believed up (`BALLS_TO_TIP` = 0: no guess).
 - ACTIVE, FIRST: delay 0; leave the shooting zone early so the partner can use it.
 - ACTIVE, SECOND: delay = menu value (initial guess 5 s; to be measured against the partner's burst).
 - Implemented (`END_DELAY_ON_TIP`): the SECOND wait ends as soon as the up CELL changes (the camera saw the HIVE tip). The fixed delay stays as the fallback. After the wait, if the start pose is not in the shooting zone for the CELL up now (`DRIVE_TO_ZONE_FIRST`; e.g. the HIVE tipped, or start B with the audience CELL up), the robot drives to the shot spot before the pre-loads.

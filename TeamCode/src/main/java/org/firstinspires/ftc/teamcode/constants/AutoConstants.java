@@ -91,6 +91,13 @@ public class AutoConstants {
     public static double PARK_MIN_TIME_LEFT_S = 3;
     // Wait this long after the last shot/cycle before driving to park.
     public static double PARK_DELAY_S = 8;
+    // SOLO slot (partner passive or only parking): park this long after the last shot or
+    // cycle. 0 = at once; the rest of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
+    public static double SOLO_PARK_DELAY_S = 0;
+    // After a burst, wait this long (with a camera) before leaving the shot spot, so the
+    // HIVE has time to tip and the camera to see which CELL is up now. The next trip then
+    // goes to the right side: the same spot if it did not tip, the other CELL's if it did.
+    public static double TIP_SETTLE_S = 0.8;
     public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
     // Reserve window: when this many seconds are left and the normal route has not started
     // its park drive, whatever step is running is abandoned and the robot drives to PARK
@@ -142,7 +149,7 @@ public class AutoConstants {
     }
 
     // How many the auto runs; the driver can change it during init with the d-pad.
-    public static int DEFAULT_CYCLES = 0;
+    public static int DEFAULT_CYCLES = 3;
     public static int MAX_CYCLES = 3;
 
     // ---- Sharing the HIVE with an alliance partner (chosen during init). ----
