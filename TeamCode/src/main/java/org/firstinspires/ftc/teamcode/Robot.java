@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode;
 
+import org.firstinspires.ftc.teamcode.aim.AimController;
 import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
@@ -89,23 +90,10 @@ public class Robot {
     // for the wheel to recover after each ball.
     private boolean rapidFire;
 
-    // The shot (RPM, hood) from the shot table for the current target distance, or null
-    // when there is no target distance (then the fixed Configurables values are used).
-    private ShotTable.Shot shot;
-    // Operator's RPM trim (rpm up/down buttons), added to whatever speed is used.
-    private double rpmTrim;
-
+    // Pose + camera -> turret, wheel speed, hood, and the aim half of the fire gate.
+    private AimController aim;
     // TeleOp shooting zone and the "ready to fire" signal.
     private ShootZone zone;
-    // Where the upward-facing CELL of our HIVE is on the field, from the camera and
-    // odometry; null without auto-aim.
-    private HiveTracker hiveTracker;
-    // True while the turret should follow hiveTracker.
-    private boolean aiming;
-    // The driver can switch auto-aim off mid-match if the camera misbehaves.
-    private boolean aimEnabled = true;
-    private String aimNote = "";
-
     /** Feed in timed push/retract pulses while shooting. Operator X in teleop. */
     public boolean pulseShoot = true;
     private double pulseStartS = -1;
@@ -138,6 +126,7 @@ public class Robot {
         hood = new Hood(opMode.hardwareMap);
         shootSequence = new ShootSequence(shooter, intake, this::aimReady);
         zone = new ShootZone(opMode.gamepad1, opMode.gamepad2);
+        aim = new AimController(drivetrain, shooter, hood, turret);
 
         subsystems = new ArrayList<>(
                 Arrays.asList(drivetrain, intake, turret, shooter, flowerArm, hood));
@@ -173,22 +162,16 @@ public class Robot {
      * TARGET_RPM and the turret and hood stay where they were.
      */
     public Robot enableAutoAim(Alliance alliance) {
-        try {
-            vision = new Vision(opMode.hardwareMap, alliance);
-        } catch (RuntimeException e) {
-            vision = null;
-            aimNote = "AUTO-AIM OFF: no Limelight \"" + VisionConstants.LIMELIGHT_NAME + "\" configured";
-            return this;
+        vision = aim.enable(opMode.hardwareMap, alliance);
+        if (vision != null) {
+            subsystems.add(vision);
         }
-
-        hiveTracker = new HiveTracker();
-        subsystems.add(vision);
         return this;
     }
 
     /** True if auto-aim was enabled and the Limelight was found. */
     public boolean hasAutoAim() {
-        return vision != null;
+        return aim.hasAutoAim();
     }
 
     /**
@@ -198,33 +181,29 @@ public class Robot {
     public void setPose(Pose pose) {
         Pose old = drivetrain.getPose();
         drivetrain.setPose(pose);
-        if (hiveTracker != null) {
-            hiveTracker.onPoseReset(old, pose);
-        }
+        aim.onPoseReset(old, pose);
     }
 
     /** Make the robot's current position and heading the field origin. */
     public void resetPose() {
         Pose old = drivetrain.getPose();
         drivetrain.resetPose();
-        if (hiveTracker != null) {
-            hiveTracker.onPoseReset(old, new Pose(0, 0, 0));
-        }
+        aim.onPoseReset(old, new Pose(0, 0, 0));
     }
 
     /** True while auto-aim has an up-facing CELL to aim at (seen, or remembered). */
     public boolean isAiming() {
-        return aiming;
+        return aim.isAiming();
     }
 
     /** The table shot in use right now, or null if there is no target distance. */
     public ShotTable.Shot getShot() {
-        return shot;
+        return aim.getShot();
     }
 
     /** True when RPM and hood come from the shot table (a target distance is known). */
     public boolean hasShot() {
-        return shot != null;
+        return aim.getShot() != null;
     }
 
     /**
@@ -234,7 +213,7 @@ public class Robot {
      * call and only the speed limit applies. See ShootGateConstants.
      */
     public boolean aimReady() {
-        return aimBlockReason() == null;
+        return aim.aimReady();
     }
 
     /** True while the target distance is inside the calibrated shooting zone (TeleOp). */
@@ -249,40 +228,12 @@ public class Robot {
 
     /** Why aimReady() is false, for telemetry; null when ready. */
     public String aimBlockReason() {
-        if (!ShootGateConstants.ENABLED) {
-            return null;
-        }
-        if (turret.isAutoAiming() && !turret.isSettledOnTarget(ShootGateConstants.AIM_SETTLE_S)) {
-            return "turret settling";
-        }
-        if (!hood.isSettled(ShootGateConstants.HOOD_SETTLE_S)) {
-            return "hood settling";
-        }
-        com.pedropathing.math.Velocity v = drivetrain.getVelocity();
-        if (v != null) {
-            boolean onMove = ShootGateConstants.SHOOT_ON_MOVE;
-            double maxSpeed = onMove ? ShootGateConstants.MOVING_MAX_SPEED_IN_PER_S
-                    : ShootGateConstants.MAX_SPEED_IN_PER_S;
-            double maxTurn = onMove ? ShootGateConstants.MOVING_MAX_TURN_DEG_PER_S
-                    : ShootGateConstants.MAX_TURN_DEG_PER_S;
-            if (Math.hypot(v.vx, v.vy) > maxSpeed) {
-                return "moving too fast";
-            }
-            if (Math.abs(Math.toDegrees(v.omega)) > maxTurn) {
-                return "turning too fast";
-            }
-        }
-        return null;
-    }
-
-    // Ball flight time for the virtual target; 0 (aim at the CELL itself) unless shoot on the move is on.
-    private double flightS() {
-        return ShootGateConstants.SHOOT_ON_MOVE ? ShootGateConstants.FLIGHT_TIME_S : 0;
+        return aim.aimBlockReason();
     }
 
     /** Degrees the shot to the up CELL is off the CELL's opening axis, NaN without a target. */
     public double targetOffAxisDeg() {
-        return aiming ? hiveTracker.offAxisDeg(drivetrain.getPose()) : Double.NaN;
+        return aim.targetOffAxisDeg();
     }
 
     /**
@@ -290,25 +241,12 @@ public class Robot {
      * without a target.
      */
     public double targetDistanceIn() {
-        return aiming ? hiveTracker.distanceM(drivetrain.getPose(), drivetrain.getVelocity(),
-                flightS(), ShootGateConstants.MAX_LEAD_IN) / 0.0254 : Double.NaN;
+        return aim.targetDistanceIn();
     }
 
-    /**
-     * Set wheel speed and hood for a shot from this distance (inches, robot centre to the
-     * CELL), from the shot table; NaN or no table falls back to the fixed Configurables
-     * values. Auto-aim calls this every loop; the auto also calls it with an odometry
-     * distance when the camera has no target.
-     */
+    /** Set wheel speed and hood for a shot from this distance; see AimController. */
     public void aimShotAt(double distanceIn) {
-        shot = ShotTable.lookup(distanceIn);
-        if (shot != null) {
-            shooter.setShootRpm(shot.rpm + rpmTrim);
-            hood.setPosition(shot.hoodPosition);
-        } else {
-            shooter.setShootRpm(Configurables.SHOOTER_RPM + rpmTrim);
-            hood.setPosition(Configurables.HOOD_POSITION);
-        }
+        aim.aimShotAt(distanceIn);
     }
 
     /**
@@ -345,13 +283,12 @@ public class Robot {
                 - (controls.rpmDownPressed() || operator.rpmDownPressed() ? 1 : 0);
         if (rpmDirection != 0) {
             // A trim on top of the shot table (or the fixed speed): takes effect next loop.
-            rpmTrim = MathUtil.clamp(rpmTrim + rpmDirection * OperatorConstants.RPM_STEP,
-                    -OperatorConstants.MAX_RPM_TRIM, OperatorConstants.MAX_RPM_TRIM);
+            aim.adjustRpmTrim(rpmDirection);
         }
 
         // Switches (driver or operator).
         if (controls.aimTogglePressed() || operator.aimTogglePressed()) {
-            aimEnabled = !aimEnabled;
+            aim.toggleEnabled();
         }
         intakeOn = controls.intake() || operator.intake();
         if (operator.pulseTogglePressed()) {
@@ -451,7 +388,7 @@ public class Robot {
 
         hubs.clearBulkCache();
         voltageScale = hubs.getVoltageScale(nowNs);
-        updateAim();
+        aim.update(nowNs);
     }
 
     /**
@@ -549,15 +486,7 @@ public class Robot {
      * @param manualDirection +1, -1 or 0 from the driver; pass 0 in autonomous
      */
     public void runTurret(double manualDirection) {
-        if (manualDirection != 0 || !aiming) {
-            turret.move(manualDirection, loopSeconds);
-            return;
-        }
-
-        double bearing = hiveTracker.turretBearingDeg(
-                drivetrain.getPose(), drivetrain.getVelocity(), TurretConstants.AIM_LEAD_SECONDS,
-                flightS(), ShootGateConstants.MAX_LEAD_IN);
-        turret.pointAt(bearing, loopSeconds);
+        aim.runTurret(manualDirection, loopSeconds);
     }
 
     /** Loop timestamp in seconds, for timing sequences. */
@@ -574,33 +503,6 @@ public class Robot {
     /** Seconds since the previous loop, capped so a stall cannot cause a jump. */
     public double getLoopSeconds() {
         return loopSeconds;
-    }
-
-    // Auto-aim: turn what the camera sees into a shooter speed and hood position.
-    private void updateAim() {
-        if (vision == null) {
-            // No Limelight: fixed speed and hood (an auto may still call aimShotAt()).
-            aimShotAt(Double.NaN);
-            return;
-        }
-
-        hiveTracker.recordPose(drivetrain.getPoseTimeNs(), drivetrain.getPose());
-        vision.update(nowNs);
-
-        // Only aim at a CELL that is facing up; the other one cannot be scored in.
-        Vision.Fix fix = vision.getFix();
-        if (fix != null) {
-            if (fix.cellUp) {
-                hiveTracker.addSighting(fix, turret.getAngleDeg());
-            } else {
-                hiveTracker.sawCellDown(fix.sighting.cell);
-            }
-        }
-
-        aiming = aimEnabled && hiveTracker.hasTarget(nowNs);
-        // Speed and hood from the shot table for the target's distance; without a target,
-        // the fixed Configurables values.
-        aimShotAt(targetDistanceIn());
     }
 
     public void stop() {
@@ -689,29 +591,7 @@ public class Robot {
         }
         telemetry.addData("Pulse shoot (op X)", pulseShoot ? "ON" : "off");
         telemetry.addData("Intake held", intakeOn ? "yes" : "no");
-        if (!aimNote.isEmpty()) {
-            telemetry.addLine(aimNote);
-        }
-
-        if (vision != null) {
-            if (!aimEnabled) {
-                telemetry.addData("Auto-aim", "SWITCHED OFF");
-            } else if (shot == null) {
-                telemetry.addData("Auto-aim", "no target distance, fixed %.0f RPM",
-                        Configurables.SHOOTER_RPM + rpmTrim);
-            } else {
-                telemetry.addData("Auto-aim", "%.0f in: %.0f RPM, hood %.3f%s",
-                        shot.distanceIn, shot.rpm + rpmTrim, shot.hoodPosition,
-                        shot.inRange ? "" : "  (OUTSIDE MEASURED TABLE)");
-            }
-            if (rpmTrim != 0) {
-                telemetry.addData("RPM trim", "%+.0f", rpmTrim);
-            }
-            if (aiming) {
-                telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)
-                        ? "camera" : "odometry (camera lost it)");
-            }
-        }
+        aim.addTelemetry(telemetry, nowNs);
 
         if (rpmLogger != null) {
             telemetry.addData("RPM CSV", rpmLogger.getStatus());
