@@ -102,6 +102,12 @@ public class Robot {
     private double lastRumbleS = -1e9;
     // Set by the stop button: no pre-spin until the robot has left the zone.
     private boolean prespinSuppressed;
+    // After a shot that fed balls: no pre-spin and not ready until the robot has reloaded
+    // (intake ran REARM_INTAKE_S) or left the zone. No ball sensor, so intake time stands in.
+    private boolean reloadDisarmed;
+    private boolean wasShootActive;
+    private boolean fedThisShot;
+    private double intakeSinceShotS;
     // Where the upward-facing CELL of our HIVE is on the field, from the camera and
     // odometry; null without auto-aim.
     private HiveTracker hiveTracker;
@@ -265,11 +271,12 @@ public class Robot {
                 && !(offAxis > angleLimit);
         if (!inZone) {
             prespinSuppressed = false;
+            reloadDisarmed = false;
         }
 
         boolean wheelOk = !ShootGateConstants.PRESPIN_IN_ZONE || prespinSuppressed
                 || shooter.isReadyToFeed();
-        readyToFire = inZone && aimReady() && wheelOk;
+        readyToFire = inZone && !reloadDisarmed && aimReady() && wheelOk;
 
         // Rumble on becoming ready, but not again within READY_RUMBLE_COOLDOWN_S, so a
         // readiness that flickers (e.g. speed near the limit) does not buzz constantly.
@@ -288,6 +295,28 @@ public class Robot {
             ledSet = true;
         }
         wasReadyToFire = readyToFire;
+    }
+
+    // A shot that fed balls disarms the zone until the robot has reloaded: the intake has run
+    // REARM_INTAKE_S since the shot (it may pick balls up without leaving the zone), or the
+    // robot leaves the zone (updateReadyToFire). The stop button already has its own latch.
+    private void updateReloadArming(boolean stopShot, boolean reversing) {
+        boolean active = shootSequence.isActive();
+        fedThisShot |= shootSequence.isFeeding();
+        if (wasShootActive && !active) {
+            if (fedThisShot && !stopShot && ShootGateConstants.REARM_INTAKE_S > 0) {
+                reloadDisarmed = true;
+                intakeSinceShotS = 0;
+            }
+            fedThisShot = false;
+        }
+        wasShootActive = active;
+        if (reloadDisarmed && !active && intakeOn && !reversing) {
+            intakeSinceShotS += loopSeconds;
+            if (intakeSinceShotS >= ShootGateConstants.REARM_INTAKE_S) {
+                reloadDisarmed = false;
+            }
+        }
     }
 
     /** Why aimReady() is false, for telemetry; null when ready. */
@@ -406,12 +435,14 @@ public class Robot {
         }
         // RPM and hood were set by auto-aim in beginLoop() (shot table, or fixed fallback).
         // In the shooting zone the wheel is kept at the table speed, ready for the button.
-        boolean prespin = ShootGateConstants.PRESPIN_IN_ZONE && inZone && !prespinSuppressed;
+        boolean prespin = ShootGateConstants.PRESPIN_IN_ZONE && inZone && !prespinSuppressed
+                && !reloadDisarmed;
         runShooter(shootSequence.wantsShooter() || prespin);
         if (!controls.shootHeld && !operator.shootHeld) {
             shootSequence.cancel();
         }
         shootSequence.update(nowSeconds());
+        updateReloadArming(stopShot, reversing);
 
         updateDrive();
         runTeleopTurret();
@@ -695,7 +726,8 @@ public class Robot {
                         : "Not ready: outside shooting zone");
             } else {
                 String blocked = aimBlockReason();
-                telemetry.addLine("In zone, not ready: " + (blocked != null ? blocked : "wheel spinning up"));
+                telemetry.addLine("In zone, not ready: " + (reloadDisarmed ? "reloading (run intake or leave the zone)"
+                        : blocked != null ? blocked : "wheel spinning up"));
             }
         }
 

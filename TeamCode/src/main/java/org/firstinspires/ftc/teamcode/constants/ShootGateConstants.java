@@ -39,6 +39,10 @@ public class ShootGateConstants {
     // Spin the wheel up to the table speed while in the zone, so a shot goes the moment
     // the button is pressed. Off saves battery; "ready" then ignores the wheel.
     public static boolean PRESPIN_IN_ZONE = true;
+    // After a shot, no pre-spin and not ready (the shoot button still works) until the intake
+    // has run this long since the shot, or the robot leaves the zone. There is no ball
+    // sensor, so this stands in for "reloaded". PLACEHOLDER: time a real reload. 0 = off.
+    public static double REARM_INTAKE_S = 2.0;
     // Rumble the driver and operator gamepads for this long when the robot becomes ready.
     public static int READY_RUMBLE_MS = 250;
     public static double READY_RUMBLE_COOLDOWN_S = 2.0;
