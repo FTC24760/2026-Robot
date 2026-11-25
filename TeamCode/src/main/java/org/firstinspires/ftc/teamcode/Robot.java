@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.commands.DriveCommands;
+import org.firstinspires.ftc.teamcode.commands.FlowerCommands;
 import org.firstinspires.ftc.teamcode.commands.IntakeCommands;
 import org.firstinspires.ftc.teamcode.commands.ShotCommands;
 import org.firstinspires.ftc.teamcode.controls.Bindings;
@@ -43,15 +44,21 @@ import java.util.List;
  *   3. controls.update() and bindings.update(): button presses schedule/cancel commands
  *   4. shotSolver.update(): aim targets for autoAim
  *   5. Scheduler.execute(): run every scheduled command once
- *   6. write hardware: follower (drive + odometry), shooter velocity loop, intake
+ *   6. write hardware: follower (drive + odometry), shooter velocity loop, intake,
+ *      flower arm (re-sent so live Panels edits apply)
  *   7. telemetry from every subsystem in the subsystems list
  *
  * Commands (in commands/), all built once here:
- *   drive      field-centric drive; scheduled at start, runs all match
+ *   drive      field-centric mecanum drive; scheduled at start, runs all match
+ *   tank       butterfly pods down + field-oriented tank drive while the driver's right
+ *              stick Y is pushed; drive is suspended meanwhile and resumes after
  *   autoAim /  turret + wheel speed; one of them always runs. Starts on autoAim; the
  *   manualAim  operator's right stick button swaps them
  *   shoot      blocker + feed sequence while either right trigger is held
  *   intake     roller + transfer while either left trigger is held
+ *   flower     toggles the flower arm on Y (either gamepad)
+ *
+ * Vision is not built in TeleOp: it is only for detecting which CELL is up in auto.
  *
  * Other classes read the loop timing from here (robot.nowNs, robot.loopSeconds) and
  * the battery compensation from Robot.voltageScale, rather than timing things themselves.
@@ -69,6 +76,8 @@ public class Robot {
     Intake intake;
     public Turret turret;
     public Shooter shooter;
+    public Hood hood;
+    FlowerArm flowerArm;
     public Follower follower;
     List<Subsystem> subsystems;
 
@@ -79,12 +88,12 @@ public class Robot {
     Bindings bindings = new Bindings();
 
     final Command drive;
+    final Command tank;
     final Command autoAim;
     final Command manualAim;
     final Command shoot;
     final Command intakeCommand;
-
-    public boolean tankMode = false;
+    final Command flowerToggle;
 
     // System.nanoTime() at the start of the current loop, or 0 before the first loop.
     public long nowNs;
@@ -107,7 +116,10 @@ public class Robot {
         intake = new Intake(hardwareMap);
         turret = new Turret(hardwareMap);
         shooter = new Shooter(hardwareMap);
-        subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, turret, shooter));
+        hood = new Hood(hardwareMap);
+        flowerArm = new FlowerArm(hardwareMap);
+        subsystems = new ArrayList<>(Arrays.asList(
+                drivetrain, butterfly, intake, turret, shooter, hood, flowerArm));
 
         hiveTracker = new HiveTracker();
         shotSolver = new ShotSolver(this);
@@ -118,14 +130,18 @@ public class Robot {
         Scheduler.reset();
 
         drive = DriveCommands.fieldCentric(drivetrain, controls);
+        tank = DriveCommands.tank(drivetrain, butterfly, controls);
         autoAim = ShotCommands.autoAim(this);
         manualAim = ShotCommands.manualAim(this, controls::manualTurret);
         shoot = ShotCommands.shoot(intake, shooter);
         intakeCommand = IntakeCommands.intake(intake);
+        flowerToggle = FlowerCommands.toggle(flowerArm);
 
         // Button map (which physical buttons these are is in Controls).
         bindings.whileHeld(controls::shoot, shoot);
         bindings.whileHeld(controls::intake, intakeCommand);
+        bindings.whileHeld(controls::butterflyEngage, tank);
+        bindings.onPress(controls::flowerToggle, () -> schedule(flowerToggle));
         bindings.onPress(controls::shotModeToggle,
                 () -> schedule(autoAim.isScheduled() ? manualAim : autoAim));
     }
@@ -149,6 +165,7 @@ public class Robot {
         drivetrain.update();
         shooter.update(nowNs);
         intake.update();
+        flowerArm.refresh();
 
         updateTelemetry();
     }
@@ -165,6 +182,7 @@ public class Robot {
         telemetry.addData("Aim", autoAim.isScheduled() ? "auto"
                 : manualAim.isScheduled() ? "manual" : "off");
         telemetry.addData("Shooting", shoot.isScheduled() ? "yes" : "no");
+        telemetry.addData("Drive", tank.isScheduled() ? "tank" : "mecanum");
         for (Subsystem subsystem : subsystems) {
             subsystem.addTelemetry(telemetry);
         }

@@ -21,8 +21,9 @@ import java.util.function.DoubleSupplier;
 /**
  * Ivy commands for aiming and shooting. Replaces the old ShotController state machine.
  *
- * Aiming: exactly one of autoAim() / manualAim() runs at a time. Both require the turret
- * and the shooter, so scheduling one interrupts the other. They only set targets;
+ * Aiming: exactly one of autoAim() / manualAim() runs at a time. Both require the turret,
+ * shooter and hood, so scheduling one interrupts the other. The hood follows ShotSolver
+ * in both modes. They only set targets;
  * Robot.update() runs Shooter.update() after the Scheduler so the wheel's velocity loop
  * runs every loop whatever is scheduled.
  *
@@ -45,12 +46,13 @@ public final class ShotCommands {
             robot.turret.setFeedforward(solver.getAngularVelocity());
             robot.turret.pointAt(solver.turretAngle, robot.loopSeconds);
             robot.shooter.shootRpmOverride = solver.shooterTargetRPM;
-        }).requiring(robot.turret, robot.shooter);
+            robot.hood.setPosition(solver.hoodAngle);
+        }).requiring(robot.turret, robot.shooter, robot.hood);
     }
 
     /**
-     * Turret follows the stick; wheel runs at ShooterConstants.MANUAL_RPM. Runs until
-     * interrupted.
+     * Turret follows the stick; wheel runs at ShooterConstants.MANUAL_RPM; hood still
+     * follows ShotSolver. Runs until interrupted.
      *
      * @param turretInput -1 to 1 of TurretConstants.MANUAL_RATE; positive turns left
      */
@@ -59,7 +61,8 @@ public final class ShotCommands {
             robot.turret.setFeedforward(0);
             robot.turret.move(turretInput.getAsDouble(), robot.loopSeconds);
             robot.shooter.shootRpmOverride = ShooterConstants.MANUAL_RPM;
-        }).requiring(robot.turret, robot.shooter);
+            robot.hood.setPosition(robot.shotSolver.hoodAngle);
+        }).requiring(robot.turret, robot.shooter, robot.hood);
     }
 
     /**
