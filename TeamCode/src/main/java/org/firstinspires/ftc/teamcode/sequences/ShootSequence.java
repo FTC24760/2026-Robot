@@ -8,9 +8,10 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 /**
  * One-click shooting, shared by teleop and autonomous:
  *
- *   1. spin the wheel up to shooting speed,
- *   2. once RPM is stable, open the blocker,
- *   3. wait for the gate to open, then feed until stopped or BURST_FEED_S passes,
+ *   1. spin the wheel up to shooting speed (with BLOCKER_OPEN_EARLY, the slow blocker
+ *      starts opening now, so its travel overlaps spin-up),
+ *   2. once RPM is stable, open the blocker if it is not already open,
+ *   3. once the gate has had BLOCKER_OPEN_SETTLE_S to open, feed until stopped,
  *   4. close the blocker.
  *
  * This class only decides what should happen. Each loop the caller asks
@@ -44,9 +45,13 @@ public class ShootSequence {
         if (stage != Stage.IDLE) {
             return;
         }
-        intake.setBlockerOpen(false);
         readySinceS = -1;
         enter(Stage.SPINNING_UP, nowS);
+        if (Configurables.BLOCKER_OPEN_EARLY) {
+            openBlocker(nowS);
+        } else {
+            intake.setBlockerOpen(false);
+        }
     }
 
     /** Stop now and close the blocker. Safe to call at any time. */
@@ -69,15 +74,20 @@ public class ShootSequence {
         switch (stage) {
             case SPINNING_UP:
                 if (wheelSettled(nowS)) {
-                    intake.setBlockerOpen(true);
-                    blockerS = nowS;
+                    openBlocker(nowS);
                     enter(Stage.OPENING_GATE, nowS);
                 }
                 break;
             case OPENING_GATE:
                 if (!shooter.isReadyToFeed()) {
-                    cancel();
-                    start(nowS);
+                    if (Configurables.BLOCKER_OPEN_EARLY) {
+                        // Wait for the wheel again, gate left open (transfer is off).
+                        readySinceS = -1;
+                        enter(Stage.SPINNING_UP, nowS);
+                    } else {
+                        cancel();
+                        start(nowS);
+                    }
                 } else if (nowS - blockerS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
                     enter(Stage.FEEDING, nowS);
                 }
@@ -120,6 +130,14 @@ public class ShootSequence {
             readySinceS = nowS;
         }
         return nowS - readySinceS >= ShooterConstants.BURST_READY_SETTLE_S;
+    }
+
+    // Open the blocker, starting its travel clock only if it was not already open.
+    private void openBlocker(double nowS) {
+        if (!intake.isBlockerOpen()) {
+            intake.setBlockerOpen(true);
+            blockerS = nowS;
+        }
     }
 
     private void enter(Stage next, double nowS) {

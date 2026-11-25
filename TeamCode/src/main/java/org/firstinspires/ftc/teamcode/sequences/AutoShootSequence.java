@@ -8,9 +8,11 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 /**
  * One-click shooting, shared by teleop and autonomous:
  *
- *   1. spin the wheel up to shooting speed,
- *   2. once RPM is stable, open the blocker,
- *   3. wait for the gate to open, then feed until stopped or BURST_FEED_S passes,
+ *   1. spin the wheel up to shooting speed (with BLOCKER_OPEN_EARLY, the slow blocker
+ *      starts opening now, so its travel overlaps spin-up),
+ *   2. once RPM is stable, open the blocker if it is not already open,
+ *   3. once the gate has had BLOCKER_OPEN_SETTLE_S to open, feed until stopped or
+ *      SHOOT_FEED_SECONDS passes,
  *   4. close the blocker.
  *
  * This class only decides what should happen. Each loop the caller asks
@@ -32,6 +34,8 @@ public class AutoShootSequence {
     private Stage stage = Stage.IDLE;
     private double stageStartS;
     private double readySinceS = -1;
+    // When the blocker was last commanded open, for its travel time.
+    private double blockerS = -1;
 
     public AutoShootSequence(Shooter shooter, Intake intake) {
         this.shooter = shooter;
@@ -43,9 +47,13 @@ public class AutoShootSequence {
         if (stage != Stage.IDLE) {
             return;
         }
-        intake.setBlockerOpen(false);
         readySinceS = -1;
         enter(Stage.SPINNING_UP, nowS);
+        if (Configurables.BLOCKER_OPEN_EARLY) {
+            openBlocker(nowS);
+        } else {
+            intake.setBlockerOpen(false);
+        }
     }
 
     /** Stop now and close the blocker. Safe to call at any time. */
@@ -70,16 +78,22 @@ public class AutoShootSequence {
                 // Same as teleop: wait for the wheel. The auto's ShootStep gives up if
                 // the first ball never goes.
                 if (wheelSettled(nowS)) {
-                    intake.setBlockerOpen(true);
+                    openBlocker(nowS);
                     enter(Stage.OPENING_GATE, nowS);
                 }
                 break;
 
             case OPENING_GATE:
                 if (!shooter.isReadyToFeed()) {
-                    cancel();
-                    start(nowS);
-                } else if (nowS - stageStartS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
+                    if (Configurables.BLOCKER_OPEN_EARLY) {
+                        // Wait for the wheel again, gate left open (transfer is off).
+                        readySinceS = -1;
+                        enter(Stage.SPINNING_UP, nowS);
+                    } else {
+                        cancel();
+                        start(nowS);
+                    }
+                } else if (nowS - blockerS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
                     enter(Stage.FEEDING, nowS);
                 }
                 break;
@@ -124,6 +138,14 @@ public class AutoShootSequence {
             readySinceS = nowS;
         }
         return nowS - readySinceS >= ShooterConstants.BURST_READY_SETTLE_S;
+    }
+
+    // Open the blocker, starting its travel clock only if it was not already open.
+    private void openBlocker(double nowS) {
+        if (!intake.isBlockerOpen()) {
+            intake.setBlockerOpen(true);
+            blockerS = nowS;
+        }
     }
 
     private void enter(Stage next, double nowS) {
