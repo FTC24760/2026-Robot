@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.auto.routines;
 import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
+import static org.firstinspires.ftc.teamcode.auto.Steps.instant;
 import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
@@ -66,14 +67,21 @@ public final class FullAuto {
                         waitSeconds(AutoConstants.PARK_DELAY_S),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
-                                driveTo("park", c -> c.pose(AutoConstants.PARK_X,
-                                        AutoConstants.PARK_Y, AutoConstants.PARK_H)),
+                                sequence("park drive",
+                                        instant("park started", c -> c.parkStarted = true),
+                                        driveToPark()),
                                 null)),
                 null));
 
         return new AutoRoutine("Full Auto",
                 c -> AutoSelection.preset.pose(c),
-                steps.toArray(new AutoStep[0]));
+                steps.toArray(new AutoStep[0]))
+                .withReserve(driveToPark());
+    }
+
+    private static AutoStep driveToPark() {
+        return driveTo("park", c -> c.pose(AutoConstants.PARK_X,
+                AutoConstants.PARK_Y, AutoConstants.PARK_H));
     }
 
     private static AutoStep collect(CycleSource source) {

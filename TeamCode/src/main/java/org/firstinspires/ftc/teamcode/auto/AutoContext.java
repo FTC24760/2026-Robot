@@ -37,6 +37,9 @@ public class AutoContext {
     public Intake.Mode intakeMode = Intake.Mode.OFF;
     public boolean flowerDown;
 
+    // Set when the route's own park drive starts; the reserve window then stays out of it.
+    public boolean parkStarted;
+
     private double startS;
 
     // Poses written past our side of the field (G402), found while the routine was built.

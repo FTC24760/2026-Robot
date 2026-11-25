@@ -116,7 +116,7 @@ Split so far: `sequences/ShootZone` (zone, ready-to-fire, reload arming, rumble/
 
 ## 7. Safeguards
 
-1. Reserve window forces LEAVE+PARK even if a step is stuck (global timer, not per step).
+1. Reserve window forces LEAVE+PARK even if a step is stuck (global timer, not per step). Implemented: `AutoRoutine.withReserve()` + `RESERVE_TIME_LEFT_S` (6 s, placeholder). If that many seconds are left and the route has not started its own park drive (`ctx.parkStarted`), the running step is ended, shooter/intake/shoot sequence stop, and the robot drives to PARK (telemetry shows `RESERVE > ...`).
 2. Every drive has a timeout (existing `DRIVE_TIMEOUT_S`) and a skip.
 3. Check the up-CELL immediately before the first fed ball and re-check during feeding. A tip mid-burst stops feeding and retargets (existing `ShootStep` behaviour, extended to the pre-feed check).
 4. If the Limelight is lost, aim from odometry to the remembered CELL (existing behaviour).

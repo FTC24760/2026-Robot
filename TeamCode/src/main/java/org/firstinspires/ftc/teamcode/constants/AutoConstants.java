@@ -92,6 +92,12 @@ public class AutoConstants {
     // Wait this long after the last shot/cycle before driving to park.
     public static double PARK_DELAY_S = 8;
     public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
+    // Reserve window: when this many seconds are left and the normal route has not started
+    // its park drive, whatever step is running is abandoned and the robot drives to PARK
+    // (LEAVE + PARK are banked even if a step is stuck or a cycle ran long). Must cover the
+    // drive from anywhere on the route: at least DRIVE_TIMEOUT_S plus a margin. PLACEHOLDER:
+    // time the longest drive to PARK. Needs PARK_ENABLED.
+    public static double RESERVE_TIME_LEFT_S = 6;
 
     // Getting past the HIVE: a drive that crosses from the audience half to the far half
     // (or back) follows one smooth curve that bulges out toward our wall instead of going
