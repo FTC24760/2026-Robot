@@ -17,8 +17,9 @@ import org.firstinspires.ftc.teamcode.utils.CellSide;
  */
 public class AutoConstants {
     // Aim (turret, wheel speed, hood) with the Limelight when it is configured. Without
-    // it the auto shoots at Configurables.SHOOTER_RPM and the turret stays put.
-    public static boolean USE_AUTO_AIM = false;
+    // it the turret aims from odometry at the CELL aim points below, and RPM and hood
+    // come from the shot table for the odometry distance.
+    public static boolean USE_AUTO_AIM = true;
 
     // ---- Which CELL of our HIVE is up at the start, as seen by our drivers. ----
     // By the manual (10.3.1 and Figure 10-2, TU08) every match starts with each
@@ -30,6 +31,11 @@ public class AutoConstants {
     public static boolean DETECT_UP_SIDE = true;
 
     public static double FIELD_SIZE_IN = 144;
+    // In AUTO we may not go onto the opposing side (G402): red is field columns A-C, i.e.
+    // x <= 72 in the red frame. A pose centre must stay this far inside, about half the
+    // robot's longest side, so the robot's body stays on our side too.
+    public static double OWN_SIDE_MAX_X_IN = 72;
+    public static double OWN_SIDE_MARGIN_IN = 9;
 
     // ==== ROBOT POSES for Auto: Red / Blue ====
     // Each is where the ROBOT CENTRE goes and which way the robot FRONT faces
@@ -41,9 +47,16 @@ public class AutoConstants {
     // The robot is 17 in wide and 18 in deep, so against a wall its centre is 8.5 in
     // (side on) or 9 in (front or back on) from it.
 
-    // Start: LEFT side against the audience wall, front facing our alliance wall (square
-    // to it; heading 180). The turret aims at the CELL, so the pre-loads go straight away.
-    public static double START_X = 59, START_Y = 8.5, START_H = 180;
+    // Start presets, picked during init (see auto/StartPreset). Both are side on against a
+    // wall, front facing our alliance wall (heading 180); the turret aims at the CELL, so
+    // the pre-loads go straight away. Legal starts (G304): touching the wall, inside our
+    // columns (red x <= 72), clear of the GARDEN, LOADING ZONE and FLOWER volumes.
+    // A: audience wall. Footprint x 50..68, y 0..17.
+    public static double START_A_X = 59, START_A_Y = 8.5, START_A_H = 180;
+    // B: far wall. The FLOWER there spans x 45..51 and column C ends at x 72, so the
+    // centre must be 60..63 (footprint 52.5..70.5 at 61.5). Only ~1.5 in of slack each
+    // side: place it against a tape mark.
+    public static double START_B_X = 61.5, START_B_Y = 135.5, START_B_H = 180;
 
     // Shooting position while our RIGHT CELL is up (the normal case). Same as the start:
     // the GARDEN run is straight there and straight back, and the turret aims.
@@ -51,8 +64,9 @@ public class AutoConstants {
 
     // Shooting position if our LEFT CELL is up instead (HIVE tipped): against the far
     // wall. Same heading as everywhere else, so getting there needs no turn; the turret
-    // aims.
-    public static double SHOOT_LEFT_UP_X = 59, SHOOT_LEFT_UP_Y = 135.5, SHOOT_LEFT_UP_H = 180;
+    // aims. Same spot as start B: at x 59 the footprint would overlap the far-wall FLOWER
+    // (x 45..51) by about an inch.
+    public static double SHOOT_LEFT_UP_X = 61.5, SHOOT_LEFT_UP_Y = 135.5, SHOOT_LEFT_UP_H = 180;
 
     // FLOWER poses are where the robot STOPS to collect. It lines up FLOWER_LINE_UP_IN
     // further back first, lowers the arm there, then creeps in. If it still goes in too
@@ -77,7 +91,40 @@ public class AutoConstants {
     public static double PARK_MIN_TIME_LEFT_S = 3;
     // Wait this long after the last shot/cycle before driving to park.
     public static double PARK_DELAY_S = 8;
+    // SOLO slot (partner passive or only parking): park this long after the last shot or
+    // cycle. 0 = at once; the rest of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
+    public static double SOLO_PARK_DELAY_S = 0;
+    // After a burst, wait this long (with a camera) before leaving the shot spot, so the
+    // HIVE has time to tip and the camera to see which CELL is up now. The next trip then
+    // goes to the right side: the same spot if it did not tip, the other CELL's if it did.
+    public static double TIP_SETTLE_S = 0.8;
     public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
+    // Reserve window: when this many seconds are left and the normal route has not started
+    // its park drive, whatever step is running is abandoned and the robot drives to PARK
+    // (LEAVE + PARK are banked even if a step is stuck or a cycle ran long). Must cover the
+    // drive from anywhere on the route: at least DRIVE_TIMEOUT_S plus a margin. PLACEHOLDER:
+    // time the longest drive to PARK. Needs PARK_ENABLED.
+    public static double RESERVE_TIME_LEFT_S = 6;
+
+    // ---- Partner coordination ----
+    // SECOND slot: stop waiting as soon as the camera sees the HIVE tip (the partner has
+    // shot); the delay stays as the fallback when there is no camera or no tip.
+    public static boolean END_DELAY_ON_TIP = true;
+    // Before the pre-loads (after any delay), if the start pose is not in the shooting zone
+    // for the CELL that is up now (e.g. the HIVE tipped during the delay, or start B with
+    // the audience CELL up), drive to the shot spot first.
+    public static boolean DRIVE_TO_ZONE_FIRST = true;
+    // FIRST slot: park this long after the last shot (instead of PARK_DELAY_S), so the
+    // partner has the shooting area to itself. SOLO and SECOND still use PARK_DELAY_S.
+    public static double FIRST_PARK_DELAY_S = 0;
+    // SECOND slot shoots from the allowed point farthest from the fixed shot spot (where the
+    // partner is expected). Candidates: the fixed spot turned about the CELL in steps of
+    // SPOT_ARC_STEP_DEG, up to SPOT_ARC_STEPS each way; the same distance, so the same table
+    // row. Spots within SPOT_KEEP_OUT_IN of a FLOWER are not used.
+    public static boolean SECOND_USES_OFFSET_SPOT = true;
+    public static double SPOT_ARC_STEP_DEG = 20;
+    public static int SPOT_ARC_STEPS = 2;
+    public static double SPOT_KEEP_OUT_IN = 14;
 
     // Getting past the HIVE: a drive that crosses from the audience half to the far half
     // (or back) follows one smooth curve that bulges out toward our wall instead of going
@@ -102,8 +149,16 @@ public class AutoConstants {
     }
 
     // How many the auto runs; the driver can change it during init with the d-pad.
-    public static int DEFAULT_CYCLES = 0;
+    public static int DEFAULT_CYCLES = 3;
     public static int MAX_CYCLES = 3;
+
+    // ---- Sharing the HIVE with an alliance partner (chosen during init). ----
+    // When we agreed to shoot SECOND, wait this long before the pre-loads (bumpers adjust
+    // it in steps of START_DELAY_STEP_S, up to MAX_START_DELAY_S). Measure the partner's
+    // burst and agree on the number before the match.
+    public static double DEFAULT_START_DELAY_S = 5.0;
+    public static double START_DELAY_STEP_S = 0.5;
+    public static double MAX_START_DELAY_S = 15.0;
     // The order they run in. Default: nearest first.
     public static CycleSource CYCLE_1 = CycleSource.GARDEN;
     public static CycleSource CYCLE_2 = CycleSource.WALL_FLOWER;

@@ -15,6 +15,8 @@ public class OperatorConstants {
     public static double HOOD_RATE = 0.15;
     // Wheel speed change per press.
     public static double RPM_STEP = 50;
+    // The rpm up/down buttons trim the shot (table or fixed) by at most this much.
+    public static double MAX_RPM_TRIM = 500;
     public static double MIN_RPM = 500;
     public static double MAX_RPM = 4000;
 }

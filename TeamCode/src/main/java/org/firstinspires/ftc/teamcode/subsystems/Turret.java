@@ -13,6 +13,10 @@ public class Turret implements Subsystem {
     private final Servo rightServo;
 
     private double position = TurretConstants.START_POSITION;
+    // System.nanoTime() of the last pointAt() call, and since when it has been on target
+    // (0 = not on target). For the fire gate.
+    private long lastPointAtNs;
+    private long onTargetSinceNs;
 
     /** Does not move the servos; they first move on the first call to {@link #move}. */
     public Turret(HardwareMap hardwareMap) {
@@ -27,6 +31,7 @@ public class Turret implements Subsystem {
      * @param loopSeconds time since the previous loop, so speed does not depend on loop rate
      */
     public void move(double direction, double loopSeconds) {
+        onTargetSinceNs = 0;
         setPosition(position + direction * TurretConstants.MANUAL_RATE * loopSeconds);
     }
 
@@ -43,13 +48,39 @@ public class Turret implements Subsystem {
         // Ignore tiny changes: chasing every bit of camera and odometry noise makes the
         // servo buzz back and forth.
         double deadband = Math.abs(degreesToPosition(TurretConstants.AIM_DEADBAND_DEG));
+        long nowNs = System.nanoTime();
+        lastPointAtNs = nowNs;
         if (Math.abs(wanted - position) < deadband) {
             setPosition(position);
-            return;
+        } else {
+            double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
+            setPosition(position + MathUtil.clamp(wanted - position, -maxStep, maxStep));
         }
 
-        double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
-        setPosition(position + MathUtil.clamp(wanted - position, -maxStep, maxStep));
+        // On target = commanded within the deadband of where it should point (it may be
+        // clamped at its travel limit and never get there). See isSettledOnTarget().
+        if (Math.abs(wanted - position) < deadband) {
+            if (onTargetSinceNs == 0) {
+                onTargetSinceNs = nowNs;
+            }
+        } else {
+            onTargetSinceNs = 0;
+        }
+    }
+
+    /** True if auto-aim (pointAt) drove the turret within the last few loops. */
+    public boolean isAutoAiming() {
+        return lastPointAtNs != 0 && (System.nanoTime() - lastPointAtNs) * 1e-9 < 0.1;
+    }
+
+    /**
+     * True if auto-aim has kept the turret on target for at least {@code seconds}. The
+     * servos have no feedback, so the hold time also stands in for their travel lag.
+     */
+    public boolean isSettledOnTarget(double seconds) {
+        return isAutoAiming()
+                && onTargetSinceNs != 0
+                && (System.nanoTime() - onTargetSinceNs) * 1e-9 >= seconds;
     }
 
     /**

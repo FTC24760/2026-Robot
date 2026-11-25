@@ -68,12 +68,9 @@ public class Shooter implements Subsystem {
         shootRpmOverride = Double.NaN;
     }
 
-    /** The speed the SHOOT state aims for right now. */
-    /*public double getShootRpm() {
-        return Double.isNaN(shootRpmOverride) ? Configurables.SHOOTER_RPM : shootRpmOverride;
-    }*/
+    /** The speed the SHOOT state aims for right now: the shot table's, else the fixed one. */
     public double getShootRpm() {
-        return Configurables.SHOOTER_RPM;
+        return Double.isNaN(shootRpmOverride) ? Configurables.SHOOTER_RPM : shootRpmOverride;
     }
 
     /** Tell the shooter a burst is being fed, so it recovers as hard as it can between balls. */

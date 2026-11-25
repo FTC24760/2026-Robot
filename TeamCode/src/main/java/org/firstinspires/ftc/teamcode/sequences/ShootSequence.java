@@ -5,17 +5,26 @@ import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 
+import java.util.function.BooleanSupplier;
+
 /**
- * One-click shooting, shared by teleop and autonomous:
+ * Shooting, the one sequence used by both TeleOp and Auto:
  *
- *   1. spin the wheel up to shooting speed,
- *   2. once RPM is stable, open the blocker,
- *   3. wait for the gate to open, then feed until stopped or BURST_FEED_S passes,
+ *   1. pack: run the transfer for PACK_S against the closed blocker while the wheel
+ *      spins up (then, with BLOCKER_OPEN_EARLY, the slow blocker starts opening, so
+ *      its travel overlaps the rest of spin-up),
+ *   2. once RPM is stable, open the blocker if it is not already open,
+ *   3. once the gate has had BLOCKER_OPEN_SETTLE_S to open, feed until stopped, or until
+ *      the burst's feed limit if one was given (Auto),
  *   4. close the blocker.
+ *
+ * Balls are only fed while the fire gate is open: wheel at speed AND aim ready (turret
+ * settled on the target, robot slow enough; Robot.aimReady()). If either drops mid-burst,
+ * feeding pauses and resumes by itself.
  *
  * This class only decides what should happen. Each loop the caller asks
  * wantsShooter() and isFeeding() and passes them to Robot.runShooter() and
- * Robot.runIntake(), which do the driving (including feed gating between balls).
+ * Robot.runIntake(), which do the driving.
  */
 public class ShootSequence {
 
@@ -29,24 +38,42 @@ public class ShootSequence {
 
     private final Shooter shooter;
     private final Intake intake;
+    private final BooleanSupplier aimReady;
 
     private Stage stage = Stage.IDLE;
     private double stageStartS;
     private double readySinceS = -1;
     private double blockerS = -1;
+    // Stop by itself after this long in FEEDING; NaN = only when told to.
+    private double maxFeedS = Double.NaN;
 
-    public ShootSequence(Shooter shooter, Intake intake) {
+    /**
+     * @param aimReady true when the aim allows a shot right now (see Robot.aimReady());
+     *                 checked before every ball, together with the wheel speed
+     */
+    public ShootSequence(Shooter shooter, Intake intake, BooleanSupplier aimReady) {
         this.shooter = shooter;
         this.intake = intake;
+        this.aimReady = aimReady;
     }
 
-    /** Begin a burst. Does nothing if one is already running. */
+    /** Begin a burst that feeds until cancelled. Does nothing if one is already running. */
     public void start(double nowS) {
+        start(nowS, Double.NaN);
+    }
+
+    /**
+     * Begin a burst that stops by itself after feeding for maxFeedS (a backstop for Auto,
+     * whose shoot step normally ends it sooner). Does nothing if one is already running.
+     */
+    public void start(double nowS, double maxFeedS) {
         if (stage != Stage.IDLE) {
             return;
         }
-        intake.setBlockerOpen(false);
+        this.maxFeedS = maxFeedS;
         readySinceS = -1;
+        // Always pack against the closed blocker first; the wheel spins up meanwhile.
+        intake.setBlockerOpen(false);
         enter(Stage.PACKING, nowS);
     }
 
@@ -74,18 +101,23 @@ public class ShootSequence {
                 wheelSettled(nowS);
                 if (nowS - stageStartS >= ShooterConstants.PACK_S) {
                     enter(Stage.SPINNING_UP, nowS);
+                    if (Configurables.BLOCKER_OPEN_EARLY) {
+                        // Overlap the slow blocker's travel with the rest of spin-up.
+                        openBlocker(nowS);
+                    }
                 }
                 break;
 
             case SPINNING_UP:
                 if (wheelSettled(nowS)) {
-                    intake.setBlockerOpen(true);
-                    blockerS = nowS;
+                    openBlocker(nowS);
                     enter(Stage.OPENING_GATE, nowS);
                 }
                 break;
+
             case OPENING_GATE:
-                // A low reading here only holds the transfer; the blocker stays open.
+                // A low reading here only holds the transfer (isFeeding() checks the wheel);
+                // the blocker stays open.
                 if (nowS - blockerS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S
                         && shooter.isReadyToFeed()) {
                     enter(Stage.FEEDING, nowS);
@@ -93,6 +125,9 @@ public class ShootSequence {
                 break;
 
             case FEEDING:
+                if (!Double.isNaN(maxFeedS) && nowS - stageStartS >= maxFeedS) {
+                    cancel();
+                }
                 break;
 
             case IDLE:
@@ -114,14 +149,19 @@ public class ShootSequence {
         return stage == Stage.PACKING;
     }
 
+    /** True in the feeding stage, whether or not the fire gate lets a ball go right now. */
+    public boolean inFeedingStage() {
+        return stage == Stage.FEEDING;
+    }
+
     /** True while the wheel should be held at shooting speed. */
     public boolean wantsShooter() {
         return stage != Stage.IDLE;
     }
 
-    /** True while feeding is active and the current wheel speed permits transfer. */
+    /** True while balls should be pushed into the wheel: feeding, wheel ready, aim ready. */
     public boolean isFeeding() {
-        return stage == Stage.FEEDING && shooter.isReadyToFeed();
+        return stage == Stage.FEEDING && shooter.isReadyToFeed() && aimReady.getAsBoolean();
     }
 
     // The wheel has to stay at speed for a moment, not just touch it once.
@@ -134,6 +174,14 @@ public class ShootSequence {
             readySinceS = nowS;
         }
         return nowS - readySinceS >= ShooterConstants.BURST_READY_SETTLE_S;
+    }
+
+    // Open the blocker, starting its travel clock only if it was not already open.
+    private void openBlocker(double nowS) {
+        if (!intake.isBlockerOpen()) {
+            intake.setBlockerOpen(true);
+            blockerS = nowS;
+        }
     }
 
     private void enter(Stage next, double nowS) {

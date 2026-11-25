@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 
@@ -16,6 +17,10 @@ import org.firstinspires.ftc.teamcode.utils.MathUtil;
 public class Hood implements Subsystem {
     private final Servo servo;
     private double position = Double.NaN;
+    // The position at the last real move, and when that move was commanded. The servo has
+    // no feedback, so "settled" is a hold time since the last move.
+    private double movedFrom = Double.NaN;
+    private long movedAtNs = 0;
 
     /** Does not move the servo; it first moves on the first call to setPosition. */
     public Hood(HardwareMap hardwareMap) {
@@ -26,6 +31,11 @@ public class Hood implements Subsystem {
         double low = Math.min(ShotConstants.HOOD_DOWN_POSITION, ShotConstants.HOOD_UP_POSITION);
         double high = Math.max(ShotConstants.HOOD_DOWN_POSITION, ShotConstants.HOOD_UP_POSITION);
         this.position = MathUtil.clamp(position, low, high);
+        if (Double.isNaN(movedFrom)
+                || Math.abs(this.position - movedFrom) > ShootGateConstants.HOOD_SETTLE_DEADBAND) {
+            movedFrom = this.position;
+            movedAtNs = System.nanoTime();
+        }
 
         if (servo != null) {
             // Direction is set every call so a change made live in Panels takes effect.
@@ -35,6 +45,17 @@ public class Hood implements Subsystem {
             servo.setDirection(direction);
             servo.setPosition(command);
         }
+    }
+
+    /**
+     * True once the hood has been commanded to (about) the same place for {@code seconds},
+     * standing in for the servo's travel time. Always true with no servo installed.
+     */
+    public boolean isSettled(double seconds) {
+        if (servo == null) {
+            return true;
+        }
+        return !Double.isNaN(movedFrom) && (System.nanoTime() - movedAtNs) * 1e-9 >= seconds;
     }
 
     public void setDown() {

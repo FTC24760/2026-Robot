@@ -1,0 +1,63 @@
+package org.firstinspires.ftc.teamcode.constants;
+
+import com.bylazar.configurables.annotations.Configurable;
+
+/**
+ * The fire gate: a ball is only fed when the wheel is at speed (Shooter) AND the aim is
+ * ready (these). Applies to TeleOp and Auto. Tune on the robot; raise the limits if good
+ * shots are held back, lower them if shots taken while moving miss.
+ */
+@Configurable
+public class ShootGateConstants {
+    // Off: only the wheel speed gates feeding (the competition behaviour).
+    public static boolean ENABLED = true;
+    // While the turret auto-aims, it must have been on target (within
+    // TurretConstants.AIM_DEADBAND_DEG of where it should point) for this long. The
+    // servos have no feedback, so this also covers their travel lag.
+    public static double AIM_SETTLE_S = 0.15;
+    // The hood servo has no feedback either: a shot waits until the commanded hood position
+    // has stayed within HOOD_SETTLE_DEADBAND (servo units, 0-1) for this long. PLACEHOLDER:
+    // set to the hood's measured full-travel time. 0 turns the wait off.
+    public static double HOOD_SETTLE_S = 0.3;
+    public static double HOOD_SETTLE_DEADBAND = 0.005;
+    // ---- Shoot on the move (EXPERIMENTAL, off by default). ----
+    // Aim, distance and shot-table lookup use a virtual target: the CELL shifted back by
+    // the robot's velocity x FLIGHT_TIME_S, because the ball keeps the robot's velocity.
+    // While on, the speed limits below are replaced by the MOVING_ ones. Steady, straight
+    // driving only: it does not predict acceleration or turning. PLACEHOLDERS: measure the
+    // flight time (slow-motion video), then raise the speed until shots stop going in.
+    public static boolean SHOOT_ON_MOVE = false;
+    public static double FLIGHT_TIME_S = 0.5;
+    // Never shift the target by more than this (odometry velocity spikes).
+    public static double MAX_LEAD_IN = 24;
+    public static double MOVING_MAX_SPEED_IN_PER_S = 30;
+    public static double MOVING_MAX_TURN_DEG_PER_S = 30;
+    // The robot must be moving slower than this (inches per second) and turning slower
+    // than MAX_TURN_DEG_PER_S. PLACEHOLDERS: measure what still scores.
+    public static double MAX_SPEED_IN_PER_S = 15;
+    public static double MAX_TURN_DEG_PER_S = 60;
+
+    // ---- Shooting zone and the driver's "ready to fire" signal (TeleOp). ----
+    // The zone is the area the shot table is calibrated for: target distance within the
+    // measured rows (+ ShotTableConstants.OUT_OF_RANGE_MARGIN_IN). Once in, the robot
+    // stays "in zone" until this much further out, so it does not flicker at the edge.
+    public static double ZONE_HYSTERESIS_IN = 2;
+    // The zone also needs a usable approach angle: the shot must be within this many degrees
+    // of the up CELL's opening axis (0 = straight in, 90 = grazing, no entry). The opening
+    // faces the audience wall (AUDIENCE cell) or the far wall (FAR cell), tilted 30 deg up.
+    // PLACEHOLDER: find where shots stop going in. 180 turns the angle limit off.
+    public static double ZONE_MAX_OFF_AXIS_DEG = 60;
+    public static double ZONE_ANGLE_HYSTERESIS_DEG = 5;
+    // Spin the wheel up to the table speed while in the zone, so a shot goes the moment
+    // the button is pressed. Off saves battery; "ready" then ignores the wheel.
+    public static boolean PRESPIN_IN_ZONE = true;
+    // After a shot, no pre-spin and not ready (the shoot button still works) until the intake
+    // has run this long since the shot, or the robot leaves the zone. There is no ball
+    // sensor, so this stands in for "reloaded". PLACEHOLDER: time a real reload. 0 = off.
+    public static double REARM_INTAKE_S = 2.0;
+    // Rumble the driver and operator gamepads for this long when the robot becomes ready.
+    public static int READY_RUMBLE_MS = 250;
+    public static double READY_RUMBLE_COOLDOWN_S = 2.0;
+    // Gamepad LED (PS4/PS5-style pads only): green when ready, red when not.
+    public static boolean READY_LED = true;
+}

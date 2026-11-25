@@ -7,6 +7,7 @@ import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
@@ -170,6 +171,36 @@ public final class Steps {
         return new WaitStep(seconds);
     }
 
+    /**
+     * Wait for the partner to shoot first, if we took the SECOND slot on the init menu
+     * (AutoSelection). Read when the step starts, so the menu value is the one used.
+     */
+    public static AutoStep startDelay() {
+        return new AutoStep() {
+            private double untilS;
+            private CellSide upAtStart;
+
+            @Override
+            public void start(AutoContext ctx) {
+                untilS = ctx.now() + AutoSelection.effectiveDelayS();
+                upAtStart = ctx.upSide;
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                // The up CELL changing means the partner's shots tipped the HIVE: go now.
+                boolean tipped = AutoConstants.END_DELAY_ON_TIP
+                        && AutoSelection.effectiveDelayS() > 0 && ctx.upSide != upAtStart;
+                return tipped || ctx.now() >= untilS;
+            }
+
+            @Override
+            public String name() {
+                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s or tip)";
+            }
+        };
+    }
+
     /** Run some steps in order, as one step. */
     public static AutoStep sequence(String name, AutoStep... steps) {
         return new SequenceStep(name, Arrays.asList(steps));
@@ -275,7 +306,7 @@ public final class Steps {
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
             ctx.shotInterrupted = false;
-            ctx.robot.autoShootSequence.start(ctx.now());
+            ctx.robot.shootSequence.start(ctx.now(), Configurables.SHOOT_FEED_SECONDS);
         }
 
         @Override
@@ -287,7 +318,7 @@ public final class Steps {
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
-                ctx.robot.autoShootSequence.cancel();
+                ctx.robot.shootSequence.cancel();
                 if (AutoConstants.LOCK_TURRET_FORWARD) {
                     ctx.shotInterrupted = true;
                     return true;
@@ -299,15 +330,15 @@ public final class Steps {
                     return false;
                 }
                 pausedUntilS = -1;
-                ctx.robot.autoShootSequence.start(now);
+                ctx.robot.shootSequence.start(now, Configurables.SHOOT_FEED_SECONDS);
             }
 
-            if (ctx.robot.autoShootSequence.isFeeding()) {
+            if (ctx.robot.shootSequence.isFeeding()) {
                 fedS += dt;
                 return fedS >= feedS;
             }
             // The sequence gave up (wheel never reached speed) or finished on its own.
-            if (!ctx.robot.autoShootSequence.isActive()) {
+            if (!ctx.robot.shootSequence.isActive()) {
                 return true;
             }
             // Still spinning up: give up rather than burn the auto. Only before the first
@@ -318,7 +349,7 @@ public final class Steps {
 
         @Override
         public void end(AutoContext ctx) {
-            ctx.robot.autoShootSequence.cancel();
+            ctx.robot.shootSequence.cancel();
             // After a tip the count restarts for the new up CELL, so only count full shots.
             if (fedS > 0 && !ctx.shotInterrupted) {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);

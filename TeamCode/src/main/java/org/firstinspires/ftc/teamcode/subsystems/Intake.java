@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
+import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 
 /** Intake roller, transfer, and the blocker servo that gates the path into the shooter. */
@@ -31,6 +32,8 @@ public class Intake implements Subsystem {
 
     private Mode mode = Mode.OFF;
     private boolean blockerOpen;
+    // When the blocker was last commanded from open to closed (System.nanoTime()), 0 = never.
+    private long blockerClosedNs;
     private double voltageScale = 1.0;
     private double transferPower;
 
@@ -93,6 +96,11 @@ public class Intake implements Subsystem {
     }
 
     public void setBlockerOpen(boolean open) {
+        // setMode() re-sends the position every loop; only a real open -> closed change
+        // starts the closing clock.
+        if (blockerOpen && !open) {
+            blockerClosedNs = System.nanoTime();
+        }
         blockerOpen = open;
         blockerServo.setPosition(open
                 ? Configurables.BLOCKER_OPEN_POSITION
@@ -105,6 +113,16 @@ public class Intake implements Subsystem {
 
     public boolean isBlockerOpen() {
         return blockerOpen;
+    }
+
+    /**
+     * True while the blocker has been told to close but may still be part open. The servo
+     * is slow and has no feedback, so this is BLOCKER_CLOSE_SETTLE_S after the command.
+     */
+    public boolean isBlockerClosing() {
+        return !blockerOpen
+                && blockerClosedNs != 0
+                && (System.nanoTime() - blockerClosedNs) * 1e-9 < ShooterConstants.BLOCKER_CLOSE_SETTLE_S;
     }
 
     @Override

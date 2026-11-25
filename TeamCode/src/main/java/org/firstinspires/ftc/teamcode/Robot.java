@@ -1,11 +1,14 @@
 package org.firstinspires.ftc.teamcode;
 
+import org.firstinspires.ftc.teamcode.aim.AimController;
 import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
@@ -15,14 +18,14 @@ import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
-import org.firstinspires.ftc.teamcode.sequences.AutoShootSequence;
+import org.firstinspires.ftc.teamcode.sequences.ShootZone;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
 import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
-import org.firstinspires.ftc.teamcode.utils.ShotSolver;
+import org.firstinspires.ftc.teamcode.utils.ShotTable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,9 +59,8 @@ public class Robot {
     public final Turret turret;
     public final Shooter shooter;
     public final FlowerArm flowerArm;
-    /** One-click shooting: spin up, open the blocker, feed, close. */
+    /** Shooting for TeleOp and Auto: spin up, open the blocker, feed through the fire gate, close. */
     public final ShootSequence shootSequence;
-    public final AutoShootSequence autoShootSequence;
     // Only present after enableAutoAim(); null otherwise, so robots without a Limelight
     // configured can still run.
     public Vision vision;
@@ -88,18 +90,10 @@ public class Robot {
     // for the wheel to recover after each ball.
     private boolean rapidFire;
 
-    // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
-    // when there is no target.
-    private ShotSolver.Solution shot;
-    // Where the upward-facing CELL of our HIVE is on the field, from the camera and
-    // odometry; null without auto-aim.
-    private HiveTracker hiveTracker;
-    // True while the turret should follow hiveTracker.
-    private boolean aiming;
-    // The driver can switch auto-aim off mid-match if the camera misbehaves.
-    private boolean aimEnabled = true;
-    private String aimNote = "";
-
+    // Pose + camera -> turret, wheel speed, hood, and the aim half of the fire gate.
+    private AimController aim;
+    // TeleOp shooting zone and the "ready to fire" signal.
+    private ShootZone zone;
     /** Feed in timed push/retract pulses while shooting. Operator X in teleop. */
     public boolean pulseShoot = true;
     private double pulseStartS = -1;
@@ -130,8 +124,9 @@ public class Robot {
 
         flowerArm = new FlowerArm(opMode.hardwareMap);
         hood = new Hood(opMode.hardwareMap);
-        shootSequence = new ShootSequence(shooter, intake);
-        autoShootSequence = new AutoShootSequence(shooter, intake);
+        shootSequence = new ShootSequence(shooter, intake, this::aimReady);
+        zone = new ShootZone(opMode.gamepad1, opMode.gamepad2);
+        aim = new AimController(drivetrain, shooter, hood, turret);
 
         subsystems = new ArrayList<>(
                 Arrays.asList(drivetrain, intake, turret, shooter, flowerArm, hood));
@@ -167,22 +162,16 @@ public class Robot {
      * TARGET_RPM and the turret and hood stay where they were.
      */
     public Robot enableAutoAim(Alliance alliance) {
-        try {
-            vision = new Vision(opMode.hardwareMap, alliance);
-        } catch (RuntimeException e) {
-            vision = null;
-            aimNote = "AUTO-AIM OFF: no Limelight \"" + VisionConstants.LIMELIGHT_NAME + "\" configured";
-            return this;
+        vision = aim.enable(opMode.hardwareMap, alliance);
+        if (vision != null) {
+            subsystems.add(vision);
         }
-
-        hiveTracker = new HiveTracker();
-        subsystems.add(vision);
         return this;
     }
 
     /** True if auto-aim was enabled and the Limelight was found. */
     public boolean hasAutoAim() {
-        return vision != null;
+        return aim.hasAutoAim();
     }
 
     /**
@@ -192,34 +181,79 @@ public class Robot {
     public void setPose(Pose pose) {
         Pose old = drivetrain.getPose();
         drivetrain.setPose(pose);
-        if (hiveTracker != null) {
-            hiveTracker.onPoseReset(old, pose);
-        }
+        aim.onPoseReset(old, pose);
     }
 
     /** Make the robot's current position and heading the field origin. */
     public void resetPose() {
         Pose old = drivetrain.getPose();
         drivetrain.resetPose();
-        if (hiveTracker != null) {
-            hiveTracker.onPoseReset(old, new Pose(0, 0, 0));
-        }
+        aim.onPoseReset(old, new Pose(0, 0, 0));
     }
 
     /** True while auto-aim has an up-facing CELL to aim at (seen, or remembered). */
     public boolean isAiming() {
-        return aiming;
+        return aim.isAiming();
     }
 
-    /** The shot auto-aim is using right now, or null if there is no target. */
-    public ShotSolver.Solution getShot() {
-        return shot;
+    /** The table shot in use right now, or null if there is no target distance. */
+    public ShotTable.Shot getShot() {
+        return aim.getShot();
     }
 
-    /** True when auto-aim can see the upward-facing CELL and has a reachable shot for it. */
+    /** True when RPM and hood come from the shot table (a target distance is known). */
     public boolean hasShot() {
-        return shot != null && shot.reachable;
+        return aim.getShot() != null;
     }
+
+    /**
+     * The aim half of the fire gate (the wheel-speed half is in Shooter): true when a ball
+     * may be fed now. While the turret auto-aims it must have settled on the target; the
+     * robot must be slow enough. When the turret is aimed by hand, that is the driver's
+     * call and only the speed limit applies. See ShootGateConstants.
+     */
+    public boolean aimReady() {
+        return aim.aimReady();
+    }
+
+    /** True while the target distance is inside the calibrated shooting zone (TeleOp). */
+    public boolean isInZone() {
+        return zone.isInZone();
+    }
+
+    /** True while in the zone with the aim ready and (when pre-spinning) the wheel at speed. */
+    public boolean isReadyToFire() {
+        return zone.isReadyToFire();
+    }
+
+    /** Why aimReady() is false, for telemetry; null when ready. */
+    public String aimBlockReason() {
+        return aim.aimBlockReason();
+    }
+
+    /** Degrees the shot to the up CELL is off the CELL's opening axis, NaN without a target. */
+    public double targetOffAxisDeg() {
+        return aim.targetOffAxisDeg();
+    }
+
+    /**
+     * Distance from the robot centre to the up CELL auto-aim is tracking, inches, or NaN
+     * without a target.
+     */
+    public double targetDistanceIn() {
+        return aim.targetDistanceIn();
+    }
+
+    /** Distance to aim for when auto-aim has no target; see AimController. */
+    public void setFallbackShotDistance(java.util.function.DoubleSupplier distanceIn) {
+        aim.setFallbackDistance(distanceIn);
+    }
+
+    /** Fixed RPM / hood instead of the shot table (calibration); NaN clears. */
+    public void overrideShot(double rpm, double hoodPosition) {
+        aim.overrideShot(rpm, hoodPosition);
+    }
+
 
     /**
      * Shoot on a fixed beat instead of waiting for the wheel to recover after each ball
@@ -254,14 +288,13 @@ public class Robot {
         int rpmDirection = (controls.rpmUpPressed() || operator.rpmUpPressed() ? 1 : 0)
                 - (controls.rpmDownPressed() || operator.rpmDownPressed() ? 1 : 0);
         if (rpmDirection != 0) {
-            Configurables.SHOOTER_RPM = MathUtil.clamp(
-                    Configurables.SHOOTER_RPM + rpmDirection * OperatorConstants.RPM_STEP,
-                    OperatorConstants.MIN_RPM, OperatorConstants.MAX_RPM);
+            // A trim on top of the shot table (or the fixed speed): takes effect next loop.
+            aim.adjustRpmTrim(rpmDirection);
         }
 
         // Switches (driver or operator).
         if (controls.aimTogglePressed() || operator.aimTogglePressed()) {
-            aimEnabled = !aimEnabled;
+            aim.toggleEnabled();
         }
         intakeOn = controls.intake() || operator.intake();
         if (operator.pulseTogglePressed()) {
@@ -277,22 +310,28 @@ public class Robot {
         if (stopShot) {
             shootSequence.cancel();
             shooterArmed = false;
+            // The stop button also stops the in-zone pre-spin until the robot leaves the zone.
+            zone.onStopPressed();
         } else if (controls.shootPressed() || operator.shootPressed()) {
             shootSequence.toggle(nowSeconds());
         }
-        hood.setPosition(Configurables.HOOD_POSITION);
-        shooter.clearShootRpm();
-        runShooter(shootSequence.wantsShooter());
+        // RPM and hood were set by auto-aim in beginLoop() (shot table, or fixed fallback).
+        // In the shooting zone the wheel is kept at the table speed, ready for the button.
+        runShooter(shootSequence.wantsShooter() || zone.wantsPrespin());
         if (!controls.shootHeld && !operator.shootHeld) {
             shootSequence.cancel();
         }
         shootSequence.update(nowSeconds());
+        zone.updateReloadArming(shootSequence.isActive(), shootSequence.isFeeding(), stopShot,
+                intakeOn && !reversing, loopSeconds);
 
         updateDrive();
         runTeleopTurret();
+        zone.update(targetDistanceIn(), targetOffAxisDeg(), aimReady(), shooter.isReadyToFeed(),
+                shootSequence.isActive(), nowSeconds());
 
         // Intake and transfer, highest priority first.
-        boolean pulsing = pulseActive(shootSequence.getStage() == ShootSequence.Stage.FEEDING);
+        boolean pulsing = pulseActive(shootSequence.inFeedingStage() && aimReady());
         if (reversing) {
             runIntake(Intake.Mode.REVERSE);
         } else if (pulsing) {
@@ -357,7 +396,7 @@ public class Robot {
 
         hubs.clearBulkCache();
         voltageScale = hubs.getVoltageScale(nowNs);
-        updateAim();
+        aim.update(nowNs);
     }
 
     /**
@@ -437,8 +476,13 @@ public class Robot {
         // Takes effect on the next shooter update, one loop later.
         shooter.setFeedingBurst(gated);
 
+        // After a burst (shoot released, auto shot done) the slow blocker is still part
+        // open for a moment: do not push balls toward it until it has closed. Backwards
+        // modes (REVERSE, RETRACT) pull away from it and are allowed.
+        boolean closingHold = feeding && intake.isBlockerClosing();
+
         intake.setVoltageScale(voltageScale);
-        intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
+        intake.setMode(feedHeld || closingHold ? Intake.Mode.OFF : mode);
     }
 
     /**
@@ -450,14 +494,7 @@ public class Robot {
      * @param manualDirection +1, -1 or 0 from the driver; pass 0 in autonomous
      */
     public void runTurret(double manualDirection) {
-        if (manualDirection != 0 || !aiming) {
-            turret.move(manualDirection, loopSeconds);
-            return;
-        }
-
-        double bearing = hiveTracker.turretBearingDeg(
-                drivetrain.getPose(), drivetrain.getVelocity(), TurretConstants.AIM_LEAD_SECONDS);
-        turret.pointAt(bearing, loopSeconds);
+        aim.runTurret(manualDirection, loopSeconds);
     }
 
     /** Loop timestamp in seconds, for timing sequences. */
@@ -474,41 +511,6 @@ public class Robot {
     /** Seconds since the previous loop, capped so a stall cannot cause a jump. */
     public double getLoopSeconds() {
         return loopSeconds;
-    }
-
-    // Auto-aim: turn what the camera sees into a shooter speed and hood position.
-    private void updateAim() {
-        if (vision == null) {
-            return;
-        }
-
-        hiveTracker.recordPose(drivetrain.getPoseTimeNs(), drivetrain.getPose());
-        vision.update(nowNs);
-
-        // Only aim at a CELL that is facing up; the other one cannot be scored in.
-        Vision.Fix fix = vision.getFix();
-        if (fix != null) {
-            if (fix.cellUp) {
-                hiveTracker.addSighting(fix, turret.getAngleDeg());
-            } else {
-                hiveTracker.sawCellDown(fix.sighting.cell);
-            }
-        }
-
-        aiming = aimEnabled && hiveTracker.hasTarget(nowNs);
-        shot = aiming
-                ? ShotSolver.solveForCell(
-                hiveTracker.distanceM(drivetrain.getPose()), hiveTracker.getTagHeightM())
-                : null;
-
-        if (hasShot()) {
-            shooter.setShootRpm(shot.rpm);
-            //hood.setPosition(shot.hoodPosition);
-        } else {
-            // No usable shot: fixed TARGET_RPM with the hood at its matching position.
-            shooter.clearShootRpm();
-            hood.setPosition(Configurables.HOOD_POSITION);
-        }
     }
 
     public void stop() {
@@ -562,6 +564,23 @@ public class Robot {
             lastTelemetryNs = nowNs;
         }
 
+        // TeleOp only (Auto shoots by itself): first, so the driver sees it at a glance.
+        if (zone.isFeedbackShown()) {
+            if (zone.isReadyToFire()) {
+                telemetry.addLine(">>> READY TO FIRE <<<");
+            } else if (!zone.isInZone()) {
+                telemetry.addLine(Double.isNaN(targetDistanceIn())
+                        ? "Not ready: no target"
+                        : targetOffAxisDeg() > ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
+                        ? String.format("Not ready: bad angle (%.0f deg off the opening)", targetOffAxisDeg())
+                        : "Not ready: outside shooting zone");
+            } else {
+                String blocked = aimBlockReason();
+                telemetry.addLine("In zone, not ready: " + (zone.isReloading() ? "reloading (run intake or leave the zone)"
+                        : blocked != null ? blocked : "wheel spinning up"));
+            }
+        }
+
         telemetry.addData("Loop ms", "%.1f", loopSeconds * 1000.0);
 
         for (Subsystem subsystem : subsystems) {
@@ -574,27 +593,13 @@ public class Robot {
         }
 
         telemetry.addData("Shoot", shootSequence.getStage());
+        String blocked = aimBlockReason();
+        if (shootSequence.isActive() && blocked != null) {
+            telemetry.addData("Fire gate", "holding: " + blocked);
+        }
         telemetry.addData("Pulse shoot (op X)", pulseShoot ? "ON" : "off");
         telemetry.addData("Intake held", intakeOn ? "yes" : "no");
-        if (!aimNote.isEmpty()) {
-            telemetry.addLine(aimNote);
-        }
-
-        if (vision != null) {
-            if (!aimEnabled) {
-                telemetry.addData("Auto-aim", "SWITCHED OFF");
-            } else if (shot == null) {
-                telemetry.addData("Auto-aim", "no upward CELL known, using fixed RPM");
-            } else if (!shot.reachable) {
-                telemetry.addData("Auto-aim", "OUT OF RANGE");
-            } else {
-                telemetry.addData("Auto-aim", "%.0f RPM at %.1f deg", shot.rpm, shot.launchAngleDeg);
-            }
-            if (aiming) {
-                telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)
-                        ? "camera" : "odometry (camera lost it)");
-            }
-        }
+        aim.addTelemetry(telemetry, nowNs);
 
         if (rpmLogger != null) {
             telemetry.addData("RPM CSV", rpmLogger.getStatus());

@@ -3,25 +3,33 @@ package org.firstinspires.ftc.teamcode.auto.routines;
 import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
+import static org.firstinspires.ftc.teamcode.auto.Steps.instant;
 import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
 import static org.firstinspires.ftc.teamcode.auto.Steps.spinUp;
+import static org.firstinspires.ftc.teamcode.auto.Steps.startDelay;
 import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
+import com.pedropathing.math.Pose;
+
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
+import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
+import org.firstinspires.ftc.teamcode.auto.ShotSpots;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shoot the pre-loads from the start, run up to three collection cycles
+ * Start at the chosen preset, wait for the partner if we shoot SECOND, shoot the
+ * pre-loads from the start, run up to three collection cycles
  * (each one FLOWER or the GARDEN, then back to shoot), wait PARK_DELAY_S, then park.
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
@@ -37,7 +45,16 @@ public final class FullAuto {
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
 
-        // Pre-loads, from the start pose: no driving.
+        // SECOND slot: let the partner shoot first (no wait otherwise). The robot holds
+        // only its 4 pre-loads, so there is nothing useful to collect meanwhile.
+        steps.add(startDelay());
+
+        // Pre-loads, from the start pose with no driving, unless that pose cannot score into
+        // the CELL that is up now (the HIVE tipped while we waited, or start B with the
+        // audience CELL up): then drive to the shot spot first.
+        steps.add(when("start pose in zone?",
+                c -> AutoConstants.DRIVE_TO_ZONE_FIRST && !c.inZoneNow(c.upSide),
+                driveToShot(), null));
         steps.add(shootHere());
 
         CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
@@ -56,17 +73,29 @@ public final class FullAuto {
         steps.add(intake(Intake.Mode.OFF));
         steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
                 sequence("park",
-                        waitSeconds(AutoConstants.PARK_DELAY_S),
+                        // FIRST leaves early so the partner has the shooting area.
+                        when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
+                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S),
+                                when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.SOLO,
+                                        waitSeconds(AutoConstants.SOLO_PARK_DELAY_S),
+                                        waitSeconds(AutoConstants.PARK_DELAY_S))),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
-                                driveTo("park", c -> c.pose(AutoConstants.PARK_X,
-                                        AutoConstants.PARK_Y, AutoConstants.PARK_H)),
+                                sequence("park drive",
+                                        instant("park started", c -> c.parkStarted = true),
+                                        driveToPark()),
                                 null)),
                 null));
 
         return new AutoRoutine("Full Auto",
-                c -> c.pose(AutoConstants.START_X, AutoConstants.START_Y, AutoConstants.START_H),
-                steps.toArray(new AutoStep[0]));
+                c -> AutoSelection.preset.pose(c),
+                steps.toArray(new AutoStep[0]))
+                .withReserve(driveToPark());
+    }
+
+    private static AutoStep driveToPark() {
+        return driveTo("park", c -> c.pose(AutoConstants.PARK_X,
+                AutoConstants.PARK_Y, AutoConstants.PARK_H));
     }
 
     private static AutoStep collect(CycleSource source) {
@@ -104,15 +133,24 @@ public final class FullAuto {
                 when("after a tip", c -> c.shotInterrupted,
                         sequence("finish at other CELL", driveToShot(), spinUp(true), shoot()),
                         null),
-                spinUp(false));
+                spinUp(false),
+                // Let the HIVE tip and the camera see it before the next trip is planned.
+                when("tip settle",
+                        c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
+                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
+                        waitSeconds(AutoConstants.TIP_SETTLE_S), null));
     }
 
     // The shooter goes off only if the robot actually drives (see Steps.driveTo).
     private static AutoStep driveToShot() {
         return byUpSide(
-                driveTo("to shot (LEFT CELL up)", c -> c.pose(AutoConstants.SHOOT_LEFT_UP_X,
-                        AutoConstants.SHOOT_LEFT_UP_Y, AutoConstants.SHOOT_LEFT_UP_H), true),
-                driveTo("to shot", c -> c.pose(AutoConstants.SHOOT_X,
-                        AutoConstants.SHOOT_Y, AutoConstants.SHOOT_H), true));
+                driveTo("to shot (LEFT CELL up)", c -> shotPose(c, CellSide.LEFT), true),
+                driveTo("to shot", c -> shotPose(c, CellSide.RIGHT), true));
+    }
+
+    // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
+    private static Pose shotPose(AutoContext c, CellSide cell) {
+        double[] s = ShotSpots.spot(cell, AutoSelection.slot);
+        return c.pose(s[0], s[1], s[2]);
     }
 }
