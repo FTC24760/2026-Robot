@@ -155,6 +155,28 @@ public class HiveTracker {
         return tagHeightM;
     }
 
+    /**
+     * How far the shot from {@code pose} to the CELL is off the CELL's opening axis, in
+     * degrees, 0 (straight into the opening) to 180. The up CELL opens along the field's
+     * y axis, away from the HIVE's pivot: the AUDIENCE cell toward the audience wall (-y),
+     * the FAR cell toward the far wall (+y) (manual figs 9-9, 9-10; field frame has the
+     * audience wall at the bottom). A shot perpendicular to that (90) grazes the opening.
+     * NaN with no target.
+     */
+    public double offAxisDeg(Pose pose) {
+        if (!has || cell == null) {
+            return Double.NaN;
+        }
+        double openY = cell.side == HiveSide.AUDIENCE ? -1 : 1;
+        double rx = pose.x() - fieldX; // CELL -> robot
+        double ry = pose.y() - fieldY;
+        double len = Math.hypot(rx, ry);
+        if (len < 1e-6) {
+            return 0;
+        }
+        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, ry * openY / len))));
+    }
+
     /** Horizontal distance from the robot centre to the CELL, metres. */
     public double distanceM(Pose pose) {
         return Math.hypot(fieldX - pose.x(), fieldY - pose.y()) * M_PER_IN;

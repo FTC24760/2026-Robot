@@ -257,8 +257,12 @@ public class Robot {
     private void updateReadyToFire() {
         double distanceIn = targetDistanceIn();
         // Hysteresis: easier to stay in than to get in.
+        double offAxis = targetOffAxisDeg();
+        double angleLimit = ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
+                + (inZone ? ShootGateConstants.ZONE_ANGLE_HYSTERESIS_DEG : 0);
         inZone = ShotTable.inCalibratedRange(distanceIn,
-                inZone ? ShootGateConstants.ZONE_HYSTERESIS_IN : 0);
+                inZone ? ShootGateConstants.ZONE_HYSTERESIS_IN : 0)
+                && !(offAxis > angleLimit);
         if (!inZone) {
             prespinSuppressed = false;
         }
@@ -307,6 +311,11 @@ public class Robot {
             }
         }
         return null;
+    }
+
+    /** Degrees the shot to the up CELL is off the CELL's opening axis, NaN without a target. */
+    public double targetOffAxisDeg() {
+        return aiming ? hiveTracker.offAxisDeg(drivetrain.getPose()) : Double.NaN;
     }
 
     /**
@@ -680,7 +689,10 @@ public class Robot {
                 telemetry.addLine(">>> READY TO FIRE <<<");
             } else if (!inZone) {
                 telemetry.addLine(Double.isNaN(targetDistanceIn())
-                        ? "Not ready: no target" : "Not ready: outside shooting zone");
+                        ? "Not ready: no target"
+                        : targetOffAxisDeg() > ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
+                        ? String.format("Not ready: bad angle (%.0f deg off the opening)", targetOffAxisDeg())
+                        : "Not ready: outside shooting zone");
             } else {
                 String blocked = aimBlockReason();
                 telemetry.addLine("In zone, not ready: " + (blocked != null ? blocked : "wheel spinning up"));

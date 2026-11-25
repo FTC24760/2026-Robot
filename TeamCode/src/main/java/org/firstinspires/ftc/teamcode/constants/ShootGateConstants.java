@@ -30,6 +30,12 @@ public class ShootGateConstants {
     // measured rows (+ ShotTableConstants.OUT_OF_RANGE_MARGIN_IN). Once in, the robot
     // stays "in zone" until this much further out, so it does not flicker at the edge.
     public static double ZONE_HYSTERESIS_IN = 2;
+    // The zone also needs a usable approach angle: the shot must be within this many degrees
+    // of the up CELL's opening axis (0 = straight in, 90 = grazing, no entry). The opening
+    // faces the audience wall (AUDIENCE cell) or the far wall (FAR cell), tilted 30 deg up.
+    // PLACEHOLDER: find where shots stop going in. 180 turns the angle limit off.
+    public static double ZONE_MAX_OFF_AXIS_DEG = 60;
+    public static double ZONE_ANGLE_HYSTERESIS_DEG = 5;
     // Spin the wheel up to the table speed while in the zone, so a shot goes the moment
     // the button is pressed. Off saves battery; "ready" then ignores the wheel.
     public static boolean PRESPIN_IN_ZONE = true;
