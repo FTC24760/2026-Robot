@@ -17,8 +17,9 @@ import org.firstinspires.ftc.teamcode.utils.CellSide;
  */
 public class AutoConstants {
     // Aim (turret, wheel speed, hood) with the Limelight when it is configured. Without
-    // it the auto shoots at Configurables.SHOOTER_RPM and the turret stays put.
-    public static boolean USE_AUTO_AIM = false;
+    // it the turret aims from odometry at the CELL aim points below, and RPM and hood
+    // come from the shot table for the odometry distance.
+    public static boolean USE_AUTO_AIM = true;
 
     // ---- Which CELL of our HIVE is up at the start, as seen by our drivers. ----
     // By the manual (10.3.1 and Figure 10-2, TU08) every match starts with each

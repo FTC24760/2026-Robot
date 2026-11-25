@@ -105,7 +105,7 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 | `Vision` | Limelight AprilTag pipeline, HIVE fix, up-CELL detection. (`HiveTracker` stays.) |
 
 Controllers (no hardware of their own):
-- `AimController`: pose + vision fix -> turret bearing, hood, RPM, via `ShotSolver`.
+- `AimController`: pose + vision fix -> turret bearing, hood, RPM, via `ShotTable` (implemented: measured distance -> RPM/hood rows in `ShotTableConstants`, linear interpolation, filled with the `Test: Shot Calibration` OpMode; replaces the physics `ShotSolver`). Used in TeleOp and Auto; Auto falls back to the odometry distance to the up CELL when the camera has no target, and both fall back to the fixed `Configurables` values when there is no distance at all. The operator's RPM buttons are a trim on top.
 - `ShootController`: fire gate = in zone (hysteresis) AND valid reachable shot AND aim settled for N ms AND flywheel ready AND robot speed below limit AND up-CELL still the one we aimed at. Calls the existing shoot sequence. TeleOp (button / auto-fire toggle) and Auto (`shoot()` step) both go through it.
 
 `Robot.java` is split along these lines; `Steps`, `FullAuto`, `ShotSolver`, `HiveTracker`, and the Pedro config are reused. The base branch has two near-identical shoot sequences (`ShootSequence` for teleop, `AutoShootSequence` for auto, which adds a feed timeout); `ShootController` should replace both with one.

@@ -22,7 +22,7 @@ import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
 import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
-import org.firstinspires.ftc.teamcode.utils.ShotSolver;
+import org.firstinspires.ftc.teamcode.utils.ShotTable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -88,9 +88,11 @@ public class Robot {
     // for the wheel to recover after each ball.
     private boolean rapidFire;
 
-    // Auto-aim (off unless enableAutoAim() is called). The latest solved shot, or null
-    // when there is no target.
-    private ShotSolver.Solution shot;
+    // The shot (RPM, hood) from the shot table for the current target distance, or null
+    // when there is no target distance (then the fixed Configurables values are used).
+    private ShotTable.Shot shot;
+    // Operator's RPM trim (rpm up/down buttons), added to whatever speed is used.
+    private double rpmTrim;
     // Where the upward-facing CELL of our HIVE is on the field, from the camera and
     // odometry; null without auto-aim.
     private HiveTracker hiveTracker;
@@ -211,14 +213,39 @@ public class Robot {
         return aiming;
     }
 
-    /** The shot auto-aim is using right now, or null if there is no target. */
-    public ShotSolver.Solution getShot() {
+    /** The table shot in use right now, or null if there is no target distance. */
+    public ShotTable.Shot getShot() {
         return shot;
     }
 
-    /** True when auto-aim can see the upward-facing CELL and has a reachable shot for it. */
+    /** True when RPM and hood come from the shot table (a target distance is known). */
     public boolean hasShot() {
-        return shot != null && shot.reachable;
+        return shot != null;
+    }
+
+    /**
+     * Distance from the robot centre to the up CELL auto-aim is tracking, inches, or NaN
+     * without a target.
+     */
+    public double targetDistanceIn() {
+        return aiming ? hiveTracker.distanceM(drivetrain.getPose()) / 0.0254 : Double.NaN;
+    }
+
+    /**
+     * Set wheel speed and hood for a shot from this distance (inches, robot centre to the
+     * CELL), from the shot table; NaN or no table falls back to the fixed Configurables
+     * values. Auto-aim calls this every loop; the auto also calls it with an odometry
+     * distance when the camera has no target.
+     */
+    public void aimShotAt(double distanceIn) {
+        shot = ShotTable.lookup(distanceIn);
+        if (shot != null) {
+            shooter.setShootRpm(shot.rpm + rpmTrim);
+            hood.setPosition(shot.hoodPosition);
+        } else {
+            shooter.setShootRpm(Configurables.SHOOTER_RPM + rpmTrim);
+            hood.setPosition(Configurables.HOOD_POSITION);
+        }
     }
 
     /**
@@ -254,9 +281,9 @@ public class Robot {
         int rpmDirection = (controls.rpmUpPressed() || operator.rpmUpPressed() ? 1 : 0)
                 - (controls.rpmDownPressed() || operator.rpmDownPressed() ? 1 : 0);
         if (rpmDirection != 0) {
-            Configurables.SHOOTER_RPM = MathUtil.clamp(
-                    Configurables.SHOOTER_RPM + rpmDirection * OperatorConstants.RPM_STEP,
-                    OperatorConstants.MIN_RPM, OperatorConstants.MAX_RPM);
+            // A trim on top of the shot table (or the fixed speed): takes effect next loop.
+            rpmTrim = MathUtil.clamp(rpmTrim + rpmDirection * OperatorConstants.RPM_STEP,
+                    -OperatorConstants.MAX_RPM_TRIM, OperatorConstants.MAX_RPM_TRIM);
         }
 
         // Switches (driver or operator).
@@ -280,8 +307,7 @@ public class Robot {
         } else if (controls.shootPressed() || operator.shootPressed()) {
             shootSequence.toggle(nowSeconds());
         }
-        hood.setPosition(Configurables.HOOD_POSITION);
-        shooter.clearShootRpm();
+        // RPM and hood were set by auto-aim in beginLoop() (shot table, or fixed fallback).
         runShooter(shootSequence.wantsShooter());
         if (!controls.shootHeld && !operator.shootHeld) {
             shootSequence.cancel();
@@ -482,6 +508,8 @@ public class Robot {
     // Auto-aim: turn what the camera sees into a shooter speed and hood position.
     private void updateAim() {
         if (vision == null) {
+            // No Limelight: fixed speed and hood (an auto may still call aimShotAt()).
+            aimShotAt(Double.NaN);
             return;
         }
 
@@ -499,19 +527,9 @@ public class Robot {
         }
 
         aiming = aimEnabled && hiveTracker.hasTarget(nowNs);
-        shot = aiming
-                ? ShotSolver.solveForCell(
-                hiveTracker.distanceM(drivetrain.getPose()), hiveTracker.getTagHeightM())
-                : null;
-
-        if (hasShot()) {
-            shooter.setShootRpm(shot.rpm);
-            //hood.setPosition(shot.hoodPosition);
-        } else {
-            // No usable shot: fixed TARGET_RPM with the hood at its matching position.
-            shooter.clearShootRpm();
-            hood.setPosition(Configurables.HOOD_POSITION);
-        }
+        // Speed and hood from the shot table for the target's distance; without a target,
+        // the fixed Configurables values.
+        aimShotAt(targetDistanceIn());
     }
 
     public void stop() {
@@ -587,11 +605,15 @@ public class Robot {
             if (!aimEnabled) {
                 telemetry.addData("Auto-aim", "SWITCHED OFF");
             } else if (shot == null) {
-                telemetry.addData("Auto-aim", "no upward CELL known, using fixed RPM");
-            } else if (!shot.reachable) {
-                telemetry.addData("Auto-aim", "OUT OF RANGE");
+                telemetry.addData("Auto-aim", "no target distance, fixed %.0f RPM",
+                        Configurables.SHOOTER_RPM + rpmTrim);
             } else {
-                telemetry.addData("Auto-aim", "%.0f RPM at %.1f deg", shot.rpm, shot.launchAngleDeg);
+                telemetry.addData("Auto-aim", "%.0f in: %.0f RPM, hood %.3f%s",
+                        shot.distanceIn, shot.rpm + rpmTrim, shot.hoodPosition,
+                        shot.inRange ? "" : "  (OUTSIDE MEASURED TABLE)");
+            }
+            if (rpmTrim != 0) {
+                telemetry.addData("RPM trim", "%+.0f", rpmTrim);
             }
             if (aiming) {
                 telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)

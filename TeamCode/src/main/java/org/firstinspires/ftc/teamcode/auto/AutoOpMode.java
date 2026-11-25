@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.auto;
 
-import org.firstinspires.ftc.teamcode.constants.Configurables;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
@@ -159,7 +158,12 @@ public abstract class AutoOpMode extends OpMode {
     @Override
     public void loop() {
         robot.beginLoop();
-        robot.hood.setPosition(Configurables.HOOD_POSITION);
+        // Auto-aim set RPM and hood from the camera's distance in beginLoop(). Without a
+        // camera target, use the distance from odometry to the CELL we believe is up, so
+        // every auto shot still comes from the shot table.
+        if (!robot.isAiming()) {
+            robot.aimShotAt(odometryDistanceToUpCellIn());
+        }
         robot.drivetrain.update();
         trackUpSide();
 
@@ -263,13 +267,24 @@ public abstract class AutoOpMode extends OpMode {
             robot.runTurret(0);
             return;
         }
-        Pose cell = ctx.upSide == CellSide.LEFT
-                ? ctx.pose(AutoConstants.LEFT_CELL_X, AutoConstants.LEFT_CELL_Y, 0)
-                : ctx.pose(AutoConstants.RIGHT_CELL_X, AutoConstants.RIGHT_CELL_Y, 0);
+        Pose cell = upCellPose();
         Pose me = robot.drivetrain.getPose();
         double bearing = Math.atan2(cell.y() - me.y(), cell.x() - me.x()) - me.heading();
         bearing = Math.atan2(Math.sin(bearing), Math.cos(bearing));
         robot.turret.pointAt(Math.toDegrees(bearing), robot.getLoopSeconds());
+    }
+
+    // The aim point (middle) of the CELL we believe is up.
+    private Pose upCellPose() {
+        return ctx.upSide == CellSide.LEFT
+                ? ctx.pose(AutoConstants.LEFT_CELL_X, AutoConstants.LEFT_CELL_Y, 0)
+                : ctx.pose(AutoConstants.RIGHT_CELL_X, AutoConstants.RIGHT_CELL_Y, 0);
+    }
+
+    private double odometryDistanceToUpCellIn() {
+        Pose cell = upCellPose();
+        Pose me = robot.drivetrain.getPose();
+        return Math.hypot(cell.x() - me.x(), cell.y() - me.y());
     }
 
     private CellSide seenUpSide(long nowNs) {
