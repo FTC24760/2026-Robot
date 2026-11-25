@@ -4,6 +4,7 @@ import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
@@ -92,6 +93,15 @@ public class Robot {
     private ShotTable.Shot shot;
     // Operator's RPM trim (rpm up/down buttons), added to whatever speed is used.
     private double rpmTrim;
+
+    // TeleOp shooting zone and the "ready to fire" signal (see updateReadyToFire()).
+    private boolean inZone;
+    private boolean readyToFire;
+    private boolean wasReadyToFire;
+    private boolean ledSet;
+    private double lastRumbleS = -1e9;
+    // Set by the stop button: no pre-spin until the robot has left the zone.
+    private boolean prespinSuppressed;
     // Where the upward-facing CELL of our HIVE is on the field, from the camera and
     // odometry; null without auto-aim.
     private HiveTracker hiveTracker;
@@ -231,6 +241,51 @@ public class Robot {
         return aimBlockReason() == null;
     }
 
+    /** True while the target distance is inside the calibrated shooting zone (TeleOp). */
+    public boolean isInZone() {
+        return inZone;
+    }
+
+    /** True while in the zone with the aim ready and (when pre-spinning) the wheel at speed. */
+    public boolean isReadyToFire() {
+        return readyToFire;
+    }
+
+    // TeleOp: work out whether the robot is in the shooting zone and ready to fire, and tell
+    // the drive team when it becomes ready (rumble) and while it is (LED, telemetry). Call
+    // after the turret has been aimed this loop.
+    private void updateReadyToFire() {
+        double distanceIn = targetDistanceIn();
+        // Hysteresis: easier to stay in than to get in.
+        inZone = ShotTable.inCalibratedRange(distanceIn,
+                inZone ? ShootGateConstants.ZONE_HYSTERESIS_IN : 0);
+        if (!inZone) {
+            prespinSuppressed = false;
+        }
+
+        boolean wheelOk = !ShootGateConstants.PRESPIN_IN_ZONE || prespinSuppressed
+                || shooter.isReadyToFeed();
+        readyToFire = inZone && aimReady() && wheelOk;
+
+        // Rumble on becoming ready, but not again within READY_RUMBLE_COOLDOWN_S, so a
+        // readiness that flickers (e.g. speed near the limit) does not buzz constantly.
+        if (readyToFire && !wasReadyToFire && !shootSequence.isActive()
+                && ShootGateConstants.READY_RUMBLE_MS > 0
+                && nowSeconds() - lastRumbleS >= ShootGateConstants.READY_RUMBLE_COOLDOWN_S) {
+            opMode.gamepad1.rumble(ShootGateConstants.READY_RUMBLE_MS);
+            opMode.gamepad2.rumble(ShootGateConstants.READY_RUMBLE_MS);
+            lastRumbleS = nowSeconds();
+        }
+        if (ShootGateConstants.READY_LED && (readyToFire != wasReadyToFire || !ledSet)) {
+            double red = readyToFire ? 0 : 1;
+            double green = readyToFire ? 1 : 0;
+            opMode.gamepad1.setLedColor(red, green, 0, Gamepad.LED_DURATION_CONTINUOUS);
+            opMode.gamepad2.setLedColor(red, green, 0, Gamepad.LED_DURATION_CONTINUOUS);
+            ledSet = true;
+        }
+        wasReadyToFire = readyToFire;
+    }
+
     /** Why aimReady() is false, for telemetry; null when ready. */
     public String aimBlockReason() {
         if (!ShootGateConstants.ENABLED) {
@@ -332,11 +387,15 @@ public class Robot {
         if (stopShot) {
             shootSequence.cancel();
             shooterArmed = false;
+            // The stop button also stops the in-zone pre-spin until the robot leaves the zone.
+            prespinSuppressed = true;
         } else if (controls.shootPressed() || operator.shootPressed()) {
             shootSequence.toggle(nowSeconds());
         }
         // RPM and hood were set by auto-aim in beginLoop() (shot table, or fixed fallback).
-        runShooter(shootSequence.wantsShooter());
+        // In the shooting zone the wheel is kept at the table speed, ready for the button.
+        boolean prespin = ShootGateConstants.PRESPIN_IN_ZONE && inZone && !prespinSuppressed;
+        runShooter(shootSequence.wantsShooter() || prespin);
         if (!controls.shootHeld && !operator.shootHeld) {
             shootSequence.cancel();
         }
@@ -344,6 +403,7 @@ public class Robot {
 
         updateDrive();
         runTeleopTurret();
+        updateReadyToFire();
 
         // Intake and transfer, highest priority first.
         boolean pulsing = pulseActive(shootSequence.inFeedingStage() && aimReady());
@@ -609,6 +669,19 @@ public class Robot {
                 return;
             }
             lastTelemetryNs = nowNs;
+        }
+
+        // TeleOp only (Auto shoots by itself): first, so the driver sees it at a glance.
+        if (ledSet) {
+            if (readyToFire) {
+                telemetry.addLine(">>> READY TO FIRE <<<");
+            } else if (!inZone) {
+                telemetry.addLine(Double.isNaN(targetDistanceIn())
+                        ? "Not ready: no target" : "Not ready: outside shooting zone");
+            } else {
+                String blocked = aimBlockReason();
+                telemetry.addLine("In zone, not ready: " + (blocked != null ? blocked : "wheel spinning up"));
+            }
         }
 
         telemetry.addData("Loop ms", "%.1f", loopSeconds * 1000.0);

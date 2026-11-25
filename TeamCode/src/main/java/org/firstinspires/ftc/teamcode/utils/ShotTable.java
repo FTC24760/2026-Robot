@@ -58,6 +58,24 @@ public final class ShotTable {
         return interpolate(rows, distanceIn, ShotTableConstants.OUT_OF_RANGE_MARGIN_IN);
     }
 
+    /**
+     * True if this distance is inside the calibrated area: between the nearest and
+     * farthest rows, widened by OUT_OF_RANGE_MARGIN_IN plus {@code extraIn} on each side.
+     * This is the shooting zone. False if the table is off or empty, or the distance is NaN.
+     */
+    public static boolean inCalibratedRange(double distanceIn, double extraIn) {
+        if (!ShotTableConstants.ENABLED || Double.isNaN(distanceIn)) {
+            return false;
+        }
+        List<Row> rows = rows();
+        if (rows.isEmpty()) {
+            return false;
+        }
+        double margin = ShotTableConstants.OUT_OF_RANGE_MARGIN_IN + extraIn;
+        return distanceIn >= rows.get(0).distanceIn - margin
+                && distanceIn <= rows.get(rows.size() - 1).distanceIn + margin;
+    }
+
     static Shot interpolate(List<Row> rows, double d, double margin) {
         Row first = rows.get(0);
         Row last = rows.get(rows.size() - 1);
