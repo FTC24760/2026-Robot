@@ -12,13 +12,17 @@ import static org.firstinspires.ftc.teamcode.auto.Steps.startDelay;
 import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
+import com.pedropathing.math.Pose;
+
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
 import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
+import org.firstinspires.ftc.teamcode.auto.ShotSpots;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +49,12 @@ public final class FullAuto {
         // only its 4 pre-loads, so there is nothing useful to collect meanwhile.
         steps.add(startDelay());
 
-        // Pre-loads, from the start pose: no driving.
+        // Pre-loads, from the start pose with no driving, unless that pose cannot score into
+        // the CELL that is up now (the HIVE tipped while we waited, or start B with the
+        // audience CELL up): then drive to the shot spot first.
+        steps.add(when("start pose in zone?",
+                c -> AutoConstants.DRIVE_TO_ZONE_FIRST && !c.inZoneNow(c.upSide),
+                driveToShot(), null));
         steps.add(shootHere());
 
         CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
@@ -64,7 +73,10 @@ public final class FullAuto {
         steps.add(intake(Intake.Mode.OFF));
         steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
                 sequence("park",
-                        waitSeconds(AutoConstants.PARK_DELAY_S),
+                        // FIRST leaves early so the partner has the shooting area.
+                        when("park delay", c -> AutoSelection.slot != AutoSelection.Slot.FIRST,
+                                waitSeconds(AutoConstants.PARK_DELAY_S),
+                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S)),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
                                 sequence("park drive",
@@ -125,9 +137,13 @@ public final class FullAuto {
     // The shooter goes off only if the robot actually drives (see Steps.driveTo).
     private static AutoStep driveToShot() {
         return byUpSide(
-                driveTo("to shot (LEFT CELL up)", c -> c.pose(AutoConstants.SHOOT_LEFT_UP_X,
-                        AutoConstants.SHOOT_LEFT_UP_Y, AutoConstants.SHOOT_LEFT_UP_H), true),
-                driveTo("to shot", c -> c.pose(AutoConstants.SHOOT_X,
-                        AutoConstants.SHOOT_Y, AutoConstants.SHOOT_H), true));
+                driveTo("to shot (LEFT CELL up)", c -> shotPose(c, CellSide.LEFT), true),
+                driveTo("to shot", c -> shotPose(c, CellSide.RIGHT), true));
+    }
+
+    // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
+    private static Pose shotPose(AutoContext c, CellSide cell) {
+        double[] s = ShotSpots.spot(cell, AutoSelection.slot);
+        return c.pose(s[0], s[1], s[2]);
     }
 }

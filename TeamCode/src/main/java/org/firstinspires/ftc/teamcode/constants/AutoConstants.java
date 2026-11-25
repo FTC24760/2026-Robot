@@ -99,6 +99,26 @@ public class AutoConstants {
     // time the longest drive to PARK. Needs PARK_ENABLED.
     public static double RESERVE_TIME_LEFT_S = 6;
 
+    // ---- Partner coordination ----
+    // SECOND slot: stop waiting as soon as the camera sees the HIVE tip (the partner has
+    // shot); the delay stays as the fallback when there is no camera or no tip.
+    public static boolean END_DELAY_ON_TIP = true;
+    // Before the pre-loads (after any delay), if the start pose is not in the shooting zone
+    // for the CELL that is up now (e.g. the HIVE tipped during the delay, or start B with
+    // the audience CELL up), drive to the shot spot first.
+    public static boolean DRIVE_TO_ZONE_FIRST = true;
+    // FIRST slot: park this long after the last shot (instead of PARK_DELAY_S), so the
+    // partner has the shooting area to itself. SOLO and SECOND still use PARK_DELAY_S.
+    public static double FIRST_PARK_DELAY_S = 0;
+    // SECOND slot shoots from the allowed point farthest from the fixed shot spot (where the
+    // partner is expected). Candidates: the fixed spot turned about the CELL in steps of
+    // SPOT_ARC_STEP_DEG, up to SPOT_ARC_STEPS each way; the same distance, so the same table
+    // row. Spots within SPOT_KEEP_OUT_IN of a FLOWER are not used.
+    public static boolean SECOND_USES_OFFSET_SPOT = true;
+    public static double SPOT_ARC_STEP_DEG = 20;
+    public static int SPOT_ARC_STEPS = 2;
+    public static double SPOT_KEEP_OUT_IN = 14;
+
     // Getting past the HIVE: a drive that crosses from the audience half to the far half
     // (or back) follows one smooth curve that bulges out toward our wall instead of going
     // straight through the HIVE. AROUND_HIVE_X sets how far it bulges: smaller = wider

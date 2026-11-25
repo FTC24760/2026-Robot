@@ -154,15 +154,36 @@ public class AutoContext {
         double dist = ShotZoneGeometry.distanceIn(x, y, cx, cy);
         double off = ShotZoneGeometry.offAxisDeg(x, y, cx, cy,
                 right ? HiveSide.AUDIENCE : HiveSide.FAR);
-        if (!ShotZoneGeometry.inZone(dist, off, false)) {
+        if (!zoneOk(x, y, cell)) {
             out.add(String.format("%s -> %s CELL: %.0f in, %.0f deg off the opening",
                     what, cell, dist, off));
         }
     }
 
+    // The shooting-zone test for a spot (red frame) and the CELL it shoots into.
+    private static boolean zoneOk(double x, double y, CellSide cell) {
+        boolean right = cell == CellSide.RIGHT;
+        double cx = right ? AutoConstants.RIGHT_CELL_X : AutoConstants.LEFT_CELL_X;
+        double cy = right ? AutoConstants.RIGHT_CELL_Y : AutoConstants.LEFT_CELL_Y;
+        return ShotZoneGeometry.inZone(ShotZoneGeometry.distanceIn(x, y, cx, cy),
+                ShotZoneGeometry.offAxisDeg(x, y, cx, cy, right ? HiveSide.AUDIENCE : HiveSide.FAR),
+                false);
+    }
+
     /** Poses the routine uses that are past our side of the field in AUTO (red frame). */
     public List<String> sideWarnings() {
         return sideWarnings;
+    }
+
+    /** A pose's x as red sees it, for either alliance. */
+    public double redX(Pose pose) {
+        return alliance == Alliance.BLUE ? AutoConstants.FIELD_SIZE_IN - pose.x() : pose.x();
+    }
+
+    /** True if the robot is where a shot into the up CELL can score (shooting zone). */
+    public boolean inZoneNow(CellSide cell) {
+        Pose p = robot.drivetrain.getPose();
+        return zoneOk(redX(p), redY(p), cell);
     }
 
     /** A pose's distance from the audience wall as red sees it, for either alliance. */

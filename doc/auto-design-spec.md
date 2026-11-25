@@ -91,8 +91,9 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 - PASSIVE partner: same plan, delay 0.
 - ACTIVE, FIRST: delay 0; leave the shooting zone early so the partner can use it.
 - ACTIVE, SECOND: delay = menu value (initial guess 5 s; to be measured against the partner's burst).
-- Optional later: if the Limelight sees the up-CELL change during the delay, treat that as "partner has shot" and end the wait early. The fixed delay stays as the fallback.
-- Shooting position: any point inside a tunable `ShootingZone` polygon (see 6), chosen to be farthest from the partner's expected spot; default = the preset's own pose (current behaviour).
+- Implemented (`END_DELAY_ON_TIP`): the SECOND wait ends as soon as the up CELL changes (the camera saw the HIVE tip). The fixed delay stays as the fallback. After the wait, if the start pose is not in the shooting zone for the CELL up now (`DRIVE_TO_ZONE_FIRST`; e.g. the HIVE tipped, or start B with the audience CELL up), the robot drives to the shot spot before the pre-loads.
+- Shooting position (implemented, `auto/ShotSpots`): no separate polygon. The zone is the TeleOp one (`ShotZoneGeometry`). SOLO/FIRST shoot from the fixed spot (`SHOOT_*`); SECOND picks the allowed candidate farthest from it (the fixed spot turned about the CELL in `SPOT_ARC_STEP_DEG` steps, same distance so same table row; must be in the zone, on our side with margin, inside the field, `SPOT_KEEP_OUT_IN` from FLOWERS). Hand-computed with the current constants: SECOND shoots at about (25, 21) into the RIGHT CELL and (30, 126) into the LEFT CELL.
+- FIRST leaves early (`FIRST_PARK_DELAY_S`, default 0): parks right after its last shot instead of waiting `PARK_DELAY_S`, so the partner has the shooting area.
 
 ## 6. Subsystems and controllers (shared by Auto and TeleOp)
 

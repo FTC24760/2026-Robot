@@ -178,20 +178,25 @@ public final class Steps {
     public static AutoStep startDelay() {
         return new AutoStep() {
             private double untilS;
+            private CellSide upAtStart;
 
             @Override
             public void start(AutoContext ctx) {
                 untilS = ctx.now() + AutoSelection.effectiveDelayS();
+                upAtStart = ctx.upSide;
             }
 
             @Override
             public boolean update(AutoContext ctx) {
-                return ctx.now() >= untilS;
+                // The up CELL changing means the partner's shots tipped the HIVE: go now.
+                boolean tipped = AutoConstants.END_DELAY_ON_TIP
+                        && AutoSelection.effectiveDelayS() > 0 && ctx.upSide != upAtStart;
+                return tipped || ctx.now() >= untilS;
             }
 
             @Override
             public String name() {
-                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s)";
+                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s or tip)";
             }
         };
     }
