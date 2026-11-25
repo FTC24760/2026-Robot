@@ -43,6 +43,10 @@ public class ShooterConstants {
     // feed gating pausing the transfer whenever the wheel is slow.
     // Allow the blocker to open before starting the transfer; calibrate.
     public static double BLOCKER_OPEN_SETTLE_S = 0.49;
+    // Allow the blocker to close before the intake or transfer pushes balls toward it
+    // again; otherwise a ball slips past the half-closed gate into the wheel. Same servo
+    // and travel as opening, so the same default; calibrate.
+    public static double BLOCKER_CLOSE_SETTLE_S = 0.49;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

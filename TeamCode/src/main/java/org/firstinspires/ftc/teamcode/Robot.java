@@ -435,8 +435,13 @@ public class Robot {
         // Takes effect on the next shooter update, one loop later.
         shooter.setFeedingBurst(gated);
 
+        // After a burst (shoot released, auto shot done) the slow blocker is still part
+        // open for a moment: do not push balls toward it until it has closed. Backwards
+        // modes (REVERSE, RETRACT) pull away from it and are allowed.
+        boolean closingHold = feeding && intake.isBlockerClosing();
+
         intake.setVoltageScale(voltageScale);
-        intake.setMode(feedHeld ? Intake.Mode.OFF : mode);
+        intake.setMode(feedHeld || closingHold ? Intake.Mode.OFF : mode);
     }
 
     /**
