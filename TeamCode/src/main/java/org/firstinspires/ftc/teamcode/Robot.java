@@ -6,6 +6,7 @@ import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.constants.ShotConstants;
 import org.firstinspires.ftc.teamcode.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.constants.ShooterAssistConstants;
@@ -15,7 +16,6 @@ import org.firstinspires.ftc.teamcode.controls.DriverControls;
 import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
-import org.firstinspires.ftc.teamcode.sequences.AutoShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
@@ -56,9 +56,8 @@ public class Robot {
     public final Turret turret;
     public final Shooter shooter;
     public final FlowerArm flowerArm;
-    /** One-click shooting: spin up, open the blocker, feed, close. */
+    /** Shooting for TeleOp and Auto: spin up, open the blocker, feed through the fire gate, close. */
     public final ShootSequence shootSequence;
-    public final AutoShootSequence autoShootSequence;
     // Only present after enableAutoAim(); null otherwise, so robots without a Limelight
     // configured can still run.
     public Vision vision;
@@ -132,8 +131,7 @@ public class Robot {
 
         flowerArm = new FlowerArm(opMode.hardwareMap);
         hood = new Hood(opMode.hardwareMap);
-        shootSequence = new ShootSequence(shooter, intake);
-        autoShootSequence = new AutoShootSequence(shooter, intake);
+        shootSequence = new ShootSequence(shooter, intake, this::aimReady);
 
         subsystems = new ArrayList<>(
                 Arrays.asList(drivetrain, intake, turret, shooter, flowerArm, hood));
@@ -221,6 +219,36 @@ public class Robot {
     /** True when RPM and hood come from the shot table (a target distance is known). */
     public boolean hasShot() {
         return shot != null;
+    }
+
+    /**
+     * The aim half of the fire gate (the wheel-speed half is in Shooter): true when a ball
+     * may be fed now. While the turret auto-aims it must have settled on the target; the
+     * robot must be slow enough. When the turret is aimed by hand, that is the driver's
+     * call and only the speed limit applies. See ShootGateConstants.
+     */
+    public boolean aimReady() {
+        return aimBlockReason() == null;
+    }
+
+    /** Why aimReady() is false, for telemetry; null when ready. */
+    public String aimBlockReason() {
+        if (!ShootGateConstants.ENABLED) {
+            return null;
+        }
+        if (turret.isAutoAiming() && !turret.isSettledOnTarget(ShootGateConstants.AIM_SETTLE_S)) {
+            return "turret settling";
+        }
+        com.pedropathing.math.Velocity v = drivetrain.getVelocity();
+        if (v != null) {
+            if (Math.hypot(v.vx, v.vy) > ShootGateConstants.MAX_SPEED_IN_PER_S) {
+                return "moving too fast";
+            }
+            if (Math.abs(Math.toDegrees(v.omega)) > ShootGateConstants.MAX_TURN_DEG_PER_S) {
+                return "turning too fast";
+            }
+        }
+        return null;
     }
 
     /**
@@ -318,7 +346,7 @@ public class Robot {
         runTeleopTurret();
 
         // Intake and transfer, highest priority first.
-        boolean pulsing = pulseActive(shootSequence.getStage() == ShootSequence.Stage.FEEDING);
+        boolean pulsing = pulseActive(shootSequence.inFeedingStage() && aimReady());
         if (reversing) {
             runIntake(Intake.Mode.REVERSE);
         } else if (pulsing) {
@@ -595,6 +623,10 @@ public class Robot {
         }
 
         telemetry.addData("Shoot", shootSequence.getStage());
+        String blocked = aimBlockReason();
+        if (shootSequence.isActive() && blocked != null) {
+            telemetry.addData("Fire gate", "holding: " + blocked);
+        }
         telemetry.addData("Pulse shoot (op X)", pulseShoot ? "ON" : "off");
         telemetry.addData("Intake held", intakeOn ? "yes" : "no");
         if (!aimNote.isEmpty()) {

@@ -6,7 +6,6 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
-import org.firstinspires.ftc.teamcode.sequences.AutoShootSequence;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Vision;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
@@ -179,14 +178,14 @@ public abstract class AutoOpMode extends OpMode {
         // Background jobs. Shooter before intake, so feed gating uses this loop's speed.
         robot.flowerArm.setDown(ctx.flowerDown);
         // Off (not idling) whenever we are not shooting, e.g. while driving, to save battery.
-        robot.runShooterOrStop(ctx.spinUp || robot.autoShootSequence.wantsShooter());
-        robot.autoShootSequence.update(robot.nowSeconds());
+        robot.runShooterOrStop(ctx.spinUp || robot.shootSequence.wantsShooter());
+        robot.shootSequence.update(robot.nowSeconds());
         aimTurret();
         boolean pulsing = robot.pulseActive(
-                robot.autoShootSequence.getStage() == AutoShootSequence.Stage.FEEDING);
+                robot.shootSequence.inFeedingStage() && robot.aimReady());
         robot.runIntake(pulsing ? robot.pulseFeedMode()
-                : robot.autoShootSequence.isFeeding() ? Intake.Mode.INTAKE
-                : robot.autoShootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
+                : robot.shootSequence.isFeeding() ? Intake.Mode.INTAKE
+                : robot.shootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
         // For TeleOp to start from (the auto can be stopped at any loop).
         PoseHandoff.save(robot.drivetrain.getPose(), alliance);
