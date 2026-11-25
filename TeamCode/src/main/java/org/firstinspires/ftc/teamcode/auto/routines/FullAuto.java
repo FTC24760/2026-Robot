@@ -7,11 +7,13 @@ import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
 import static org.firstinspires.ftc.teamcode.auto.Steps.spinUp;
+import static org.firstinspires.ftc.teamcode.auto.Steps.startDelay;
 import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
+import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
@@ -21,7 +23,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Shoot the pre-loads from the start, run up to three collection cycles
+ * Start at the chosen preset, wait for the partner if we shoot SECOND, shoot the
+ * pre-loads from the start, run up to three collection cycles
  * (each one FLOWER or the GARDEN, then back to shoot), wait PARK_DELAY_S, then park.
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
@@ -36,6 +39,10 @@ public final class FullAuto {
 
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
+
+        // SECOND slot: let the partner shoot first (no wait otherwise). The robot holds
+        // only its 4 pre-loads, so there is nothing useful to collect meanwhile.
+        steps.add(startDelay());
 
         // Pre-loads, from the start pose: no driving.
         steps.add(shootHere());
@@ -65,7 +72,7 @@ public final class FullAuto {
                 null));
 
         return new AutoRoutine("Full Auto",
-                c -> c.pose(AutoConstants.START_X, AutoConstants.START_Y, AutoConstants.START_H),
+                c -> AutoSelection.preset.pose(c),
                 steps.toArray(new AutoStep[0]));
     }
 

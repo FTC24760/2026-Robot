@@ -57,18 +57,19 @@ public enum StartPreset {
 }
 ```
 
-## 4. Init menu (one AUTO OpMode, gamepad 1, in `init_loop`)
+## 4. Init menu (gamepad 1, in `init_loop`) — implemented
+
+Alliance stays the OpMode (`Auto: Red` / `Auto: Blue`): the Limelight and `preselectTeleOp` are fixed at INIT, so a menu choice would be too late for both. Partner mode and FIRST/SECOND are merged into one "slot". Existing bindings (cycles, up-CELL) are kept so the drive team does not relearn them.
 
 | Input | Control | Default |
 |---|---|---|
-| Alliance | X = blue, B = red | last used |
-| Start preset | D-pad left/right | A |
-| Delay (s) | D-pad up/down, 0.5 s steps; 0 = FIRST | 0 |
-| Cycles | bumpers, 0-3 (GARDEN only) | 1 |
-| Partner mode | A toggles PASSIVE / ACTIVE | PASSIVE |
-| Up-CELL override | Y cycles AUTO / LEFT / RIGHT | AUTO (Limelight, else RIGHT) |
+| Start preset | D-pad left/right (A / B) | A |
+| Slot | A cycles SOLO / FIRST / SECOND | SOLO |
+| Start delay | bumpers, 0.5 s steps, 0-15 s; used only for SECOND | 5 s |
+| Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (0) |
+| Up-CELL override | X = LEFT, B = RIGHT, Y = automatic (existing) | automatic |
 
-Telemetry shows the full selection, the blue/red coordinates the robot should be placed at, and warnings: Limelight sees the other alliance's tags; pose and preset disagree; delay > 0 with partner PASSIVE. Selections live in statics so they persist between matches. `preselectTeleOp` stays alliance-specific, so the OpMode class needs a Red and a Blue stub that only set the alliance (or the TeleOp reads the stored alliance).
+Telemetry shows the selection, the exact coordinates the robot should be placed at for this alliance, and warnings: SECOND with zero delay; a delay so long that PARK may be skipped. Selections live in `AutoSelection` statics, so they persist between matches until the app restarts or code is deployed. Not done: Limelight wrong-alliance and pose-vs-preset warnings (`USE_AUTO_AIM` is currently false on the base branch).
 
 ## 5. Plan builder
 

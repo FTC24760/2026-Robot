@@ -170,6 +170,31 @@ public final class Steps {
         return new WaitStep(seconds);
     }
 
+    /**
+     * Wait for the partner to shoot first, if we took the SECOND slot on the init menu
+     * (AutoSelection). Read when the step starts, so the menu value is the one used.
+     */
+    public static AutoStep startDelay() {
+        return new AutoStep() {
+            private double untilS;
+
+            @Override
+            public void start(AutoContext ctx) {
+                untilS = ctx.now() + AutoSelection.effectiveDelayS();
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                return ctx.now() >= untilS;
+            }
+
+            @Override
+            public String name() {
+                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s)";
+            }
+        };
+    }
+
     /** Run some steps in order, as one step. */
     public static AutoStep sequence(String name, AutoStep... steps) {
         return new SequenceStep(name, Arrays.asList(steps));

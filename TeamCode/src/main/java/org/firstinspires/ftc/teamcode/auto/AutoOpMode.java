@@ -24,10 +24,15 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   }
  *
  * During init, before the match countdown starts (gamepad 1):
- *   d-pad up / down   more / fewer collection cycles after the pre-loads
- *   X / B             our LEFT / RIGHT CELL is up (override)
- *   Y                 back to automatic (Limelight if it sees the HIVE, else RIGHT,
- *                     which is how the manual sets up every match)
+ *   d-pad left / right  start preset (where the robot is placed; see StartPreset)
+ *   A                   our slot: SOLO / FIRST / SECOND (agreed with the partner)
+ *   bumpers             start delay for the SECOND slot, down / up
+ *   d-pad up / down     more / fewer collection cycles after the pre-loads
+ *   X / B               our LEFT / RIGHT CELL is up (override)
+ *   Y                   back to automatic (Limelight if it sees the HIVE, else RIGHT,
+ *                       which is how the manual sets up every match)
+ * The alliance is the OpMode (Auto: Red / Auto: Blue), so the right TeleOp is preselected.
+ * Choices are kept for the next match (AutoSelection).
  * The rules (G401) forbid touching the controls once the countdown begins.
  */
 public abstract class AutoOpMode extends OpMode {
@@ -44,6 +49,11 @@ public abstract class AutoOpMode extends OpMode {
 
     private final EdgeDetector moreCycles = new EdgeDetector();
     private final EdgeDetector fewerCycles = new EdgeDetector();
+    private final EdgeDetector nextPreset = new EdgeDetector();
+    private final EdgeDetector previousPreset = new EdgeDetector();
+    private final EdgeDetector nextSlot = new EdgeDetector();
+    private final EdgeDetector moreDelay = new EdgeDetector();
+    private final EdgeDetector lessDelay = new EdgeDetector();
 
     protected AutoOpMode(Alliance alliance) {
         this.alliance = alliance;
@@ -73,6 +83,33 @@ public abstract class AutoOpMode extends OpMode {
         if (fewerCycles.rose(gamepad1.dpad_down)) {
             ctx.cycles = Math.max(ctx.cycles - 1, 0);
         }
+        AutoSelection.cycles = ctx.cycles;
+
+        boolean presetChanged = false;
+        if (nextPreset.rose(gamepad1.dpad_right)) {
+            AutoSelection.preset = AutoSelection.preset.next();
+            presetChanged = true;
+        }
+        if (previousPreset.rose(gamepad1.dpad_left)) {
+            AutoSelection.preset = AutoSelection.preset.previous();
+            presetChanged = true;
+        }
+        if (presetChanged) {
+            robot.setPose(routine.startPose(ctx));
+        }
+
+        if (nextSlot.rose(gamepad1.a)) {
+            AutoSelection.slot = AutoSelection.slot.next();
+        }
+        if (moreDelay.rose(gamepad1.right_bumper)) {
+            AutoSelection.startDelayS = Math.min(
+                    AutoSelection.startDelayS + AutoConstants.START_DELAY_STEP_S,
+                    AutoConstants.MAX_START_DELAY_S);
+        }
+        if (lessDelay.rose(gamepad1.left_bumper)) {
+            AutoSelection.startDelayS = Math.max(
+                    AutoSelection.startDelayS - AutoConstants.START_DELAY_STEP_S, 0);
+        }
 
         if (gamepad1.x) {
             chosenSide = CellSide.LEFT;
@@ -92,7 +129,16 @@ public abstract class AutoOpMode extends OpMode {
         }
 
         telemetry.addLine(routine.getName() + " (" + alliance + ")");
+        Pose start = AutoSelection.preset.pose(ctx);
+        telemetry.addData("Start", "%s, %s: x %.1f  y %.1f  heading %.0f   (d-pad left / right)",
+                AutoSelection.preset, AutoSelection.preset.where,
+                start.x(), start.y(), Math.toDegrees(start.heading()));
+        telemetry.addData("Slot", "%s   (A)", AutoSelection.slot);
+        telemetry.addData("Start delay", AutoSelection.slot == AutoSelection.Slot.SECOND
+                ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
+                : "none (only for SECOND)");
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
+        addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
         telemetry.addLine("X = LEFT CELL up, B = RIGHT CELL up, Y = automatic");
         telemetry.addLine("Hands off the controller once the countdown starts (G401)");
@@ -150,6 +196,23 @@ public abstract class AutoOpMode extends OpMode {
         }
         if (robot != null) {
             robot.stop();
+        }
+    }
+
+    // Selections that look like a mistake.
+    private void addWarnings() {
+        if (AutoSelection.slot == AutoSelection.Slot.SECOND && AutoSelection.startDelayS <= 0) {
+            telemetry.addLine("!! SECOND slot with no delay: we will shoot at the same time as the partner");
+        }
+        // Rough budget: delay, one pre-load burst, the wait before parking, and the park
+        // drive itself. If it does not fit, FullAuto skips the park drive.
+        double burstS = AutoConstants.SHOOT_TIMEOUT_S / 2 + AutoConstants.SHOOT_FEED_S;
+        double needS = AutoSelection.effectiveDelayS() + burstS
+                + AutoConstants.PARK_DELAY_S + AutoConstants.PARK_MIN_TIME_LEFT_S;
+        if (AutoConstants.PARK_ENABLED && needS > AutoConstants.AUTO_LENGTH_S) {
+            telemetry.addLine(String.format(
+                    "!! Delay too long: about %.0f s needed of %.0f, PARK may be skipped",
+                    needS, AutoConstants.AUTO_LENGTH_S));
         }
     }
 

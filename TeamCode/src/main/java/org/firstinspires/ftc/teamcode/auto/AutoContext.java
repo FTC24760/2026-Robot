@@ -24,7 +24,7 @@ public class AutoContext {
     public boolean shotInterrupted;
 
     /** How many collection cycles to run after the pre-loads (chosen during init). */
-    public int cycles = AutoConstants.DEFAULT_CYCLES;
+    public int cycles = AutoSelection.cycles;
 
     // Balls we have shot into the current up CELL, for guessing when it tips.
     private int ballsSinceTip;
