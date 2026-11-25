@@ -7,10 +7,22 @@ import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Turret;
 
+/**
+ * Aims the turret, sets the flywheel speed, and runs the shot sequence. Robot sets
+ * automaticShot, shootPressed and the manual turret input, then calls update() once
+ * per loop. Robot.runIntake() reads {@link #state} to open the blocker and feed.
+ *
+ * Aim modes (automaticShot):
+ *   true   turret and wheel speed come from ShotSolver, with angular-velocity feedforward
+ *   false  turret follows the operator's stick; wheel runs at ShooterConstants.MANUAL_RPM
+ */
 public class ShotController {
     public enum State {
+        /** Blocker closed, not feeding. Waiting for shootPressed and the wheel at speed. */
         IDLE,
+        /** Blocker opening; feeding starts after IntakeConstants.BLOCKER_OPEN_TIME_MS. */
         BLOCKER_OPEN,
+        /** Blocker open and the transfer feeding balls into the shooter. */
         SHOOTING
     }
     public State state = State.IDLE;
@@ -20,6 +32,7 @@ public class ShotController {
     public boolean shootPressed;
     // System.nanoTime() when the state became BLOCKER_OPEN.
     long blockerOpenedNs;
+    // True: aim from ShotSolver. False: manual turret and MANUAL_RPM. Starts true.
     public boolean automaticShot;
     Shooter shooter;
     Turret turret;
@@ -35,6 +48,7 @@ public class ShotController {
         automaticShot = true;
     }
 
+    /** Run the solver, turret, shooter and shot sequence for this loop. */
     public void update() {
         shotSolver.update();
         runTurret(robot.loopSeconds);
@@ -42,6 +56,8 @@ public class ShotController {
         runState();
     }
 
+    // Advance the shot sequence one step. Called after runShooter() so the speed check
+    // uses this loop's wheel reading.
     private void runState() {
         if (!shootPressed) {
             state = State.IDLE;
@@ -90,6 +106,7 @@ public class ShotController {
         shooter.update(robot.nowNs);
     }
 
+    // Not called yet: Robot only stops and reports the subsystems in its list.
     public void stop() {
 
     }

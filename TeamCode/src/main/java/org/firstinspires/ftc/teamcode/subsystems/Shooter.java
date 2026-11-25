@@ -14,7 +14,8 @@ import org.firstinspires.ftc.teamcode.utils.SpeedController;
 
 /**
  * Flywheel shooter run by a software velocity controller (not the hub's velocity loop).
- * With assist enabled it also applies the rapid-fire fixes in ShooterAssistConstants.
+ * Set state and shootRpmOverride, then call update() once per loop. Power is scaled by
+ * Robot.voltageScale. ENABLED chases getShootRpm(); DISABLED lets the wheel coast.
  */
 public class Shooter implements Subsystem {
 
@@ -31,7 +32,8 @@ public class Shooter implements Subsystem {
     private double actualTicksPerSecond;
     public double power;
     private final double[] recentRpm = new double[3];
-    // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
+    // Shooting speed to aim for; NaN means use ShooterConstants.MANUAL_RPM.
+    // ShotController sets this every loop.
     public double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {
@@ -41,12 +43,12 @@ public class Shooter implements Subsystem {
         motor.setDirection(ShooterConstants.direction);
     }
 
-    /** Go back to shooting at ShooterConstants.TARGET_RPM. */
+    /** Go back to shooting at ShooterConstants.MANUAL_RPM. */
     public void clearShootRpm() {
         shootRpmOverride = Double.NaN;
     }
 
-    /** The speed the SHOOT state aims for right now. */
+    /** The speed the ENABLED state aims for right now. */
     public double getShootRpm() {
         if (!Double.isNaN(shootRpmOverride)) {
             return shootRpmOverride;
@@ -76,8 +78,6 @@ public class Shooter implements Subsystem {
             targetTicksPerSecond = rpmToTicksPerSecond(targetRpm, ShooterConstants.TICKS_PER_REV);
             syncGains();
 
-            // The controller keeps running while boosting so its filter and ramp stay
-            // current, but its integral is held: the dip is the boost's job to fix.
             power = controller.calculate(
                     targetTicksPerSecond,
                     actualTicksPerSecond,

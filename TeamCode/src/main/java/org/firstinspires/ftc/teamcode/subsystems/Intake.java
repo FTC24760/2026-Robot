@@ -9,7 +9,11 @@ import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 
-/** Intake roller, transfer, and the blocker servo that gates the path into the shooter. */
+/**
+ * Intake roller, transfer, and the blocker servo that gates the path into the shooter.
+ * Set intakeOn, transferOn and blockerOpen, then call update() once per loop; nothing
+ * moves until update(). Transfer power is scaled by Robot.voltageScale.
+ */
 public class Intake implements Subsystem {
 
     private final DcMotor intakeMotor;

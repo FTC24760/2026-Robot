@@ -7,7 +7,11 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 
-/** Turret aimed by two servos that are always commanded to the same position. */
+/**
+ * Turret aimed by two servos that are always commanded to the same position.
+ * Angles are radians to the left of robot forward. The servo range is set in degrees
+ * (TurretConstants.DEGREES_PER_FULL_TRAVEL and the deadbands) and converted here.
+ */
 public class Turret implements Subsystem {
     private final Servo leftServo;
     private final Servo rightServo;

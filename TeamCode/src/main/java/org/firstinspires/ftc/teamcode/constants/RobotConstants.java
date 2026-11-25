@@ -5,14 +5,6 @@ import com.bylazar.configurables.annotations.Configurable;
 /** Robot-wide values that do not belong to a single subsystem. */
 @Configurable
 public class RobotConstants {
-    // ---- TeleOp options (read when TeleOp Red / Blue is initialised). ----
-    // Hold-to-run controls (ManualControls) instead of one-click shooting (DriverControls).
-    public static boolean MANUAL_CONTROLS = false;
-    // Feed on a fixed beat instead of waiting for the wheel after each ball.
-    public static boolean RAPID_FIRE = false;
-    // Record shooter RPM and power to a CSV (slows telemetry to 5 updates a second).
-    public static boolean LOG_SHOOTER = false;
-
     // Loop time is capped at this so a stall never causes a huge jump in rate-based motion.
     public static double MAX_LOOP_SECONDS = 0.1;
 

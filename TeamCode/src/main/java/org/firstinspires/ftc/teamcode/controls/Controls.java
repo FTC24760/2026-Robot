@@ -11,6 +11,26 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
 
+/**
+ * Both gamepads. Turns sticks and buttons into intents; Robot decides what they do.
+ * Call update() once per loop, before reading any of the *Pressed fields.
+ *
+ * Driver (gamepad 1):
+ *   left stick       drive (field-centric): up = forward, sideways = strafe
+ *   right stick x    turn
+ *   right stick y    butterfly engage / tank direction (not used by Robot yet)
+ *   left trigger     intake
+ *   right trigger    shoot (hold)
+ *   Y                flower arm toggle (not used by Robot yet)
+ *
+ * Operator (gamepad 2):
+ *   right stick x    manual turret
+ *   right stick btn  toggle auto / manual aim
+ *   left trigger     intake
+ *   right trigger    shoot (hold)
+ *   Y                flower arm toggle (not used by Robot yet)
+ *   X / B            reset pose 1 / 2 (not used by Robot yet)
+ */
 public class Controls {
     Gamepad driver;
     Gamepad operator;
@@ -19,6 +39,7 @@ public class Controls {
     private final EdgeDetector resetPose1 = new EdgeDetector();
     private final EdgeDetector resetPose2 = new EdgeDetector();
     private final EdgeDetector shotModeToggle = new EdgeDetector();
+    // True only on the loop a button goes down. Set by update().
     public boolean resetPose1Pressed;
     public boolean resetPose2Pressed;
     public boolean flowerTogglePressed;

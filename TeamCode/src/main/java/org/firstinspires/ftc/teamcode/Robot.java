@@ -23,23 +23,23 @@ import java.util.List;
  * The whole robot. An OpMode only has to forward its lifecycle:
  *
  *   init()  -> robot = new Robot(this);
- *   start() -> robot.start();
+ *   start() -> robot.start();     // enables the shooter
  *   loop()  -> robot.update();
  *   stop()  -> robot.stop();
  *
- * Robot wires driver input (DriverControls, gamepad 1) and operator input
- * (OperatorControls, gamepad 2) to the subsystems. Hardware details live in the
- * subsystems, tunable numbers in constants/, and button bindings in the controls classes.
+ * Each update() runs, in order:
+ *   1. clear the hubs' bulk cache, so this loop's sensor reads are fresh
+ *   2. updateLoopTime(): set nowNs, loopSeconds and voltageScale
+ *   3. controls.update(): work out this loop's button presses
+ *   4. runDrive(): field-centric drive from gamepad 1, plus odometry
+ *   5. runShotController(): shot mode, manual turret, shoot button -> ShotController
+ *   6. runIntake(): intake roller, transfer and blocker from the trigger and shot state
+ *   7. telemetry from every subsystem in the subsystems list
  *
- * An autonomous OpMode drives the same robot without a gamepad:
- *
- *   loop() -> robot.beginLoop();
- *             robot.drivetrain.update();      // follow the current path
- *             robot.shootSequence.update(robot.nowSeconds());
- *             robot.runShooter(true);         // spin up / hold speed
- *             robot.runTurret(0);             // auto-align if the HIVE is in view
- *             robot.runIntake(mode);          // feed, held back until the wheel is ready
- *             robot.endLoop();
+ * Other classes read the loop timing from here (robot.nowNs, robot.loopSeconds) and
+ * the battery compensation from Robot.voltageScale, rather than timing things themselves.
+ * Hardware details live in the subsystems, tunable numbers in constants/, and button
+ * bindings in Controls.
  */
 public class Robot {
     OpMode opmode;
@@ -107,6 +107,7 @@ public class Robot {
         updateTelemetry();
     }
 
+    // Called once at the top of each loop so every class sees the same time and voltage.
     private void updateLoopTime() {
         long now = System.nanoTime();
         loopSeconds = nowNs == 0 ? 0 : (now - nowNs) / 1e9;
@@ -123,6 +124,8 @@ public class Robot {
         drivetrain.update();
     }
 
+    // Right stick button toggles auto/manual aim. In manual the operator's right stick
+    // turns the turret. Either right trigger runs the shot sequence.
     private void runShotController() {
         if (controls.shotModeTogglePressed)
             shotController.automaticShot = !shotController.automaticShot;
@@ -134,6 +137,8 @@ public class Robot {
         shotController.update();
     }
 
+    // Either left trigger runs the intake roller and transfer. The transfer also runs while
+    // the ShotController is SHOOTING, and the blocker opens for BLOCKER_OPEN and SHOOTING.
     private void runIntake() {
         intake.intakeOn = controls.intake();
         intake.transferOn = controls.intake()
