@@ -12,6 +12,7 @@ import org.firstinspires.ftc.teamcode.subsystems.Vision;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
+import org.firstinspires.ftc.teamcode.utils.PoseHandoff;
 
 /**
  * Base for every autonomous OpMode. A subclass only names its alliance and its routine:
@@ -187,6 +188,9 @@ public abstract class AutoOpMode extends OpMode {
                 : robot.autoShootSequence.isFeeding() ? Intake.Mode.INTAKE
                 : robot.autoShootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
+        // For TeleOp to start from (the auto can be stopped at any loop).
+        PoseHandoff.save(robot.drivetrain.getPose(), alliance);
+
         telemetry.addData("Auto step", routine.currentStep());
         telemetry.addData("Up CELL", "%s%s", ctx.upSide, robot.isAiming() ? " (Limelight)" : " (odometry)");
         telemetry.addData("Time left s", "%.1f", ctx.timeLeft());
@@ -197,6 +201,9 @@ public abstract class AutoOpMode extends OpMode {
     public void stop() {
         if (routine != null && routineStarted) {
             routine.stop(ctx);
+        }
+        if (robot != null && routineStarted) {
+            PoseHandoff.save(robot.drivetrain.getPose(), alliance);
         }
         if (robot != null) {
             robot.stop();
