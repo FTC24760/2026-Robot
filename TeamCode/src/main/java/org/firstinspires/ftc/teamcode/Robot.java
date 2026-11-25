@@ -5,15 +5,15 @@ import com.pedropathing.follower.Follower;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
-
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.controls.DriverControls;
-import org.firstinspires.ftc.teamcode.controls.OperatorControls;
+import org.firstinspires.ftc.teamcode.controls.Controls;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
+import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
-
+import org.firstinspires.ftc.teamcode.utils.ShotController;
+import org.firstinspires.ftc.teamcode.utils.ShotSolver;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,22 +45,36 @@ public class Robot {
     OpMode opmode;
     HardwareMap hardwareMap;
     Telemetry telemetry;
-    Alliance alliance = Alliance.RED;
+    public Alliance alliance = Alliance.RED;
     HubManager hubManager;
     Drivetrain drivetrain;
     Butterfly butterfly;
     Intake intake;
-    Turret turret;
-    Shooter shooter;
-    Follower follower;
+    public Turret turret;
+    public Shooter shooter;
+    public Follower follower;
     List<Subsystem> subsystems;
 
-    DriverControls driverControls;
-    OperatorControls operatorControls;
+    HiveTracker hiveTracker;
+    public ShotSolver shotSolver;
+    ShotController shotController;
+
+    Controls controls;
+
+    public boolean tankMode = false;
+
+    // System.nanoTime() at the start of the current loop, or 0 before the first loop.
+    public long nowNs;
+    // Seconds between the start of the previous loop and this one; 0 on the first loop.
+    public double loopSeconds;
+    // Nominal voltage / battery voltage, from HubManager; 1.0 until the first loop.
+    // Static so subsystems can read Robot.voltageScale without a Robot reference.
+    public static double voltageScale = 1.0;
 
     public Robot(OpMode opMode) {
         hardwareMap = opMode.hardwareMap;
         telemetry = opMode.telemetry;
+        voltageScale = 1.0;  // don't carry over the last OpMode's reading
 
         hubManager = new HubManager(hardwareMap);
         follower = Constants.create(hardwareMap);
@@ -72,33 +86,61 @@ public class Robot {
         shooter = new Shooter(hardwareMap);
         subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, turret, shooter));
 
-        driverControls = new DriverControls(opMode);
-        operatorControls = new OperatorControls(opMode);
+        hiveTracker = new HiveTracker();
+        shotSolver = new ShotSolver(this);
+        shotController = new ShotController(this);
+
+        controls = new Controls(opMode);
     }
 
     public void start() {
+        shooter.state = Shooter.State.ENABLED;
     }
     public void update() {
         hubManager.clearBulkCache();
-        Drive();
-        UpdateTurret();
+        updateLoopTime();
+        controls.update();
+        runDrive();
+        runShotController();
+        runIntake();
 
         updateTelemetry();
     }
 
-    private void Drive() {
-        double forward = driverControls.forward();
-        double strafe = driverControls.strafe();
-        double rotate = driverControls.rotate();
+    private void updateLoopTime() {
+        long now = System.nanoTime();
+        loopSeconds = nowNs == 0 ? 0 : (now - nowNs) / 1e9;
+        nowNs = now;
+        voltageScale = hubManager.getVoltageScale(nowNs);
+    }
+
+    private void runDrive() {
+        double forward = controls.forward();
+        double strafe = controls.strafe();
+        double rotate = controls.rotate();
 
         drivetrain.driveFieldCentric(forward, strafe, rotate);
         drivetrain.update();
     }
-    private void UpdateTurret() {
-        turret.setFeedforward(follower.velocity().omega);
+
+    private void runShotController() {
+        if (controls.shotModeTogglePressed)
+            shotController.automaticShot = !shotController.automaticShot;
+
+        if (!shotController.automaticShot) {
+            shotController.manualMoveTurret(controls.manualTurret());
+        }
+        shotController.shootPressed = controls.shoot();
+        shotController.update();
     }
-    public void setAlliance(Alliance alliance) {
-        this.alliance = alliance;
+
+    private void runIntake() {
+        intake.intakeOn = controls.intake();
+        intake.transferOn = controls.intake()
+                || shotController.state == ShotController.State.SHOOTING;
+        intake.blockerOpen = shotController.state == ShotController.State.BLOCKER_OPEN ||
+                             shotController.state == ShotController.State.SHOOTING;
+        intake.update();
     }
 
     void updateTelemetry() {
@@ -107,7 +149,6 @@ public class Robot {
         }
         telemetry.update();
     }
-
 
     public void stop() {
         for (Subsystem subsystem : subsystems) {

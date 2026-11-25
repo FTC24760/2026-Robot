@@ -21,7 +21,7 @@ public class Butterfly implements Subsystem {
 
     private final Servo leftServo;
     private final Servo rightServo;
-    private State state;
+    public State state;
 
     public Butterfly(HardwareMap hardwareMap) {
         leftServo = hardwareMap.get(Servo.class, ButterflyConstants.LEFT_SERVO_NAME);
@@ -79,10 +79,6 @@ public class Butterfly implements Subsystem {
         }
 
         state = requestedState;
-    }
-
-    public State getState() {
-        return state;
     }
 
     public boolean isDown() {

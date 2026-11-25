@@ -93,10 +93,15 @@ public class Vision implements Subsystem {
     private final Limelight3A limelight;
     private final Map<HiveCell, CellSighting> sightings = new EnumMap<>(HiveCell.class);
 
-    private Alliance alliance;
+    public Alliance alliance;
     private HiveTarget target;
     private long targetNs;
-    private Fix fix;
+    /**
+     * The CELL from a camera frame that arrived since the previous {@link #update}, or
+     * null if no new frame showed one. Unlike {@link #getTarget} this is not smoothed,
+     * so it can be combined with odometry from the moment the frame was captured.
+     */
+    public Fix fix;
     private long lastFrameStampNs;
 
     /** @param alliance whose HIVE to aim at, or null to take whichever CELL is nearest */
@@ -107,10 +112,6 @@ public class Vision implements Subsystem {
         limelight.setPollRateHz(VisionConstants.POLL_RATE_HZ);
         limelight.pipelineSwitch(VisionConstants.PIPELINE);
         limelight.start();
-    }
-
-    public void setAlliance(Alliance alliance) {
-        this.alliance = alliance;
     }
 
     /** Read the newest Limelight frame. Call once per loop. */
@@ -153,15 +154,6 @@ public class Vision implements Subsystem {
 
         target = new HiveTarget(best.cell, distance, bearing, height, up, best.tagCount);
         targetNs = nowNs;
-    }
-
-    /**
-     * The CELL from a camera frame that arrived since the previous {@link #update}, or
-     * null if no new frame showed one. Unlike {@link #getTarget} this is not smoothed,
-     * so it can be combined with odometry from the moment the frame was captured.
-     */
-    public Fix getFix() {
-        return fix;
     }
 
     /** @return the current target, or null if no HIVE tag has been seen recently. */

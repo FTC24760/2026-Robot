@@ -26,9 +26,9 @@ public class SpeedController {
 
     public final Gains gains = new Gains();
 
-    private double integral;
-    private double filteredVel;
-    private double profiledTarget;
+    public double integral;
+    public double filteredVel;
+    public double profiledTarget;
     private long lastTimeNs = -1;
 
     /**
@@ -106,15 +106,4 @@ public class SpeedController {
         lastTimeNs = -1;
     }
 
-    public double getFilteredVelocity() {
-        return filteredVel;
-    }
-
-    public double getProfiledTarget() {
-        return profiledTarget;
-    }
-
-    public double getIntegral() {
-        return integral;
-    }
 }

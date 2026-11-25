@@ -15,7 +15,7 @@ public class Turret implements Subsystem {
     private double position = TurretConstants.START_POSITION;
     private double feedforward = 0;
 
-    /** Does not move the servos; they first move on the first call to {@link #move}. */
+    /** Does not move the servos; they first move on the first call to {@link #move} or {@link #pointAt}. */
     public Turret(HardwareMap hardwareMap) {
         leftServo = hardwareMap.get(Servo.class, TurretConstants.LEFT_SERVO_NAME);
         rightServo = hardwareMap.get(Servo.class, TurretConstants.RIGHT_SERVO_NAME);
@@ -26,67 +26,76 @@ public class Turret implements Subsystem {
     }
 
     /**
-     * Manual aiming. Call every loop, including with direction 0 to hold position.
+     * Manual aiming at up to TurretConstants.MANUAL_RATE radians per second. Call every
+     * loop, including with direction 0 to hold position.
      *
-     * @param direction   +1, -1, or 0
+     * @param direction   -1 to 1; positive turns left
      * @param loopSeconds time since the previous loop, so speed does not depend on loop rate
      */
     public void move(double direction, double loopSeconds) {
-        setPosition(position + direction * TurretConstants.MANUAL_RATE * loopSeconds);
+        setPosition(position + radiansToPosition(direction * TurretConstants.MANUAL_RATE * loopSeconds));
     }
 
     /**
      * Auto-align from a camera fixed to the chassis: turn to the servo position that
      * points the turret at a bearing measured from robot forward. Call every loop.
      *
-     * @param bearingDeg  direction to the target, degrees to the left of robot forward
+     * @param bearingRad  direction to the target, radians to the left of robot forward
      * @param loopSeconds time since the previous loop
      */
-    public void pointAt(double bearingDeg, double loopSeconds) {
-        double wanted = TurretConstants.FORWARD_POSITION + degreesToPosition(bearingDeg);
-
+    public void pointAt(double bearingRad, double loopSeconds) {
         // Ignore tiny changes: chasing every bit of camera and odometry noise makes the
         // servo buzz back and forth.
-        double deadband = Math.abs(degreesToPosition(TurretConstants.AIM_DEADBAND_DEG));
-        if (Math.abs(wanted - position) < deadband) {
+        double errorRad = bearingRad - getAngle();
+        if (Math.abs(errorRad) < Math.toRadians(TurretConstants.AIM_DEADBAND_DEG)) {
             setPosition(position);
             return;
         }
 
         double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
-        setPosition(position + MathUtil.clamp(wanted - position, -maxStep, maxStep));
+        setPosition(position + MathUtil.clamp(radiansToPosition(errorRad), -maxStep, maxStep));
     }
 
     /**
      * Auto-align from a camera that rides on the turret: nudge the turret toward
      * putting the target dead ahead of the camera. Call every loop.
      *
-     * @param errorDeg    direction to the target, degrees to the left of where the
+     * @param errorRad    direction to the target, radians to the left of where the
      *                    turret is pointing now
      * @param loopSeconds time since the previous loop
      */
-    public void track(double errorDeg, double loopSeconds) {
-        if (Math.abs(errorDeg) < TurretConstants.DEADBAND_DEG) {
+    public void track(double errorRad, double loopSeconds) {
+        if (Math.abs(errorRad) < Math.toRadians(TurretConstants.DEADBAND_DEG)) {
             setPosition(position);
             return;
         }
 
-        double step = degreesToPosition(errorDeg) * TurretConstants.TRACKING_GAIN * loopSeconds;
+        double step = radiansToPosition(errorRad) * TurretConstants.TRACKING_GAIN * loopSeconds;
         double maxStep = TurretConstants.AUTO_MAX_RATE * loopSeconds;
         setPosition(position + MathUtil.clamp(step, -maxStep, maxStep));
     }
 
-    /** Where the turret is pointing, in degrees to the left of robot forward. */
-    public double getAngleDeg() {
-        double sign = TurretConstants.INCREASING_POSITION_TURNS_LEFT ? 1 : -1;
-        return (position - TurretConstants.FORWARD_POSITION)
-                * TurretConstants.DEGREES_PER_FULL_TRAVEL * sign;
+    /** Where the turret is pointing, in radians to the left of robot forward. */
+    public double getAngle() {
+        return positionToRadians(position - TurretConstants.FORWARD_POSITION);
     }
 
-    // A turn to the left, in degrees, as a change in servo position.
-    private static double degreesToPosition(double degreesLeft) {
+    // The constants give the servo's range in degrees, because that is how it is
+    // measured; everything in this class works in radians. Read each loop rather than
+    // cached, so edits from Panels take effect immediately.
+    private static double radiansPerFullTravel() {
         double sign = TurretConstants.INCREASING_POSITION_TURNS_LEFT ? 1 : -1;
-        return sign * degreesLeft / TurretConstants.DEGREES_PER_FULL_TRAVEL;
+        return sign * Math.toRadians(TurretConstants.DEGREES_PER_FULL_TRAVEL);
+    }
+
+    // A turn to the left, in radians, as a change in servo position.
+    private static double radiansToPosition(double radiansLeft) {
+        return radiansLeft / radiansPerFullTravel();
+    }
+
+    // A change in servo position as a turn to the left, in radians.
+    private static double positionToRadians(double positionChange) {
+        return positionChange * radiansPerFullTravel();
     }
 
     public void setPosition(double position) {
@@ -109,6 +118,6 @@ public class Turret implements Subsystem {
     }
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("Turret", "%.3f (%.0f deg)", position, getAngleDeg());
+        telemetry.addData("Turret", "%.3f (%.0f deg)", position, Math.toDegrees(getAngle()));
     }
 }

@@ -36,9 +36,9 @@ public final class AsyncRpmLogger {
     private volatile boolean accepting = false;
     private volatile boolean stopping = false;
 
-    private volatile long droppedSamples = 0;
-    private volatile String status = "NOT STARTED";
-    private volatile String filename = "";
+    public volatile long droppedSamples = 0;
+    public volatile String status = "NOT STARTED";
+    public volatile String filename = "";
 
     private Thread writerThread;
 
@@ -83,18 +83,6 @@ public final class AsyncRpmLogger {
     public void stopAsync() {
         accepting = false;
         stopping = true;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public String getFilename() {
-        return filename;
-    }
-
-    public long getDroppedSamples() {
-        return droppedSamples;
     }
 
     private void save(File rootDirectory) {

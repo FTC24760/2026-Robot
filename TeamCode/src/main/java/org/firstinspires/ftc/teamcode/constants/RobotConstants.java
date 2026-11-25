@@ -5,9 +5,6 @@ import com.bylazar.configurables.annotations.Configurable;
 /** Robot-wide values that do not belong to a single subsystem. */
 @Configurable
 public class RobotConstants {
-    // How far a trigger must be pulled before it counts as pressed.
-    public static double TRIGGER_THRESHOLD = 0.2;
-
     // ---- TeleOp options (read when TeleOp Red / Blue is initialised). ----
     // Hold-to-run controls (ManualControls) instead of one-click shooting (DriverControls).
     public static boolean MANUAL_CONTROLS = false;

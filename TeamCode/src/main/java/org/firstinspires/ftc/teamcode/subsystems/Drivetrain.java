@@ -43,8 +43,6 @@ public class Drivetrain implements Subsystem {
                 follower.pose().heading()
         );
         follower.manual(powers);
-        follower.update();
-        readPose();
     }
 
     // ---- Autonomous ----
@@ -52,45 +50,11 @@ public class Drivetrain implements Subsystem {
     /** Tell the localizer where the robot is. Call once at the start of an auto. */
     public void setPose(Pose pose) {
         moveOrigin(pose);
-        driveFieldCentric(0.02, 0.02, 0.02);
-    }
-
-
-    /** Run the follower for one loop without new stick input (holding or shifting). */
-    public void updateHold() {
-        follower.update();
-        readPose();
-    }
-
-    /** True while a path is still being followed. */
-    public boolean isBusy() {
-        return follower.isBusy();
     }
 
     /** Run the follower and localizer for one loop of an auto. */
     public void update() {
         follower.update();
-        readPose();
-    }
-
-    /** Make the robot's current position and heading the field origin. */
-    public void resetPose() {
-        moveOrigin(new Pose(0, 0, 0));
-    }
-
-    /** Pose as of the last driveFieldCentric or update call. */
-    public Pose getPose() {
-        return pose;
-    }
-
-    /** When {@link #getPose()} was read, in System.nanoTime() terms. */
-    public long getPoseTimeNs() {
-        return poseNs;
-    }
-
-    /** Field-frame velocity: inches per second and radians per second (CCW positive). */
-    public Velocity getVelocity() {
-        return velocity;
     }
 
     // Tell the localizer it is now at newPose. If the follower is holding position, move
@@ -101,14 +65,6 @@ public class Drivetrain implements Subsystem {
         if (follower.holding()) {
             follower.hold(newPose);
         }
-        pose = newPose;
-        poseNs = System.nanoTime();
-    }
-
-    private void readPose() {
-        pose = follower.pose();
-        velocity = follower.velocity();
-        poseNs = System.nanoTime();
     }
     @Override
     public void addTelemetry(Telemetry telemetry) {

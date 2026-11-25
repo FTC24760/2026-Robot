@@ -29,9 +29,9 @@ public class HiveTracker {
     private int historyNext;
 
     private boolean has;
-    private HiveCell cell;
+    public HiveCell cell;
     private double fieldX, fieldY; // inches
-    private double tagHeightM;
+    public double tagHeightM;
     private long lastVisionNs;
 
     /** Record the odometry pose and when it was read. Call once per loop. */
@@ -145,14 +145,6 @@ public class HiveTracker {
     /** True if the camera has seen the target recently (not just remembered). */
     public boolean seesTarget(long nowNs) {
         return has && nowNs - lastVisionNs <= MathUtil.msToNs(VisionConstants.TARGET_TIMEOUT_MS);
-    }
-
-    public HiveCell getCell() {
-        return cell;
-    }
-
-    public double getTagHeightM() {
-        return tagHeightM;
     }
 
     /** Horizontal distance from the robot centre to the CELL, metres. */

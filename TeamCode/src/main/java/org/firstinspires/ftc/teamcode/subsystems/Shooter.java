@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.utils.SpeedController;
 
@@ -25,24 +26,19 @@ public class Shooter implements Subsystem {
     private final DcMotorEx motor;
     private final SpeedController controller = new SpeedController();
 
-    private State state = State.DISABLED;
+    public State state = State.DISABLED;
     private double targetTicksPerSecond;
     private double actualTicksPerSecond;
-    private double power;
+    public double power;
     private final double[] recentRpm = new double[3];
     // Shooting speed chosen by auto-aim; NaN means use ShooterConstants.TARGET_RPM.
-    private double shootRpmOverride = Double.NaN;
+    public double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {
         motor = hardwareMap.get(DcMotorEx.class, ShooterConstants.MOTOR_NAME);
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         motor.setDirection(ShooterConstants.direction);
-    }
-
-    /** Shoot at this speed instead of ShooterConstants.TARGET_RPM (used by auto-aim). */
-    public void setShootRpm(double rpm) {
-        shootRpmOverride = rpm;
     }
 
     /** Go back to shooting at ShooterConstants.TARGET_RPM. */
@@ -55,23 +51,16 @@ public class Shooter implements Subsystem {
         if (!Double.isNaN(shootRpmOverride)) {
             return shootRpmOverride;
         }
-        return ShooterConstants.TARGET_RPM;
-    }
-    public void setState(State state) {
-        this.state = state;
-    }
-    public State getState() {
-        return state;
+        return ShooterConstants.MANUAL_RPM;
     }
 
     /**
      * Run one step of the velocity controller. Call exactly once per loop: it takes the
      * single fresh velocity read that the getters below then reuse.
      *
-     * @param nowNs        loop timestamp from System.nanoTime()
-     * @param voltageScale nominal voltage / battery voltage
+     * @param nowNs loop timestamp from System.nanoTime()
      */
-    public void update(long nowNs, double voltageScale) {
+    public void update(long nowNs) {
         actualTicksPerSecond = motor.getVelocity();
         recentRpm[2] = recentRpm[1];
         recentRpm[1] = recentRpm[0];
@@ -92,7 +81,7 @@ public class Shooter implements Subsystem {
             power = controller.calculate(
                     targetTicksPerSecond,
                     actualTicksPerSecond,
-                    voltageScale,
+                    Robot.voltageScale,
                     nowNs
             );
 
@@ -110,16 +99,14 @@ public class Shooter implements Subsystem {
 
     /** The ramped target the controller is actually chasing right now. */
     public double getProfiledRpm() {
-        return ticksPerSecondToRpm(controller.getProfiledTarget(), ShooterConstants.TICKS_PER_REV);
+        return ticksPerSecondToRpm(controller.profiledTarget, ShooterConstants.TICKS_PER_REV);
     }
-
-    public double getPower() {
-        return power;
-    }
-
-
 
     /** True when the wheel is at shooting speed, close enough to feed the next ball. */
+    public boolean isAtTargetRpm() {
+        // TODO placeholder: always ready. Replace with a real check against getTargetRpm().
+        return true;
+    }
 
     @Override
     public void stop() {

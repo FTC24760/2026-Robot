@@ -13,8 +13,9 @@ public class TurretConstants {
     public static double START_POSITION = 0.5;
     public static double MIN_POSITION = 0.0;
     public static double MAX_POSITION = 1.0;
-    // Manual aiming speed, in servo position per second.
-    public static double MANUAL_RATE = 0.25;
+    // Manual aiming speed at full stick, in radians per second.
+    // 1.3 rad/s (about 75 deg/s) matches the old 0.25 servo position per second.
+    public static double MANUAL_RATE = 1.3;
 
     // ---- Auto-align with the Limelight. CALIBRATE all four. ----
     // Servo position at which the turret points straight ahead on the robot.

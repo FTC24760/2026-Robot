@@ -23,6 +23,9 @@ public class IntakeConstants {
 
     public static double BLOCKER_OPEN_POSITION = 0.032;
     public static double BLOCKER_CLOSED_POSITION = 0.0;
+    // How long the blocker is open before the transfer starts feeding, so it is fully
+    // out of the way first.
+    public static double BLOCKER_OPEN_TIME_MS = 200;
 
     // Flower arm: a servo that lowers for collecting from a FLOWER. Not on the robot
     // yet; until a servo with this name is configured the arm does nothing. CALIBRATE.

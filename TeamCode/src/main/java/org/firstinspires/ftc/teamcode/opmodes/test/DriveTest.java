@@ -31,7 +31,6 @@ public class DriveTest extends OpMode {
         backLeftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         backRightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-
         butterfly = new Butterfly(hardwareMap);
     }
 
@@ -40,7 +39,6 @@ public class DriveTest extends OpMode {
         double forward = -gamepad1.left_stick_y;
         double strafe = gamepad1.left_stick_x;
         double rotate = gamepad1.right_stick_x;
-
 
         butterfly.update(
                 forward,
@@ -51,7 +49,7 @@ public class DriveTest extends OpMode {
 
         drive(forward, strafe, rotate);
 
-        telemetry.addData("Butterfly", butterfly.getState());
+        telemetry.addData("Butterfly", butterfly.state);
         telemetry.update();
     }
 

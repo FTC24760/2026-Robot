@@ -13,7 +13,7 @@ import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
  */
 public class FlowerArm implements Subsystem {
     private final Servo servo;
-    private boolean down;
+    public boolean down;
 
     /** Does not move the servo; it first moves on the first call to setDown. */
     public FlowerArm(HardwareMap hardwareMap) {
@@ -39,10 +39,6 @@ public class FlowerArm implements Subsystem {
 
     public void toggle() {
         setDown(!down);
-    }
-
-    public boolean isDown() {
-        return down;
     }
 
     public boolean isInstalled() {
