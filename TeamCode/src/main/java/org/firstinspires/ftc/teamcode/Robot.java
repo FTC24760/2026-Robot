@@ -14,13 +14,17 @@ import org.firstinspires.ftc.teamcode.commands.DriveCommands;
 import org.firstinspires.ftc.teamcode.commands.FlowerCommands;
 import org.firstinspires.ftc.teamcode.commands.IntakeCommands;
 import org.firstinspires.ftc.teamcode.commands.ShotCommands;
+import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.constants.FieldConstants;
 import org.firstinspires.ftc.teamcode.controls.Bindings;
 import org.firstinspires.ftc.teamcode.controls.Controls;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
+import org.firstinspires.ftc.teamcode.utils.FieldPoses;
 import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
+import org.firstinspires.ftc.teamcode.utils.PoseStorage;
 import org.firstinspires.ftc.teamcode.utils.ShotSolver;
 
 import java.util.ArrayList;
@@ -31,7 +35,8 @@ import java.util.List;
  * The whole robot, run with Ivy commands (Pedro Pathing's command library). An OpMode
  * only has to forward its lifecycle:
  *
- *   init()  -> robot = new Robot(this);   // resets the Ivy Scheduler, builds commands
+ *   init()  -> robot = new Robot(this, alliance);   // resets the Ivy Scheduler, sets the
+ *                                                   // field pose, builds commands
  *   start() -> robot.start();             // enables the shooter, starts drive and auto aim
  *   loop()  -> robot.update();
  *   stop()  -> robot.stop();
@@ -41,8 +46,8 @@ import java.util.List;
  * runs, in order:
  *   1. clear the hubs' bulk cache, so this loop's sensor reads are fresh
  *   2. updateLoopTime(): set nowNs, loopSeconds and voltageScale
- *   3. controls.update() and bindings.update(): button presses schedule/cancel commands
- *   4. shotSolver.update(): aim targets for autoAim
+ *   3. bindings.update(): button presses schedule/cancel commands
+ *   4. shotSolver.update(): CELL, turret bearing, RPM and hood from the pose
  *   5. Scheduler.execute(): run every scheduled command once
  *   6. write hardware: follower (drive + odometry), shooter velocity loop, intake,
  *      flower arm (re-sent so live Panels edits apply)
@@ -57,6 +62,10 @@ import java.util.List;
  *   shoot      blocker + feed sequence while either right trigger is held
  *   intake     roller + transfer while either left trigger is held
  *   flower     toggles the flower arm on Y (either gamepad)
+ * Operator X / B reset odometry to FieldConstants.RESET_POSE_1 / 2.
+ *
+ * Odometry is in the field frame described in AutoConstants. At init the pose comes
+ * from PoseStorage (left there by the auto) or, if there isn't one, the auto start pose.
  *
  * Vision is not built in TeleOp: it is only for detecting which CELL is up in auto.
  *
@@ -69,7 +78,8 @@ public class Robot {
     OpMode opmode;
     HardwareMap hardwareMap;
     Telemetry telemetry;
-    public Alliance alliance = Alliance.RED;
+    // Fixed for the OpMode; picks our HIVE and which way field-centric "forward" points.
+    public final Alliance alliance;
     HubManager hubManager;
     Drivetrain drivetrain;
     Butterfly butterfly;
@@ -103,7 +113,8 @@ public class Robot {
     // Static so subsystems can read Robot.voltageScale without a Robot reference.
     public static double voltageScale = 1.0;
 
-    public Robot(OpMode opMode) {
+    public Robot(OpMode opMode, Alliance alliance) {
+        this.alliance = alliance;
         hardwareMap = opMode.hardwareMap;
         telemetry = opMode.telemetry;
         voltageScale = 1.0;  // don't carry over the last OpMode's reading
@@ -112,6 +123,14 @@ public class Robot {
         follower = Constants.create(hardwareMap);
 
         drivetrain = new Drivetrain(hardwareMap, follower);
+        drivetrain.driverHeadingOffset = FieldPoses.driverHeadingOffset(alliance);
+        if (PoseStorage.pose != null) {
+            drivetrain.setPose(PoseStorage.pose);
+            PoseStorage.pose = null;  // only use an auto's pose once
+        } else {
+            drivetrain.setPose(FieldPoses.forAlliance(alliance,
+                    AutoConstants.START_X, AutoConstants.START_Y, AutoConstants.START_H));
+        }
         butterfly = new Butterfly(hardwareMap);
         intake = new Intake(hardwareMap);
         turret = new Turret(hardwareMap);
@@ -142,6 +161,12 @@ public class Robot {
         bindings.whileHeld(controls::intake, intakeCommand);
         bindings.whileHeld(controls::butterflyEngage, tank);
         bindings.onPress(controls::flowerToggle, () -> schedule(flowerToggle));
+        bindings.onPress(controls::resetPose1, () -> drivetrain.setPose(FieldPoses.forAlliance(
+                alliance, FieldConstants.RESET_POSE_1_X, FieldConstants.RESET_POSE_1_Y,
+                FieldConstants.RESET_POSE_1_H)));
+        bindings.onPress(controls::resetPose2, () -> drivetrain.setPose(FieldPoses.forAlliance(
+                alliance, FieldConstants.RESET_POSE_2_X, FieldConstants.RESET_POSE_2_Y,
+                FieldConstants.RESET_POSE_2_H)));
         bindings.onPress(controls::shotModeToggle,
                 () -> schedule(autoAim.isScheduled() ? manualAim : autoAim));
     }
@@ -154,7 +179,6 @@ public class Robot {
     public void update() {
         hubManager.clearBulkCache();
         updateLoopTime();
-        controls.update();
         bindings.update();
         shotSolver.update();
 
@@ -183,6 +207,7 @@ public class Robot {
                 : manualAim.isScheduled() ? "manual" : "off");
         telemetry.addData("Shooting", shoot.isScheduled() ? "yes" : "no");
         telemetry.addData("Drive", tank.isScheduled() ? "tank" : "mecanum");
+        shotSolver.addTelemetry(telemetry);
         for (Subsystem subsystem : subsystems) {
             subsystem.addTelemetry(telemetry);
         }

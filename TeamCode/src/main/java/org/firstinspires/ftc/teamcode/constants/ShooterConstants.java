@@ -15,6 +15,15 @@ public class ShooterConstants {
     // Keep this on a step so the controller reads zero error when it is on target.
     public static double MANUAL_RPM = 3350;
 
+    // Auto-aim wheel speed from distance, a linear regression fitted in Desmos to points
+    // from the "Test: Shot Tuning" OpMode:  RPM = RPM_SLOPE * distance + RPM_INTERCEPT,
+    // distance in inches from the turret pivot to the CELL centre. The defaults hold
+    // MANUAL_RPM at every distance until the fit is entered.
+    public static double RPM_SLOPE = 0.0;
+    public static double RPM_INTERCEPT = 3350;
+    // Auto-aim never asks for more than this. 6000 is the motor's free speed.
+    public static double MAX_RPM = 6000;
+
     // Software velocity controller gains, in motor power per encoder tick/second
     // (not the hub PIDF units). Tuning order: kF, kS, kP, kD, kI, kA.
     // Feedforward power per tick/s. Tune first so steady speed holds with little PID work.

@@ -4,7 +4,6 @@ import com.pedropathing.drivetrain.DrivePowers;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.follower.ManualDrive;
 import com.pedropathing.math.Pose;
-import com.pedropathing.math.Velocity;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
@@ -19,12 +18,11 @@ import org.firstinspires.ftc.teamcode.pedro.Constants;
  */
 public class Drivetrain implements Subsystem {
     private final Follower follower;
-    private Pose pose = new Pose(0, 0, 0);
-    private Velocity velocity = Velocity.zero();
-    // System.nanoTime() when pose was last read from the localizer.
-    private long poseNs = System.nanoTime();
     // Field heading tank drive turns to, radians CCW. Kept when the stick is released.
     public double tankTargetHeading;
+    // Direction our drivers face, relative to field +X (FieldPoses.driverHeadingOffset):
+    // makes field-centric "forward" mean away from our drivers on either alliance.
+    public double driverHeadingOffset;
 
     public Drivetrain(HardwareMap hardwareMap, Follower follower) {
         this.follower = follower;
@@ -43,7 +41,8 @@ public class Drivetrain implements Subsystem {
                 forward,
                 -strafe,
                 -rotate,
-                follower.pose().heading()
+                follower.pose().heading(),
+                -driverHeadingOffset
         );
         follower.manual(powers);
     }
@@ -65,7 +64,7 @@ public class Drivetrain implements Subsystem {
         // Field direction of the stick in Pedro's frame (left-positive, CCW angles).
         double fieldLeft = -strafe;
         double magnitude = Math.min(1.0, Math.hypot(forward, fieldLeft));
-        double stickAngle = Math.atan2(fieldLeft, forward);
+        double stickAngle = Math.atan2(fieldLeft, forward) + driverHeadingOffset;
 
         if (magnitude > ButterflyConstants.TANK_STICK_DEADBAND) {
             tankTargetHeading = facingAway ? stickAngle + Math.PI : stickAngle;
@@ -114,9 +113,9 @@ public class Drivetrain implements Subsystem {
     }
     @Override
     public void addTelemetry(Telemetry telemetry) {
-        telemetry.addData("Robot X", pose.x());
-        telemetry.addData("Robot Y", pose.y());
-        telemetry.addData("Robot Heading", Math.toDegrees(pose.heading()));
+        Pose pose = follower.pose();
+        telemetry.addData("Robot pose", "%.1f, %.1f in, %.1f deg",
+                pose.x(), pose.y(), Math.toDegrees(pose.heading()));
     }
     @Override
     public void stop() {

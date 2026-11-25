@@ -16,8 +16,6 @@ public abstract class MatchTeleOp extends RobotTeleOp {
 
     @Override
     protected Robot createRobot() {
-        Robot robot = new Robot(this);
-        robot.alliance = this.alliance;
-        return robot;
+        return new Robot(this, alliance);
     }
 }
