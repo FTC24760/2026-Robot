@@ -299,6 +299,8 @@ public class Robot {
             runIntake(pulseFeedMode());
         } else if (shootSequence.isFeeding()) {
             runIntake(Intake.Mode.INTAKE);
+        } else if (shootSequence.isPacking()) {
+            runIntake(Intake.Mode.TRANSFER_ONLY);
         } else if (shootSequence.isActive()) {
             runIntake(Intake.Mode.OFF);
         } else if (intakeOn) {

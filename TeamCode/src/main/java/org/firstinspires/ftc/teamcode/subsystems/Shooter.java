@@ -114,14 +114,11 @@ public class Shooter implements Subsystem {
             syncGains();
             boosting = false;
 
-            // The controller keeps running while boosting so its filter and ramp stay
-            // current, but its integral is held: the dip is the boost's job to fix.
             power = controller.calculate(
                     targetTicksPerSecond,
                     actualTicksPerSecond,
                     voltageScale,
-                    nowNs,
-                    boosting
+                    nowNs
             );
 
         }
@@ -205,7 +202,6 @@ public class Shooter implements Subsystem {
             telemetry.addData("Shooter state", state);
             telemetry.addData("Ready to feed", isReadyToFeed() ? "yes" : "no");
             telemetry.addData("Boosting", boosting ? "yes" : "no");
-            telemetry.addData("Integral power", "%.3f", controller.getIntegral() * controller.gains.kI);
         }
     }
 
@@ -213,21 +209,11 @@ public class Shooter implements Subsystem {
     private void syncGains() {
         SpeedController.Gains gains = controller.gains;
         gains.kP = ShooterConstants.kP;
-        gains.kI = ShooterConstants.kI;
-        gains.kD = ShooterConstants.kD;
         gains.kF = ShooterConstants.kF;
         gains.kS = ShooterConstants.kS;
         gains.kA = ShooterConstants.kA;
-        gains.maxIntegral = ShooterConstants.MAX_INTEGRAL;
         gains.maxAccel = ShooterConstants.MAX_ACCEL;
-        gains.velocityAlpha = ShooterAssistConstants.VELOCITY_ALPHA;
         gains.kSDeadband = ShooterConstants.KS_DEADBAND;
-
-        if (assistEnabled) {
-            gains.kI = ShooterAssistConstants.kI;
-            gains.maxIntegral = ShooterAssistConstants.MAX_INTEGRAL;
-            gains.velocityAlpha = ShooterAssistConstants.VELOCITY_ALPHA;
-        }
     }
 
     private double getStateTargetRpm() {

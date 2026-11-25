@@ -21,6 +21,7 @@ public class AutoShootSequence {
 
     public enum Stage {
         IDLE,
+        PACKING,
         SPINNING_UP,
         OPENING_GATE,
         FEEDING
@@ -45,7 +46,7 @@ public class AutoShootSequence {
         }
         intake.setBlockerOpen(false);
         readySinceS = -1;
-        enter(Stage.SPINNING_UP, nowS);
+        enter(Stage.PACKING, nowS);
     }
 
     /** Stop now and close the blocker. Safe to call at any time. */
@@ -66,6 +67,15 @@ public class AutoShootSequence {
     /** Advance the sequence. Call once per loop, after Robot.runShooter(). */
     public void update(double nowS) {
         switch (stage) {
+            case PACKING:
+                // Transfer runs against the closed blocker to pack the balls together.
+                // The wheel spins up at the same time; its settle timer keeps counting.
+                wheelSettled(nowS);
+                if (nowS - stageStartS >= ShooterConstants.PACK_S) {
+                    enter(Stage.SPINNING_UP, nowS);
+                }
+                break;
+
             case SPINNING_UP:
                 // Same as teleop: wait for the wheel. The auto's ShootStep gives up if
                 // the first ball never goes.
@@ -76,10 +86,9 @@ public class AutoShootSequence {
                 break;
 
             case OPENING_GATE:
-                if (!shooter.isReadyToFeed()) {
-                    cancel();
-                    start(nowS);
-                } else if (nowS - stageStartS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
+                // A low reading here only holds the transfer; the blocker stays open.
+                if (nowS - stageStartS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S
+                        && shooter.isReadyToFeed()) {
                     enter(Stage.FEEDING, nowS);
                 }
                 break;
@@ -102,6 +111,11 @@ public class AutoShootSequence {
 
     public boolean isActive() {
         return stage != Stage.IDLE;
+    }
+
+    /** True while the transfer should run against the closed blocker to pack the balls. */
+    public boolean isPacking() {
+        return stage == Stage.PACKING;
     }
 
     /** True while the wheel should be held at shooting speed. */

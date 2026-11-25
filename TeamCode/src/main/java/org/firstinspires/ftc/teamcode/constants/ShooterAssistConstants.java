@@ -76,18 +76,9 @@ public class ShooterAssistConstants {
 
     // Transfer power used while shooting, in place of Configurables.TRANSFER_POWER.
 
-    // ---- 3. Integral that actually trims steady-state error. ----
-    // Replaces ShooterConstants.kI / MAX_INTEGRAL. Largest power it can add or remove
-    // is kI * MAX_INTEGRAL (0.15 with these values). Frozen while boosting.
-    public static double kI = 0.001;
-    public static double MAX_INTEGRAL = 150;
 
     // ---- 4. Idle spin: keep the wheel turning between bursts. ----
     // Starts after the first trigger pull; Y stops the wheel completely.
     public static boolean IDLE_SPIN_ENABLED = true;
     public static double IDLE_RPM = 0;
-
-    // ---- 5. Less filtering, so the controller sees each ball sooner. ----
-    // Replaces ShooterConstants.VELOCITY_ALPHA.
-    public static double VELOCITY_ALPHA = 0.4;
 }

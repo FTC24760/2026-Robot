@@ -135,6 +135,7 @@ public abstract class AutoOpMode extends OpMode {
                 robot.autoShootSequence.getStage() == AutoShootSequence.Stage.FEEDING);
         robot.runIntake(pulsing ? robot.pulseFeedMode()
                 : robot.autoShootSequence.isFeeding() ? Intake.Mode.INTAKE
+                : robot.autoShootSequence.isPacking() ? Intake.Mode.TRANSFER_ONLY
                 : robot.autoShootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
         telemetry.addData("Auto step", routine.currentStep());

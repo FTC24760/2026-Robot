@@ -14,7 +14,7 @@ public class ShooterConstants {
     public static double IDLE_RPM = 500;
 
     // Software velocity controller gains, in motor power per encoder tick/second
-    // (not the hub PIDF units). Tuning order: kF, kS, kP, kD, kI, kA.
+    // (not the hub PIDF units). Tuning order: kF, kS, kP, kA.
     // Feedforward power per tick/s. Tune first so steady speed holds with little PID work.
     public static double kF = 0.00039;
     // Static friction/start power added with feedforward.
@@ -22,14 +22,8 @@ public class ShooterConstants {
     public static double kS = 0.14;
 
     public static double kP = 0.012;
-    // Integral removes steady-state error. Keep small; too high causes windup.
-    public static double kI = 0.00002;
-    // Derivative damps overshoot. Raise slightly if the shooter spikes past target.
-    public static double kD = 0.00005;
     // Feedforward power per tick/s^2 of profiled acceleration.
     public static double kA = 0.0;
-    // Max integral accumulator. Lower if the controller stays wound up.
-    public static double MAX_INTEGRAL = 5000;
     // Target ramp limit, ticks/s^2.
     public static double MAX_ACCEL = 700;
     // Velocity low-pass filter: 0 = no filtering, closer to 1 = smoother but laggier.
@@ -39,6 +33,9 @@ public class ShooterConstants {
     // ---- One-click shooting (ShootSequence), used by teleop and autonomous. ----
     // The wheel must read ready for this long before the first ball is fed.
     public static double BURST_READY_SETTLE_S = 0.2;
+    // Every burst starts by running the transfer this long with the blocker closed,
+    // packing the balls together. The wheel spins up at the same time.
+    public static double PACK_S = 0.25;
     // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
     // feed gating pausing the transfer whenever the wheel is slow.
     // Allow the blocker to open before starting the transfer; calibrate.
