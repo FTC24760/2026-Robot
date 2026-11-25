@@ -89,11 +89,9 @@ public class AutoConstants {
     // the middle. Keep PARK_Y <= 99 or it reaches into the upper half.
     public static boolean PARK_ENABLED = true;
     public static double PARK_MIN_TIME_LEFT_S = 3;
-    // Wait this long after the last shot/cycle before driving to park.
-    public static double PARK_DELAY_S = 8;
-    // SOLO slot (partner passive or only parking): park this long after the last shot or
-    // cycle. 0 = at once; the rest of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
-    public static double SOLO_PARK_DELAY_S = 0;
+    // SOLO and SECOND: park this long after the last shot or cycle. 0 = at once; the rest
+    // of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
+    public static double PARK_DELAY_S = 0;
     // After a burst, wait this long (with a camera) before leaving the shot spot, so the
     // HIVE has time to tip and the camera to see which CELL is up now. The next trip then
     // goes to the right side: the same spot if it did not tip, the other CELL's if it did.
@@ -115,7 +113,7 @@ public class AutoConstants {
     // the audience CELL up), drive to the shot spot first.
     public static boolean DRIVE_TO_ZONE_FIRST = true;
     // FIRST slot: park this long after the last shot (instead of PARK_DELAY_S), so the
-    // partner has the shooting area to itself. SOLO and SECOND still use PARK_DELAY_S.
+    // partner has the shooting area to itself.
     public static double FIRST_PARK_DELAY_S = 0;
     // SECOND slot shoots from the allowed point farthest from the fixed shot spot (where the
     // partner is expected). Candidates: the fixed spot turned about the CELL in steps of

@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * Start at the chosen preset, wait for the partner if we shoot SECOND, shoot the
  * pre-loads from the start, run up to three collection cycles
- * (each one FLOWER or the GARDEN, then back to shoot), wait PARK_DELAY_S, then park.
+ * (each one FLOWER or the GARDEN, then back to shoot), then park (the reserve window banks the park).
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
  * and is read when each step starts, so Panels changes apply without re-initialising.
@@ -45,8 +45,10 @@ public final class FullAuto {
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
 
-        // SECOND slot: let the partner shoot first (no wait otherwise). The robot holds
-        // only its 4 pre-loads, so there is nothing useful to collect meanwhile.
+        // SECOND slot: let the partner shoot first (no wait otherwise), or go as soon as the
+        // camera sees the partner tip the HIVE. The robot holds only its 4 pre-loads, so
+        // there is nothing useful to collect meanwhile. After the wait SECOND runs the same
+        // loop as SOLO: shoot the up CELL from its spot, collect, shoot again, then park.
         steps.add(startDelay());
 
         // Pre-loads, from the start pose with no driving, unless that pose cannot score into
@@ -76,9 +78,7 @@ public final class FullAuto {
                         // FIRST leaves early so the partner has the shooting area.
                         when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
                                 waitSeconds(AutoConstants.FIRST_PARK_DELAY_S),
-                                when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.SOLO,
-                                        waitSeconds(AutoConstants.SOLO_PARK_DELAY_S),
-                                        waitSeconds(AutoConstants.PARK_DELAY_S))),
+                                waitSeconds(AutoConstants.PARK_DELAY_S)),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
                                 sequence("park drive",
