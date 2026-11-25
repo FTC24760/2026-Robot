@@ -153,3 +153,17 @@ Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window len
 5. Optional: early end of the delay from up-CELL detection; zone-based shooting position.
 
 Test points: each preset on each alliance (pose on the field matches the telemetry), delay 0 and 5, with and without a Limelight fix, forced stuck-step to confirm LEAVE+PARK still happens.
+
+## Camera pan servo (optional, off by default)
+
+`CameraPanConstants.ENABLED` adds a servo (270 degrees, or geared) that turns the Limelight
+about a vertical axis so it keeps facing the middle of our HIVE while the robot drives. The
+target is the HIVE centre from `AutoConstants` CELL points (not field (0,0)), flipped for
+blue, aimed from the odometry pose with a velocity lead (`CameraPan`, called from
+`AimController.update`). Vision applies the pan angle (commanded angle `SERVO_LAG_S` before
+frame capture) and swings the lens about `AXIS_*` when converting tags to the robot frame, so
+`HiveTracker` and the up-CELL check are unchanged. Effect: the camera can read which CELL is
+up while the robot collects or drives, so a tip is seen without returning to the shot spot.
+Limits: the servo has no feedback (angle is the command), travel is 270 degrees so a HIVE
+behind the robot can be out of reach (`OUT OF TRAVEL` in telemetry), and the pan servo name,
+centre position, direction and axis position must be calibrated before enabling.

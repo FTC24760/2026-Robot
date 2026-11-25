@@ -5,11 +5,14 @@ import com.pedropathing.math.Velocity;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.constants.CameraPanConstants;
 import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
+import org.firstinspires.ftc.teamcode.subsystems.CameraPan;
 import org.firstinspires.ftc.teamcode.subsystems.Drivetrain;
 import org.firstinspires.ftc.teamcode.subsystems.Hood;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
@@ -39,6 +42,9 @@ public class AimController {
     // Where the upward-facing CELL of our HIVE is on the field, from the camera and
     // odometry; null without auto-aim.
     private HiveTracker hiveTracker;
+    // Optional servo that keeps the camera facing the HIVE; null if not enabled or missing.
+    private CameraPan cameraPan;
+    private Alliance alliance;
     // True while the turret should follow hiveTracker.
     private boolean aiming;
     // The driver can switch auto-aim off mid-match if the camera misbehaves.
@@ -67,6 +73,16 @@ public class AimController {
             return null;
         }
         hiveTracker = new HiveTracker();
+        this.alliance = alliance;
+        if (CameraPanConstants.ENABLED) {
+            try {
+                cameraPan = new CameraPan(hardwareMap);
+                vision.setPan(cameraPan);
+            } catch (RuntimeException e) {
+                cameraPan = null;
+                aimNote = "CAMERA PAN OFF: no servo \"" + CameraPanConstants.SERVO_NAME + "\" configured";
+            }
+        }
         return vision;
     }
 
@@ -114,6 +130,12 @@ public class AimController {
         }
 
         hiveTracker.recordPose(drivetrain.getPoseTimeNs(), drivetrain.getPose());
+        if (cameraPan != null) {
+            // Face the middle of our HIVE (both CELLS in view) from odometry, whatever the
+            // chassis is doing. This is known from the field, so it works before any sighting.
+            double[] hive = hiveCentre();
+            cameraPan.pointAt(nowNs, drivetrain.getPose(), drivetrain.getVelocity(), hive[0], hive[1]);
+        }
         vision.update(nowNs);
 
         // Only aim at a CELL that is facing up; the other one cannot be scored in.
@@ -222,6 +244,17 @@ public class AimController {
         return null;
     }
 
+    // Middle of our HIVE on the field (odometry frame), from the CELL points in AutoConstants.
+    private double[] hiveCentre() {
+        double x = (AutoConstants.RIGHT_CELL_X + AutoConstants.LEFT_CELL_X) / 2;
+        double y = (AutoConstants.RIGHT_CELL_Y + AutoConstants.LEFT_CELL_Y) / 2;
+        if (alliance == Alliance.BLUE) {
+            x = AutoConstants.FIELD_SIZE_IN - x;
+            y = AutoConstants.FIELD_SIZE_IN - y;
+        }
+        return new double[] {x, y};
+    }
+
     /** The auto-aim lines of the telemetry screen. */
     public void addTelemetry(Telemetry telemetry, long nowNs) {
         if (!aimNote.isEmpty()) {
@@ -242,6 +275,9 @@ public class AimController {
         }
         if (rpmTrim != 0) {
             telemetry.addData("RPM trim", "%+.0f", rpmTrim);
+        }
+        if (cameraPan != null) {
+            cameraPan.addTelemetry(telemetry);
         }
         if (aiming) {
             telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)
