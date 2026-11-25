@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
 import static org.firstinspires.ftc.teamcode.auto.Steps.spinUp;
+import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
 import org.firstinspires.ftc.teamcode.auto.AutoContext;
@@ -21,7 +22,7 @@ import java.util.List;
 
 /**
  * Shoot the pre-loads from the start, run up to three collection cycles
- * (each one FLOWER or the GARDEN, then back to shoot), then park.
+ * (each one FLOWER or the GARDEN, then back to shoot), wait PARK_DELAY_S, then park.
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
  * and is read when each step starts, so Panels changes apply without re-initialising.
@@ -36,8 +37,8 @@ public final class FullAuto {
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
 
-        // Pre-loads.
-        steps.add(shootCycle());
+        // Pre-loads, from the start pose: no driving.
+        steps.add(shootHere());
 
         CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
         for (int i = 0; i < order.length; i++) {
@@ -53,10 +54,14 @@ public final class FullAuto {
         }
 
         steps.add(intake(Intake.Mode.OFF));
-        steps.add(when("park",
-                c -> AutoConstants.PARK_ENABLED && c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
-                driveTo("park", c -> c.pose(
-                        AutoConstants.PARK_X, AutoConstants.PARK_Y, AutoConstants.PARK_H)),
+        steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
+                sequence("park",
+                        waitSeconds(AutoConstants.PARK_DELAY_S),
+                        when("park drive",
+                                c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
+                                driveTo("park", c -> c.pose(AutoConstants.PARK_X,
+                                        AutoConstants.PARK_Y, AutoConstants.PARK_H)),
+                                null)),
                 null));
 
         return new AutoRoutine("Full Auto",
@@ -81,26 +86,33 @@ public final class FullAuto {
         }
     }
 
-    // Spin up on the way to the straight-on spot for whichever CELL is up when this
-    // starts, shoot, spin down. If the HIVE tips mid-burst, move straight across to the
-    // other CELL's spot and finish the burst there.
+    // Drive to the straight-on spot for whichever CELL is up when this starts (shooter
+    // off while driving, to save battery), spin up, shoot, spin down. If the HIVE tips
+    // mid-burst, move straight across to the other CELL's spot and finish the burst there.
     private static AutoStep shootCycle() {
         return sequence("shoot",
-                spinUp(true),
                 driveToShot(),
+                shootHere());
+    }
+
+    // Pre-loads: the robot starts at its shooting pose, so there is no drive step at all.
+    // The drivetrain is never commanded; only the turret aims.
+    private static AutoStep shootHere() {
+        return sequence("shoot here",
+                spinUp(true),
                 shoot(),
                 when("after a tip", c -> c.shotInterrupted,
-                        sequence("finish at other CELL", driveToShot(), shoot()),
+                        sequence("finish at other CELL", driveToShot(), spinUp(true), shoot()),
                         null),
                 spinUp(false));
     }
 
-    // Already there for the pre-loads (SHOOT is the start), so that drive takes no time.
+    // The shooter goes off only if the robot actually drives (see Steps.driveTo).
     private static AutoStep driveToShot() {
         return byUpSide(
                 driveTo("to shot (LEFT CELL up)", c -> c.pose(AutoConstants.SHOOT_LEFT_UP_X,
-                        AutoConstants.SHOOT_LEFT_UP_Y, AutoConstants.SHOOT_LEFT_UP_H)),
+                        AutoConstants.SHOOT_LEFT_UP_Y, AutoConstants.SHOOT_LEFT_UP_H), true),
                 driveTo("to shot", c -> c.pose(AutoConstants.SHOOT_X,
-                        AutoConstants.SHOOT_Y, AutoConstants.SHOOT_H)));
+                        AutoConstants.SHOOT_Y, AutoConstants.SHOOT_H), true));
     }
 }

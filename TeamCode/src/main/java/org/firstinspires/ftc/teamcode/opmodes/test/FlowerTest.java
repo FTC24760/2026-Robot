@@ -26,8 +26,8 @@ public class FlowerTest extends OpMode {
 
     @Override
     public void loop() {
-        flowerAngle += gamepad1.right_trigger * 0.01;
-        flowerAngle -= gamepad1.left_trigger * 0.01;
+        flowerAngle += gamepad1.right_trigger * 0.002;
+        flowerAngle -= gamepad1.left_trigger * 0.002;
         flowerServo.setPosition(flowerAngle);
         telemetry.addData("Flower pos: ", flowerAngle);
         telemetry.update();

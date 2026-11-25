@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.sequences;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.subsystems.Shooter;
@@ -8,8 +9,8 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
  * One-click shooting, shared by teleop and autonomous:
  *
  *   1. spin the wheel up to shooting speed,
- *   2. once it has held that speed for a moment, open the blocker,
- *   3. feed until stopped or until BURST_FEED_S has passed,
+ *   2. once RPM is stable, open the blocker,
+ *   3. wait for the gate to open, then feed until stopped or BURST_FEED_S passes,
  *   4. close the blocker.
  *
  * This class only decides what should happen. Each loop the caller asks
@@ -21,6 +22,7 @@ public class ShootSequence {
     public enum Stage {
         IDLE,
         SPINNING_UP,
+        OPENING_GATE,
         FEEDING
     }
 
@@ -30,6 +32,7 @@ public class ShootSequence {
     private Stage stage = Stage.IDLE;
     private double stageStartS;
     private double readySinceS = -1;
+    private double blockerS = -1;
 
     public ShootSequence(Shooter shooter, Intake intake) {
         this.shooter = shooter;
@@ -41,15 +44,14 @@ public class ShootSequence {
         if (stage != Stage.IDLE) {
             return;
         }
+        intake.setBlockerOpen(false);
         readySinceS = -1;
         enter(Stage.SPINNING_UP, nowS);
     }
 
     /** Stop now and close the blocker. Safe to call at any time. */
     public void cancel() {
-        if (stage == Stage.FEEDING) {
-            intake.setBlockerOpen(false);
-        }
+        intake.setBlockerOpen(false);
         stage = Stage.IDLE;
     }
 
@@ -62,12 +64,21 @@ public class ShootSequence {
         }
     }
 
-    /** Advance the sequence. Call once per loop, before Robot.runShooter(). */
+    /** Advance the sequence. Call once per loop, after Robot.runShooter(). */
     public void update(double nowS) {
         switch (stage) {
             case SPINNING_UP:
                 if (wheelSettled(nowS)) {
                     intake.setBlockerOpen(true);
+                    blockerS = nowS;
+                    enter(Stage.OPENING_GATE, nowS);
+                }
+                break;
+            case OPENING_GATE:
+                if (!shooter.isReadyToFeed()) {
+                    cancel();
+                    start(nowS);
+                } else if (nowS - blockerS >= ShooterConstants.BLOCKER_OPEN_SETTLE_S) {
                     enter(Stage.FEEDING, nowS);
                 }
                 break;
@@ -94,9 +105,9 @@ public class ShootSequence {
         return stage != Stage.IDLE;
     }
 
-    /** True while balls should be pushed into the wheel. */
+    /** True while feeding is active and the current wheel speed permits transfer. */
     public boolean isFeeding() {
-        return stage == Stage.FEEDING;
+        return stage == Stage.FEEDING && shooter.isReadyToFeed();
     }
 
     // The wheel has to stay at speed for a moment, not just touch it once.

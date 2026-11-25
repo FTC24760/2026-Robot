@@ -52,10 +52,9 @@ public class Drivetrain implements Subsystem {
 
     // ---- Autonomous ----
 
-    /** Tell the localizer where the robot is. Call once at the start of an auto. */
+    /** Tell the localizer where the robot is without commanding motor movement. */
     public void setPose(Pose pose) {
         moveOrigin(pose);
-        driveFieldCentric(0.02, 0.02, 0.02);
     }
 
     /** Start following a path. Keep calling update() every loop until isBusy() is false. */

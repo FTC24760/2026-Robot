@@ -55,6 +55,35 @@ public final class Steps {
      * touches the HIVE. Any turn is spread over the whole drive, the shortest way round.
      */
     public static AutoStep driveTo(String name, Function<AutoContext, Pose> target) {
+        return driveTo(name, target, false);
+    }
+
+    /**
+     * Like {@link #driveTo(String, Function)}. With {@code shooterOff}, the shooter is
+     * switched off just before the robot moves, to save battery; if the drive is skipped
+     * (already there) the shooter is left as it was, so it never flicks off and on.
+     *
+     * Already there (within ALREADY_THERE_IN / _DEG): the drivetrain is not touched at
+     * all. A tiny path makes Pedro jerk the robot while it corrects odometry noise.
+     */
+    public static AutoStep driveTo(String name, Function<AutoContext, Pose> target,
+                                   boolean shooterOff) {
+        AutoStep drive = drivePath(name, target);
+        if (shooterOff) {
+            drive = sequence(name, spinUp(false), drive);
+        }
+        return when(name, ctx -> !alreadyAt(ctx, target.apply(ctx)), drive, null);
+    }
+
+    private static boolean alreadyAt(AutoContext ctx, Pose to) {
+        Pose from = ctx.robot.drivetrain.getPose();
+        double turn = Math.atan2(Math.sin(to.heading() - from.heading()),
+                Math.cos(to.heading() - from.heading()));
+        return Math.hypot(to.x() - from.x(), to.y() - from.y()) < AutoConstants.ALREADY_THERE_IN
+                && Math.abs(turn) < Math.toRadians(AutoConstants.ALREADY_THERE_DEG);
+    }
+
+    private static AutoStep drivePath(String name, Function<AutoContext, Pose> target) {
         return follow(name, (ctx, from) -> {
             Pose to = target.apply(ctx);
             double middle = AutoConstants.FIELD_SIZE_IN / 2;
@@ -246,7 +275,7 @@ public final class Steps {
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
             ctx.shotInterrupted = false;
-            ctx.robot.shootSequence.start(ctx.now());
+            ctx.robot.autoShootSequence.start(ctx.now());
         }
 
         @Override
@@ -258,7 +287,7 @@ public final class Steps {
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
-                ctx.robot.shootSequence.cancel();
+                ctx.robot.autoShootSequence.cancel();
                 if (AutoConstants.LOCK_TURRET_FORWARD) {
                     ctx.shotInterrupted = true;
                     return true;
@@ -270,20 +299,26 @@ public final class Steps {
                     return false;
                 }
                 pausedUntilS = -1;
-                ctx.robot.shootSequence.start(now);
+                ctx.robot.autoShootSequence.start(now);
             }
 
-            if (ctx.robot.shootSequence.isFeeding()) {
+            if (ctx.robot.autoShootSequence.isFeeding()) {
                 fedS += dt;
                 return fedS >= feedS;
             }
-            // Still spinning up: give up rather than burn the auto.
-            return now - startS > AutoConstants.SHOOT_TIMEOUT_S + AutoConstants.SHOOT_RETARGET_PAUSE_S;
+            // The sequence gave up (wheel never reached speed) or finished on its own.
+            if (!ctx.robot.autoShootSequence.isActive()) {
+                return true;
+            }
+            // Still spinning up: give up rather than burn the auto. Only before the first
+            // ball; between balls the wheel is just recovering, so keep going.
+            return fedS == 0
+                    && now - startS > AutoConstants.SHOOT_TIMEOUT_S + AutoConstants.SHOOT_RETARGET_PAUSE_S;
         }
 
         @Override
         public void end(AutoContext ctx) {
-            ctx.robot.shootSequence.cancel();
+            ctx.robot.autoShootSequence.cancel();
             // After a tip the count restarts for the new up CELL, so only count full shots.
             if (fedS > 0 && !ctx.shotInterrupted) {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);

@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 /**
  * Inputs to ShotSolver, which picks a launch angle and wheel speed for a measured
@@ -12,7 +11,6 @@ import com.bylazar.configurables.annotations.Configurable;
  *   3. Check a near and a far distance. If far shots fall short, raise DRAG_PER_M;
  *      if only near shots are off, adjust TARGET_ABOVE_TAG_M or ENTRY_ANGLE_DEG.
  */
-@Configurable
 public class ShotConstants {
 
     // ---- Hood: servo position to launch angle (above horizontal). CALIBRATE. ----
@@ -53,7 +51,6 @@ public class ShotConstants {
     public static double CAL_DISTANCE_M = 2.60;
     public static double CAL_TAG_HEIGHT_M = 2.0;
     // Hood servo position used for that shot (the bottom).
-    public static double CAL_HOOD_POSITION = 0.9;
     // The hood also sits here whenever auto-aim has no shot (start of the match, no CELL
     // known, out of range, or auto-aim off), so the fallback is the known-good shot.
     // Keep the hood at CAL_HOOD_POSITION for every auto-aim shot and vary only the wheel

@@ -29,10 +29,11 @@ public class Hood implements Subsystem {
 
         if (servo != null) {
             // Direction is set every call so a change made live in Panels takes effect.
-            servo.setDirection(ShotConstants.HOOD_REVERSED
-                    ? Servo.Direction.REVERSE
-                    : Servo.Direction.FORWARD);
-            servo.setPosition(MathUtil.clamp(this.position + ShotConstants.HOOD_OFFSET, 0, 1));
+            Servo.Direction direction = ShotConstants.HOOD_REVERSED
+                    ? Servo.Direction.REVERSE : Servo.Direction.FORWARD;
+            double command = MathUtil.clamp(this.position + ShotConstants.HOOD_OFFSET, 0, 1);
+            servo.setDirection(direction);
+            servo.setPosition(command);
         }
     }
 

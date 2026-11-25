@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
@@ -16,11 +15,10 @@ import org.firstinspires.ftc.teamcode.utils.CellSide;
  * Every routine is written for RED. The field is the same for blue turned half a circle
  * about its centre, so blue poses are worked out automatically.
  */
-@Configurable
 public class AutoConstants {
     // Aim (turret, wheel speed, hood) with the Limelight when it is configured. Without
-    // it the auto shoots at ShooterConstants.TARGET_RPM and the turret stays put.
-    public static boolean USE_AUTO_AIM = true;
+    // it the auto shoots at Configurables.SHOOTER_RPM and the turret stays put.
+    public static boolean USE_AUTO_AIM = false;
 
     // ---- Which CELL of our HIVE is up at the start, as seen by our drivers. ----
     // By the manual (10.3.1 and Figure 10-2, TU08) every match starts with each
@@ -70,10 +68,16 @@ public class AutoConstants {
     // intake running until the front reaches our wall, then straight back.
     public static double GARDEN_X = 9, GARDEN_Y = 8.5, GARDEN_H = 180;
 
-    // Park partly in the LOADING ZONE (worth PARK points in AUTO).
+    // Park partly in the LOADING ZONE (worth PARK points in AUTO), only in its lower
+    // (audience) half so the upper half stays free. The zone is x 0..12, y 97..119
+    // (middle at y 108). Side on (heading 180) the robot is 17 in along Y, so with its
+    // centre at y 98 it covers y 89.5..106.5: 9.5 in inside the zone and 1.5 in short of
+    // the middle. Keep PARK_Y <= 99 or it reaches into the upper half.
     public static boolean PARK_ENABLED = true;
     public static double PARK_MIN_TIME_LEFT_S = 3;
-    public static double PARK_X = 12, PARK_Y = 108, PARK_H = 180;
+    // Wait this long after the last shot/cycle before driving to park.
+    public static double PARK_DELAY_S = 8;
+    public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
 
     // Getting past the HIVE: a drive that crosses from the audience half to the far half
     // (or back) follows one smooth curve that bulges out toward our wall instead of going
@@ -125,11 +129,19 @@ public class AutoConstants {
     public static double FLOWER_COLLECT_S = 2.5;
 
     // ---- Step defaults. ----
+    // Feed in timed push/retract pulses (timings in Configurables.PULSE_*), like
+    // operator X in teleop. Read at INIT.
+    public static boolean PULSE_SHOOT = true;
+    // A drive whose target is closer than this is skipped, so the robot stays still
+    // (the pre-load shot starts at its shooting pose: only the turret moves).
+    public static double ALREADY_THERE_IN = 3.0;
+    public static double ALREADY_THERE_DEG = 8.0;
     // Give up on a path that has not finished after this long (stuck or pushed).
     public static double DRIVE_TIMEOUT_S = 5.0;
-    // How long a shot step feeds once the wheel is at speed. Enough for 4 balls at the
-    // staggered feed rate.
-    public static double SHOOT_FEED_S = 1.6;
+    // How long a shot step feeds once the wheel is at speed. Pulse feeding puts 4 balls
+    // in in about 1 s (PULSE_BALLS x (PULSE_PUSH + PULSE_RETRACT)); the rest is margin.
+    // Raise it if the last ball is left behind.
+    public static double SHOOT_FEED_S = 2;
     // Give up on a shot whose wheel never reaches speed after this long.
     public static double SHOOT_TIMEOUT_S = 4.0;
 

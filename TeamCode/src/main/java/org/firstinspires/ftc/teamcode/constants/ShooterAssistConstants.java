@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.constants;
 
-import com.bylazar.configurables.annotations.Configurable;
 
 /**
  * Rapid-fire consistency fixes. Only used when Robot.enableShooterAssist() is called
@@ -11,7 +10,6 @@ import com.bylazar.configurables.annotations.Configurable;
  * 1586, ...). Thresholds below are sized against that step, and a TARGET_RPM that is a
  * multiple of 42.86 lets the controller see zero error when it is actually on target.
  */
-@Configurable
 public class ShooterAssistConstants {
 
     // ---- 1. Recovery boost: full power while the wheel is under target. ----
@@ -29,7 +27,7 @@ public class ShooterAssistConstants {
     // Only applies while shooting (trigger held and blocker open).
     public static boolean FEED_GATING_ENABLED = false;
     // The wheel counts as ready between (target - LOW) and (target + HIGH).
-    public static double FEED_READY_LOW_RPM = 30;
+    public static double FEED_READY_LOW_RPM = 55;
     // Allows up to two encoder steps high. Lower it to 30 (one step) if balls go long:
     // a log showed some pulses starting 43-64 RPM fast right after a recovery overshoot.
     public static double FEED_READY_HIGH_RPM = 55;
@@ -76,9 +74,7 @@ public class ShooterAssistConstants {
     // continuous push starts, and they then go in together and both miss.
     public static int FEED_FINAL_PUSH_AFTER_PULSES = 0;
 
-    // Transfer power used while shooting, in place of IntakeConstants.TRANSFER_POWER.
-    public static boolean SHOOT_TRANSFER_POWER_ENABLED = true;
-    public static double SHOOT_TRANSFER_POWER = 0.8;
+    // Transfer power used while shooting, in place of Configurables.TRANSFER_POWER.
 
     // ---- 3. Integral that actually trims steady-state error. ----
     // Replaces ShooterConstants.kI / MAX_INTEGRAL. Largest power it can add or remove

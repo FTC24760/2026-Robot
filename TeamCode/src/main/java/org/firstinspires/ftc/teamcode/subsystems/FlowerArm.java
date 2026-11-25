@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.subsystems;
 
+import org.firstinspires.ftc.teamcode.constants.Configurables;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 
@@ -24,8 +25,8 @@ public class FlowerArm implements Subsystem {
         this.down = down;
         if (servo != null) {
             servo.setPosition(down
-                    ? IntakeConstants.FLOWER_DOWN_POSITION
-                    : IntakeConstants.FLOWER_UP_POSITION);
+                    ? Configurables.FLOWER_DOWN_POSITION
+                    : Configurables.FLOWER_UP_POSITION);
         }
     }
 
@@ -63,6 +64,6 @@ public class FlowerArm implements Subsystem {
         }
         telemetry.addData("Flower arm", "%s, servo at %.3f  (up %.3f, down %.3f)",
                 down ? "DOWN" : "up", servo.getPosition(),
-                IntakeConstants.FLOWER_UP_POSITION, IntakeConstants.FLOWER_DOWN_POSITION);
+                Configurables.FLOWER_UP_POSITION, Configurables.FLOWER_DOWN_POSITION);
     }
 }
