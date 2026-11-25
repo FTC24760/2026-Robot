@@ -142,6 +142,9 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
         telemetry.addLine("X = LEFT CELL up, B = RIGHT CELL up, Y = automatic");
         telemetry.addLine("Hands off the controller once the countdown starts (G401)");
+        for (String w : ctx.zoneWarnings(AutoSelection.preset, startSide())) {
+            telemetry.addLine("!! Outside the shooting zone: " + w);
+        }
         if (!ctx.sideWarnings().isEmpty()) {
             telemetry.addLine("!! Route goes past our side of the field (G402): " + ctx.sideWarnings());
         }

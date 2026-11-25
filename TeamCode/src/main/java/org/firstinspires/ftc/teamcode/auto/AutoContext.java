@@ -10,6 +10,8 @@ import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
+import org.firstinspires.ftc.teamcode.utils.HiveSide;
+import org.firstinspires.ftc.teamcode.utils.ShotZoneGeometry;
 
 /**
  * What steps can see and change while an auto runs: the robot, the alliance, which CELL
@@ -123,6 +125,39 @@ public class AutoContext {
         pose(AutoConstants.BACK_FLOWER_X, AutoConstants.BACK_FLOWER_Y, 0);
         pose(AutoConstants.GARDEN_X, AutoConstants.GARDEN_Y, 0);
         pose(AutoConstants.PARK_X, AutoConstants.PARK_Y, 0);
+    }
+
+    /**
+     * Shots the route takes from a spot that is outside the shooting zone (the same test
+     * TeleOp uses: ShotZoneGeometry), as text for the init screen. Checked in the red
+     * frame, where our RIGHT cell is the AUDIENCE one and opens toward the audience wall.
+     * Covers the pre-loads from the chosen start pose into the CELL up at the start, and
+     * the two fixed shot spots into the CELL each one is for.
+     */
+    public List<String> zoneWarnings(StartPreset preset, CellSide upAtStart) {
+        List<String> out = new ArrayList<>();
+        boolean startB = preset == StartPreset.B;
+        checkZone(out, "start " + preset + " pre-loads",
+                startB ? AutoConstants.START_B_X : AutoConstants.START_A_X,
+                startB ? AutoConstants.START_B_Y : AutoConstants.START_A_Y, upAtStart);
+        checkZone(out, "shot spot (RIGHT up)", AutoConstants.SHOOT_X, AutoConstants.SHOOT_Y,
+                CellSide.RIGHT);
+        checkZone(out, "shot spot (LEFT up)", AutoConstants.SHOOT_LEFT_UP_X,
+                AutoConstants.SHOOT_LEFT_UP_Y, CellSide.LEFT);
+        return out;
+    }
+
+    private static void checkZone(List<String> out, String what, double x, double y, CellSide cell) {
+        boolean right = cell == CellSide.RIGHT;
+        double cx = right ? AutoConstants.RIGHT_CELL_X : AutoConstants.LEFT_CELL_X;
+        double cy = right ? AutoConstants.RIGHT_CELL_Y : AutoConstants.LEFT_CELL_Y;
+        double dist = ShotZoneGeometry.distanceIn(x, y, cx, cy);
+        double off = ShotZoneGeometry.offAxisDeg(x, y, cx, cy,
+                right ? HiveSide.AUDIENCE : HiveSide.FAR);
+        if (!ShotZoneGeometry.inZone(dist, off, false)) {
+            out.add(String.format("%s -> %s CELL: %.0f in, %.0f deg off the opening",
+                    what, cell, dist, off));
+        }
     }
 
     /** Poses the routine uses that are past our side of the field in AUTO (red frame). */

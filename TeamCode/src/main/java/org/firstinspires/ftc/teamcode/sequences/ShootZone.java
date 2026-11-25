@@ -3,7 +3,7 @@ package org.firstinspires.ftc.teamcode.sequences;
 import com.qualcomm.robotcore.hardware.Gamepad;
 
 import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
-import org.firstinspires.ftc.teamcode.utils.ShotTable;
+import org.firstinspires.ftc.teamcode.utils.ShotZoneGeometry;
 
 /**
  * The TeleOp shooting zone and the "ready to fire" signal. Pure decision logic plus the
@@ -80,11 +80,7 @@ public class ShootZone {
     public void update(double distanceIn, double offAxisDeg, boolean aimReady,
                        boolean wheelAtSpeed, boolean shootActive, double nowS) {
         // Hysteresis: easier to stay in than to get in.
-        double angleLimit = ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
-                + (inZone ? ShootGateConstants.ZONE_ANGLE_HYSTERESIS_DEG : 0);
-        inZone = ShotTable.inCalibratedRange(distanceIn,
-                inZone ? ShootGateConstants.ZONE_HYSTERESIS_IN : 0)
-                && !(offAxisDeg > angleLimit);
+        inZone = ShotZoneGeometry.inZone(distanceIn, offAxisDeg, inZone);
         if (!inZone) {
             prespinSuppressed = false;
             reloadDisarmed = false;

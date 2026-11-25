@@ -131,6 +131,8 @@ Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window len
 
 - Shoot on the move (`ShootGateConstants.SHOOT_ON_MOVE`, off by default, experimental): turret bearing, shot distance and the zone's distance test use a virtual target = CELL - robot velocity x `FLIGHT_TIME_S` (shift capped at `MAX_LEAD_IN`), and the fire gate uses the `MOVING_MAX_*` limits. Constant velocity only. Tune after the stationary calibration: flight time first, then raise the speed limits.
 
+- Shared zone test: `utils/ShotZoneGeometry` (distance ring + approach angle, with hysteresis) is the single definition used by TeleOp (`ShootZone`) and by the Auto init screen, which warns `!! Outside the shooting zone` for the start pose (pre-loads into the CELL up at the start) and the two fixed shot spots. There is no separate Auto polygon; Auto's extra constraints (own side, field elements, partner) are applied on top.
+
 ## 9. Assumptions and open items
 
 - Robot capacity 4 balls, no NECTAR intake (stated by the team).

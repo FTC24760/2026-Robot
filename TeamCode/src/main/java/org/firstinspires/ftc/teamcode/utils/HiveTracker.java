@@ -167,14 +167,7 @@ public class HiveTracker {
         if (!has || cell == null) {
             return Double.NaN;
         }
-        double openY = cell.side == HiveSide.AUDIENCE ? -1 : 1;
-        double rx = pose.x() - fieldX; // CELL -> robot
-        double ry = pose.y() - fieldY;
-        double len = Math.hypot(rx, ry);
-        if (len < 1e-6) {
-            return 0;
-        }
-        return Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, ry * openY / len))));
+        return ShotZoneGeometry.offAxisDeg(pose.x(), pose.y(), fieldX, fieldY, cell.side);
     }
 
     /** Horizontal distance from the robot centre to the CELL, metres. */
