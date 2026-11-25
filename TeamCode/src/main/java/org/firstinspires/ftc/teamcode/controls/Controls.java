@@ -12,8 +12,9 @@ import com.qualcomm.robotcore.hardware.Gamepad;
 import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
 
 /**
- * Both gamepads. Turns sticks and buttons into intents; Robot decides what they do.
- * Call update() once per loop, before reading any of the *Pressed fields.
+ * Both gamepads. Turns sticks and buttons into intents; Robot binds them to Ivy
+ * commands (see Robot's constructor and controls/Bindings). Call update() once per loop,
+ * before reading any of the *Pressed fields.
  *
  * Driver (gamepad 1):
  *   left stick       drive (field-centric): up = forward, sideways = strafe
@@ -38,12 +39,10 @@ public class Controls {
     private final EdgeDetector flowerToggle = new EdgeDetector();
     private final EdgeDetector resetPose1 = new EdgeDetector();
     private final EdgeDetector resetPose2 = new EdgeDetector();
-    private final EdgeDetector shotModeToggle = new EdgeDetector();
     // True only on the loop a button goes down. Set by update().
     public boolean resetPose1Pressed;
     public boolean resetPose2Pressed;
     public boolean flowerTogglePressed;
-    public boolean shotModeTogglePressed;
     public double manualTurret() {return operator.right_stick_x;}
     public double forward() {return -driver.left_stick_y;}
     public double strafe() {return driver.left_stick_x;}
@@ -57,6 +56,8 @@ public class Controls {
     }
     public boolean shoot() {return driver.right_trigger > TRIGGER_THRESHOLD ||
                                    operator.right_trigger > TRIGGER_THRESHOLD;}
+    // Held state; Bindings does the edge detection.
+    public boolean shotModeToggle() {return operator.right_stick_button;}
     public boolean intake() {return driver.left_trigger > TRIGGER_THRESHOLD ||
                                     operator.left_trigger > TRIGGER_THRESHOLD;}
 
@@ -69,6 +70,5 @@ public class Controls {
         flowerTogglePressed = flowerToggle.rose(driver.y || operator.y);
         resetPose1Pressed = resetPose1.rose(operator.x);
         resetPose2Pressed = resetPose2.rose(operator.b);
-        shotModeTogglePressed = shotModeToggle.rose(operator.right_stick_button);
     }
 }

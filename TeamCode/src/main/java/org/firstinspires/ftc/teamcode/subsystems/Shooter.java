@@ -33,7 +33,7 @@ public class Shooter implements Subsystem {
     public double power;
     private final double[] recentRpm = new double[3];
     // Shooting speed to aim for; NaN means use ShooterConstants.MANUAL_RPM.
-    // ShotController sets this every loop.
+    // The aim command (ShotCommands.autoAim / manualAim) sets this every loop.
     public double shootRpmOverride = Double.NaN;
 
     public Shooter(HardwareMap hardwareMap) {

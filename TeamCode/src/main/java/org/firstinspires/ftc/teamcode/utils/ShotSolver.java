@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.constants.ShooterConstants;
 
 /**
  * Works out how to hit the HIVE from where the robot is: turret bearing, wheel speed and
- * hood. ShotController calls update() each loop and reads the public fields.
+ * hood. Robot calls update() each loop; ShotCommands.autoAim() reads the public fields.
  *
  * Placeholder for now: update() aims straight ahead at MANUAL_RPM with the hood up, and
  * never reports a shot as achievable.

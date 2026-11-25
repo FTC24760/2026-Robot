@@ -1,18 +1,25 @@
 package org.firstinspires.ftc.teamcode;
 
+import static com.pedropathing.ivy.Scheduler.schedule;
+
 import com.pedropathing.follower.Follower;
+import com.pedropathing.ivy.Command;
+import com.pedropathing.ivy.Scheduler;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.commands.DriveCommands;
+import org.firstinspires.ftc.teamcode.commands.IntakeCommands;
+import org.firstinspires.ftc.teamcode.commands.ShotCommands;
+import org.firstinspires.ftc.teamcode.controls.Bindings;
 import org.firstinspires.ftc.teamcode.controls.Controls;
 import org.firstinspires.ftc.teamcode.pedro.Constants;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.HubManager;
-import org.firstinspires.ftc.teamcode.utils.ShotController;
 import org.firstinspires.ftc.teamcode.utils.ShotSolver;
 
 import java.util.ArrayList;
@@ -20,26 +27,36 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The whole robot. An OpMode only has to forward its lifecycle:
+ * The whole robot, run with Ivy commands (Pedro Pathing's command library). An OpMode
+ * only has to forward its lifecycle:
  *
- *   init()  -> robot = new Robot(this);
- *   start() -> robot.start();     // enables the shooter
+ *   init()  -> robot = new Robot(this);   // resets the Ivy Scheduler, builds commands
+ *   start() -> robot.start();             // enables the shooter, starts drive and auto aim
  *   loop()  -> robot.update();
  *   stop()  -> robot.stop();
  *
- * Each update() runs, in order:
+ * Commands decide what each mechanism should do (they set targets and flags on the
+ * subsystems); the per-loop code here reads sensors and writes hardware. Each update()
+ * runs, in order:
  *   1. clear the hubs' bulk cache, so this loop's sensor reads are fresh
  *   2. updateLoopTime(): set nowNs, loopSeconds and voltageScale
- *   3. controls.update(): work out this loop's button presses
- *   4. runDrive(): field-centric drive from gamepad 1, plus odometry
- *   5. runShotController(): shot mode, manual turret, shoot button -> ShotController
- *   6. runIntake(): intake roller, transfer and blocker from the trigger and shot state
+ *   3. controls.update() and bindings.update(): button presses schedule/cancel commands
+ *   4. shotSolver.update(): aim targets for autoAim
+ *   5. Scheduler.execute(): run every scheduled command once
+ *   6. write hardware: follower (drive + odometry), shooter velocity loop, intake
  *   7. telemetry from every subsystem in the subsystems list
+ *
+ * Commands (in commands/), all built once here:
+ *   drive      field-centric drive; scheduled at start, runs all match
+ *   autoAim /  turret + wheel speed; one of them always runs. Starts on autoAim; the
+ *   manualAim  operator's right stick button swaps them
+ *   shoot      blocker + feed sequence while either right trigger is held
+ *   intake     roller + transfer while either left trigger is held
  *
  * Other classes read the loop timing from here (robot.nowNs, robot.loopSeconds) and
  * the battery compensation from Robot.voltageScale, rather than timing things themselves.
  * Hardware details live in the subsystems, tunable numbers in constants/, and button
- * bindings in Controls.
+ * bindings in the constructor below (buttons are read in Controls).
  */
 public class Robot {
     OpMode opmode;
@@ -57,9 +74,15 @@ public class Robot {
 
     HiveTracker hiveTracker;
     public ShotSolver shotSolver;
-    ShotController shotController;
 
     Controls controls;
+    Bindings bindings = new Bindings();
+
+    final Command drive;
+    final Command autoAim;
+    final Command manualAim;
+    final Command shoot;
+    final Command intakeCommand;
 
     public boolean tankMode = false;
 
@@ -88,21 +111,44 @@ public class Robot {
 
         hiveTracker = new HiveTracker();
         shotSolver = new ShotSolver(this);
-        shotController = new ShotController(this);
 
         controls = new Controls(opMode);
+
+        // The Scheduler is static: clear anything left over from the previous OpMode.
+        Scheduler.reset();
+
+        drive = DriveCommands.fieldCentric(drivetrain, controls);
+        autoAim = ShotCommands.autoAim(this);
+        manualAim = ShotCommands.manualAim(this, controls::manualTurret);
+        shoot = ShotCommands.shoot(intake, shooter);
+        intakeCommand = IntakeCommands.intake(intake);
+
+        // Button map (which physical buttons these are is in Controls).
+        bindings.whileHeld(controls::shoot, shoot);
+        bindings.whileHeld(controls::intake, intakeCommand);
+        bindings.onPress(controls::shotModeToggle,
+                () -> schedule(autoAim.isScheduled() ? manualAim : autoAim));
     }
 
     public void start() {
         shooter.state = Shooter.State.ENABLED;
+        schedule(drive, autoAim);
     }
+
     public void update() {
         hubManager.clearBulkCache();
         updateLoopTime();
         controls.update();
-        runDrive();
-        runShotController();
-        runIntake();
+        bindings.update();
+        shotSolver.update();
+
+        Scheduler.execute();
+
+        // Hardware writes, every loop whatever is scheduled. The follower also updates
+        // odometry, and the shooter runs its velocity loop off this loop's reading.
+        drivetrain.update();
+        shooter.update(nowNs);
+        intake.update();
 
         updateTelemetry();
     }
@@ -115,40 +161,10 @@ public class Robot {
         voltageScale = hubManager.getVoltageScale(nowNs);
     }
 
-    private void runDrive() {
-        double forward = controls.forward();
-        double strafe = controls.strafe();
-        double rotate = controls.rotate();
-
-        drivetrain.driveFieldCentric(forward, strafe, rotate);
-        drivetrain.update();
-    }
-
-    // Right stick button toggles auto/manual aim. In manual the operator's right stick
-    // turns the turret. Either right trigger runs the shot sequence.
-    private void runShotController() {
-        if (controls.shotModeTogglePressed)
-            shotController.automaticShot = !shotController.automaticShot;
-
-        if (!shotController.automaticShot) {
-            shotController.manualMoveTurret(controls.manualTurret());
-        }
-        shotController.shootPressed = controls.shoot();
-        shotController.update();
-    }
-
-    // Either left trigger runs the intake roller and transfer. The transfer also runs while
-    // the ShotController is SHOOTING, and the blocker opens for BLOCKER_OPEN and SHOOTING.
-    private void runIntake() {
-        intake.intakeOn = controls.intake();
-        intake.transferOn = controls.intake()
-                || shotController.state == ShotController.State.SHOOTING;
-        intake.blockerOpen = shotController.state == ShotController.State.BLOCKER_OPEN ||
-                             shotController.state == ShotController.State.SHOOTING;
-        intake.update();
-    }
-
     void updateTelemetry() {
+        telemetry.addData("Aim", autoAim.isScheduled() ? "auto"
+                : manualAim.isScheduled() ? "manual" : "off");
+        telemetry.addData("Shooting", shoot.isScheduled() ? "yes" : "no");
         for (Subsystem subsystem : subsystems) {
             subsystem.addTelemetry(telemetry);
         }
@@ -156,6 +172,9 @@ public class Robot {
     }
 
     public void stop() {
+        // Drop every command without running its end(); stop() below makes each
+        // mechanism safe anyway.
+        Scheduler.reset();
         for (Subsystem subsystem : subsystems) {
             subsystem.stop();
         }
