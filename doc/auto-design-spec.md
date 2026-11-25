@@ -1,7 +1,7 @@
 # BIOBUZZ AUTO + shared-logic design spec (draft 1)
 
 Status: design only, no code changed. Written for the team's programmers.
-Sources: repo at commit 97b9c31; BIOBUZZ manual TU10 (Figures 9-2, 10-2, 11-1, G304).
+Base branch: `codex/competition-cleanup` (ae36ccc), which is the latest code; all new work goes on top of it. Sources: that branch; BIOBUZZ manual TU10 (Figures 9-2, 10-2, 11-1, G304).
 Figure positions are measured from pixels, about ±2 in.
 
 ## 1. Goals
@@ -100,14 +100,14 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 | `Drive` | 4 mecanum motors, Pinpoint, Pedro `Follower` (keep the tuned Foresight config). Field-centric drive, `driveTo()`, `hold()`. |
 | `Flywheel` | Encoder-equipped flywheel. Velocity control with voltage compensation, recovery boost, `isReadyToFeed()` (move existing `Shooter` logic here, unchanged at first). |
 | `Aim` | Turret (2 servos, open-loop), hood servo, slew limits, "settled" timer. |
-| `Feed` | Intake, transfer, blocker servo, pulsing. |
+| `Feed` | Intake, transfer, blocker servo, pulsing. The blocker servo is slow with no feedback: opening is modelled by `BLOCKER_OPEN_SETTLE_S` (the `OPENING_GATE` stage), closing by `BLOCKER_CLOSE_SETTLE_S` (intake/transfer held while closing). |
 | `Vision` | Limelight AprilTag pipeline, HIVE fix, up-CELL detection. (`HiveTracker` stays.) |
 
 Controllers (no hardware of their own):
 - `AimController`: pose + vision fix -> turret bearing, hood, RPM, via `ShotSolver`.
 - `ShootController`: fire gate = in zone (hysteresis) AND valid reachable shot AND aim settled for N ms AND flywheel ready AND robot speed below limit AND up-CELL still the one we aimed at. Calls the existing shoot sequence. TeleOp (button / auto-fire toggle) and Auto (`shoot()` step) both go through it.
 
-`Robot.java` (697 lines) is split along these lines; `Steps`, `FullAuto`, `ShotSolver`, `HiveTracker`, and the Pedro config are reused.
+`Robot.java` is split along these lines; `Steps`, `FullAuto`, `ShotSolver`, `HiveTracker`, and the Pedro config are reused. The base branch has two near-identical shoot sequences (`ShootSequence` for teleop, `AutoShootSequence` for auto, which adds a feed timeout); `ShootController` should replace both with one.
 
 ## 7. Safeguards
 
