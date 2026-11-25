@@ -332,14 +332,24 @@ public class Robot {
         }
         com.pedropathing.math.Velocity v = drivetrain.getVelocity();
         if (v != null) {
-            if (Math.hypot(v.vx, v.vy) > ShootGateConstants.MAX_SPEED_IN_PER_S) {
+            boolean onMove = ShootGateConstants.SHOOT_ON_MOVE;
+            double maxSpeed = onMove ? ShootGateConstants.MOVING_MAX_SPEED_IN_PER_S
+                    : ShootGateConstants.MAX_SPEED_IN_PER_S;
+            double maxTurn = onMove ? ShootGateConstants.MOVING_MAX_TURN_DEG_PER_S
+                    : ShootGateConstants.MAX_TURN_DEG_PER_S;
+            if (Math.hypot(v.vx, v.vy) > maxSpeed) {
                 return "moving too fast";
             }
-            if (Math.abs(Math.toDegrees(v.omega)) > ShootGateConstants.MAX_TURN_DEG_PER_S) {
+            if (Math.abs(Math.toDegrees(v.omega)) > maxTurn) {
                 return "turning too fast";
             }
         }
         return null;
+    }
+
+    // Ball flight time for the virtual target; 0 (aim at the CELL itself) unless shoot on the move is on.
+    private double flightS() {
+        return ShootGateConstants.SHOOT_ON_MOVE ? ShootGateConstants.FLIGHT_TIME_S : 0;
     }
 
     /** Degrees the shot to the up CELL is off the CELL's opening axis, NaN without a target. */
@@ -352,7 +362,8 @@ public class Robot {
      * without a target.
      */
     public double targetDistanceIn() {
-        return aiming ? hiveTracker.distanceM(drivetrain.getPose()) / 0.0254 : Double.NaN;
+        return aiming ? hiveTracker.distanceM(drivetrain.getPose(), drivetrain.getVelocity(),
+                flightS(), ShootGateConstants.MAX_LEAD_IN) / 0.0254 : Double.NaN;
     }
 
     /**
@@ -616,7 +627,8 @@ public class Robot {
         }
 
         double bearing = hiveTracker.turretBearingDeg(
-                drivetrain.getPose(), drivetrain.getVelocity(), TurretConstants.AIM_LEAD_SECONDS);
+                drivetrain.getPose(), drivetrain.getVelocity(), TurretConstants.AIM_LEAD_SECONDS,
+                flightS(), ShootGateConstants.MAX_LEAD_IN);
         turret.pointAt(bearing, loopSeconds);
     }
 

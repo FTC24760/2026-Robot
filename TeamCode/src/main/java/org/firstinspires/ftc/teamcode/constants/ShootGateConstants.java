@@ -20,6 +20,18 @@ public class ShootGateConstants {
     // set to the hood's measured full-travel time. 0 turns the wait off.
     public static double HOOD_SETTLE_S = 0.3;
     public static double HOOD_SETTLE_DEADBAND = 0.005;
+    // ---- Shoot on the move (EXPERIMENTAL, off by default). ----
+    // Aim, distance and shot-table lookup use a virtual target: the CELL shifted back by
+    // the robot's velocity x FLIGHT_TIME_S, because the ball keeps the robot's velocity.
+    // While on, the speed limits below are replaced by the MOVING_ ones. Steady, straight
+    // driving only: it does not predict acceleration or turning. PLACEHOLDERS: measure the
+    // flight time (slow-motion video), then raise the speed until shots stop going in.
+    public static boolean SHOOT_ON_MOVE = false;
+    public static double FLIGHT_TIME_S = 0.5;
+    // Never shift the target by more than this (odometry velocity spikes).
+    public static double MAX_LEAD_IN = 24;
+    public static double MOVING_MAX_SPEED_IN_PER_S = 30;
+    public static double MOVING_MAX_TURN_DEG_PER_S = 30;
     // The robot must be moving slower than this (inches per second) and turning slower
     // than MAX_TURN_DEG_PER_S. PLACEHOLDERS: measure what still scores.
     public static double MAX_SPEED_IN_PER_S = 15;

@@ -127,6 +127,8 @@ Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window len
 
 - Own-side check (G402: red = columns A-C, x <= 72): `AutoContext.pose()` records any pose with red-frame x past `OWN_SIDE_MAX_X_IN - OWN_SIDE_MARGIN_IN`; `checkRouteConstants()` runs the fixed route poses through it at init, and the init screen shows `!! Route goes past our side`. All current poses pass (max x 61.5).
 
+- Shoot on the move (`ShootGateConstants.SHOOT_ON_MOVE`, off by default, experimental): turret bearing, shot distance and the zone's distance test use a virtual target = CELL - robot velocity x `FLIGHT_TIME_S` (shift capped at `MAX_LEAD_IN`), and the fire gate uses the `MOVING_MAX_*` limits. Constant velocity only. Tune after the stationary calibration: flight time first, then raise the speed limits.
+
 ## 9. Assumptions and open items
 
 - Robot capacity 4 balls, no NECTAR intake (stated by the team).

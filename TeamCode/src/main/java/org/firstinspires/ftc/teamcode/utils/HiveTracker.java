@@ -179,7 +179,33 @@ public class HiveTracker {
 
     /** Horizontal distance from the robot centre to the CELL, metres. */
     public double distanceM(Pose pose) {
-        return Math.hypot(fieldX - pose.x(), fieldY - pose.y()) * M_PER_IN;
+        return distanceM(pose, null, 0, 0);
+    }
+
+    /**
+     * Distance to the CELL as seen from a moving robot: to the "virtual target", the CELL
+     * shifted back by {@code velocity * flightS} (the ball keeps the robot's own velocity),
+     * with the shift limited to {@code maxShiftIn} so a velocity spike cannot throw the aim.
+     */
+    public double distanceM(Pose pose, Velocity velocity, double flightS, double maxShiftIn) {
+        double[] t = virtualTarget(velocity, flightS, maxShiftIn);
+        return Math.hypot(t[0] - pose.x(), t[1] - pose.y()) * M_PER_IN;
+    }
+
+    // The CELL shifted back by the robot's velocity over the ball's flight time.
+    private double[] virtualTarget(Velocity velocity, double flightS, double maxShiftIn) {
+        double dx = 0;
+        double dy = 0;
+        if (velocity != null && flightS > 0) {
+            dx = velocity.vx * flightS;
+            dy = velocity.vy * flightS;
+            double len = Math.hypot(dx, dy);
+            if (maxShiftIn > 0 && len > maxShiftIn) {
+                dx *= maxShiftIn / len;
+                dy *= maxShiftIn / len;
+            }
+        }
+        return new double[] {fieldX - dx, fieldY - dy};
     }
 
     /**
@@ -188,6 +214,13 @@ public class HiveTracker {
      * up for the servo's own lag when the robot is moving or turning.
      */
     public double turretBearingDeg(Pose pose, Velocity velocity, double leadS) {
+        return turretBearingDeg(pose, velocity, leadS, 0, 0);
+    }
+
+    /** As above, aiming at the virtual target (see distanceM) when flightS > 0. */
+    public double turretBearingDeg(Pose pose, Velocity velocity, double leadS,
+                                   double flightS, double maxShiftIn) {
+        double[] target = virtualTarget(velocity, flightS, maxShiftIn);
         double x = pose.x();
         double y = pose.y();
         double h = pose.heading();
@@ -203,7 +236,7 @@ public class HiveTracker {
         double px = x + pf * Math.cos(h) - pl * Math.sin(h);
         double py = y + pf * Math.sin(h) + pl * Math.cos(h);
 
-        double fieldAngle = Math.atan2(fieldY - py, fieldX - px);
+        double fieldAngle = Math.atan2(target[1] - py, target[0] - px);
         return Math.toDegrees(normalize(fieldAngle - h));
     }
 
