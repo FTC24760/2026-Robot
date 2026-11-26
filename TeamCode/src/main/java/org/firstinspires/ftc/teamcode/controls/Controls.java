@@ -21,14 +21,14 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  *   right stick y    butterfly engage / tank direction (not used by Robot yet)
  *   left trigger     intake
  *   right trigger    shoot (hold)
- *   Y                flower arm toggle (not used by Robot yet)
+ *   Y                flower arm toggle
  *
  * Operator (gamepad 2):
  *   right stick x    manual turret
  *   right stick btn  toggle auto / manual aim
  *   left trigger     intake
  *   right trigger    shoot (hold)
- *   Y                flower arm toggle (not used by Robot yet)
+ *   Y                flower arm toggle
  *   X / B            reset pose 1 / 2 (not used by Robot yet)
  */
 public class Controls {

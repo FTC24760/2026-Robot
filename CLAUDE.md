@@ -36,4 +36,4 @@ Package root: `TeamCode/src/main/java/org/firstinspires/ftc/teamcode/`.
 
 ## Current state
 
-The code is partway through a rewrite. TeleOp currently drives, intakes, aims the turret (auto or manual) and runs the shot sequence. Not wired up yet: the `ShotSolver` math (it aims straight ahead at `MANUAL_RPM`), `Shooter.isAtTargetRpm()` (a placeholder that always returns `true`), `Hood`, `Vision`, `Butterfly`, `FlowerArm`, and the reset-pose buttons. Update the comments when you change the behaviour they describe.
+The code is partway through a rewrite. TeleOp currently drives, intakes, aims the turret (auto or manual), runs the shot sequence and toggles the flower arm (Y). Not wired up yet: the `ShotSolver` math (it aims straight ahead at `MANUAL_RPM`), `Shooter.isAtTargetRpm()` (a placeholder that always returns `true`), `Hood`, `Vision`, `Butterfly`, and the reset-pose buttons. Update the comments when you change the behaviour they describe.

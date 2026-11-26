@@ -25,11 +25,11 @@ public class IntakeConstants {
     // out of the way first.
     public static double BLOCKER_OPEN_TIME_MS = 200;
 
-    // Flower arm: a servo that lowers for collecting from a FLOWER. Not on the robot
-    // yet; until a servo with this name is configured the arm does nothing. CALIBRATE.
+    // Flower arm: a servo that lowers for collecting from a FLOWER. Y toggles it in
+    // TeleOp. Positions taken from main (Configurables).
     public static String FLOWER_SERVO_NAME = "flower";
-    public static double FLOWER_UP_POSITION = 0.59;
-    public static double FLOWER_DOWN_POSITION = 0.69;
+    public static double FLOWER_UP_POSITION = 0.9184;
+    public static double FLOWER_DOWN_POSITION = 0.7909;
 
     // Getting POLLEN out of a FLOWER: with the arm down, the robot strafes side to side
     // under motor power to work the POLLEN out of the Retrieval Opening at the bottom.

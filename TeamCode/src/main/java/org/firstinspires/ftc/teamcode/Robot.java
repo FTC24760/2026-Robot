@@ -34,7 +34,8 @@ import java.util.List;
  *   4. runDrive(): field-centric drive from gamepad 1, plus odometry
  *   5. runShotController(): shot mode, manual turret, shoot button -> ShotController
  *   6. runIntake(): intake roller, transfer and blocker from the trigger and shot state
- *   7. telemetry from every subsystem in the subsystems list
+ *   7. runFlowerArm(): Y toggles the flower arm up / down
+ *   8. telemetry from every subsystem in the subsystems list
  *
  * Other classes read the loop timing from here (robot.nowNs, robot.loopSeconds) and
  * the battery compensation from Robot.voltageScale, rather than timing things themselves.
@@ -50,6 +51,7 @@ public class Robot {
     Drivetrain drivetrain;
     Butterfly butterfly;
     Intake intake;
+    FlowerArm flowerArm;
     public Turret turret;
     public Shooter shooter;
     public Follower follower;
@@ -82,9 +84,10 @@ public class Robot {
         drivetrain = new Drivetrain(hardwareMap, follower);
         butterfly = new Butterfly(hardwareMap);
         intake = new Intake(hardwareMap);
+        flowerArm = new FlowerArm(hardwareMap);
         turret = new Turret(hardwareMap);
         shooter = new Shooter(hardwareMap);
-        subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, turret, shooter));
+        subsystems = new ArrayList<>(Arrays.asList(drivetrain, butterfly, intake, flowerArm, turret, shooter));
 
         hiveTracker = new HiveTracker();
         shotSolver = new ShotSolver(this);
@@ -103,6 +106,7 @@ public class Robot {
         runDrive();
         runShotController();
         runIntake();
+        runFlowerArm();
 
         updateTelemetry();
     }
@@ -146,6 +150,13 @@ public class Robot {
         intake.blockerOpen = shotController.state == ShotController.State.BLOCKER_OPEN ||
                              shotController.state == ShotController.State.SHOOTING;
         intake.update();
+    }
+
+    // Y on either gamepad toggles the flower arm. It starts up.
+    private void runFlowerArm() {
+        if (controls.flowerTogglePressed)
+            flowerArm.down = !flowerArm.down;
+        flowerArm.update();
     }
 
     void updateTelemetry() {
