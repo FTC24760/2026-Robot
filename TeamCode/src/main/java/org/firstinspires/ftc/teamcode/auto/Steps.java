@@ -15,6 +15,7 @@ import org.firstinspires.ftc.teamcode.utils.CellSide;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.ToDoubleFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -231,6 +232,36 @@ public final class Steps {
     public static AutoStep when(String name, Predicate<AutoContext> test, AutoStep ifTrue,
                                 AutoStep ifFalse) {
         return new ChoiceStep(name, test, ifTrue, ifFalse);
+    }
+
+    /**
+     * Wait until the camera has read one of our CELLS at or after {@code sinceS(ctx)}
+     * (evaluated when the step starts), but never longer than {@code maxS}. Ends at once
+     * without a camera. Use it to be sure ctx.upSide is current before choosing a side.
+     */
+    public static AutoStep awaitCamera(String name, ToDoubleFunction<AutoContext> sinceS,
+                                       double maxS) {
+        return new AutoStep() {
+            private double startS;
+            private double since;
+
+            @Override
+            public void start(AutoContext ctx) {
+                startS = ctx.now();
+                since = sinceS.applyAsDouble(ctx);
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                return !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE
+                        || ctx.lastCellReadS >= since || ctx.now() - startS >= maxS;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+        };
     }
 
     /** A step that does something once and finishes immediately. */

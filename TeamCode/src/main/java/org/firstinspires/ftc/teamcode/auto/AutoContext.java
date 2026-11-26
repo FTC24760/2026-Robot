@@ -81,6 +81,12 @@ public class AutoContext {
         upAtStart = upSide;
     }
 
+    /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */
+    public double lastCellReadS = -1;
+    /** When the current trip to a shot spot started, and which CELL it was planned for. */
+    public double tripStartS;
+    public CellSide plannedSide;
+
     /** True if the HIVE has tipped since the routine started (the camera saw it). */
     public boolean tippedSinceStart() {
         return upAtStart != null && upSide != upAtStart;

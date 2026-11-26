@@ -275,6 +275,15 @@ public abstract class AutoOpMode extends OpMode {
         if (!AutoConstants.DETECT_UP_SIDE || !robot.hasAutoAim()) {
             return;
         }
+        // A fresh frame of one of our CELLS, up or down, counts as a read. The two CELLS
+        // are joined, so seeing one facing down also says the other is up.
+        Vision.Fix fix = robot.vision.getFix();
+        if (fix != null && fix.sighting.cell.alliance == alliance) {
+            ctx.lastCellReadS = ctx.now();
+            if (!fix.cellUp) {
+                ctx.setUpSide(CellSide.of(alliance, fix.sighting.cell.side).other());
+            }
+        }
         CellSide seen = seenUpSide(System.nanoTime());
         if (seen != null) {
             ctx.setUpSide(seen);

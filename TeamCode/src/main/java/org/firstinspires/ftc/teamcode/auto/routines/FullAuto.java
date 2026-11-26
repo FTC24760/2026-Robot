@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
+import static org.firstinspires.ftc.teamcode.auto.Steps.awaitCamera;
 import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
@@ -150,11 +151,36 @@ public final class FullAuto {
                         c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
                                 && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
                                 && mayCycle(c),
-                        waitSeconds(AutoConstants.TIP_SETTLE_S), null));
+                        awaitCamera("tip check",
+                                c -> c.now() + AutoConstants.TIP_SETTLE_MIN_S,
+                                AutoConstants.TIP_SETTLE_S),
+                        null));
+    }
+
+    // Drive to the spot for the CELL up now, then check the camera once more on arrival: if
+    // the HIVE tipped during the trip, go on to the other CELL's spot before spinning up.
+    private static AutoStep driveToShot() {
+        return sequence("to shot",
+                instant("plan trip", c -> {
+                    c.plannedSide = c.upSide;
+                    c.tripStartS = c.now();
+                }),
+                driveToSpot(),
+                when("arrival check",
+                        c -> AutoConstants.ARRIVE_CHECK_S > 0 && c.robot.hasAutoAim(),
+                        sequence("arrival check",
+                                awaitCamera("camera on arrival", c -> c.tripStartS,
+                                        AutoConstants.ARRIVE_CHECK_S),
+                                when("tipped on the way", c -> c.upSide != c.plannedSide,
+                                        sequence("redirect",
+                                                instant("replan", c -> c.plannedSide = c.upSide),
+                                                driveToSpot()),
+                                        null)),
+                        null));
     }
 
     // The shooter goes off only if the robot actually drives (see Steps.driveTo).
-    private static AutoStep driveToShot() {
+    private static AutoStep driveToSpot() {
         return byUpSide(
                 driveTo("to shot (LEFT CELL up)", c -> shotPose(c, CellSide.LEFT), true),
                 driveTo("to shot", c -> shotPose(c, CellSide.RIGHT), true));
