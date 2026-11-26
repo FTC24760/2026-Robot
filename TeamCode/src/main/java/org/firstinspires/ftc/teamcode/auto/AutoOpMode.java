@@ -26,6 +26,7 @@ import org.firstinspires.ftc.teamcode.utils.PoseHandoff;
  *   d-pad left / right  start preset (where the robot is placed; see StartPreset)
  *   A                   our slot: SOLO / FIRST / SECOND (agreed with the partner)
  *   bumpers             start delay for the SECOND slot, down / up
+ *   left stick press    if FIRST's pre-loads do not tip the HIVE: LEAVE or STAY (agree with partner)
  *   d-pad up / down     more / fewer collection cycles after the pre-loads
  *   X / B               our LEFT / RIGHT CELL is up (override)
  *   Y                   back to automatic (Limelight if it sees the HIVE, else RIGHT,
@@ -53,6 +54,7 @@ public abstract class AutoOpMode extends OpMode {
     private final EdgeDetector nextSlot = new EdgeDetector();
     private final EdgeDetector moreDelay = new EdgeDetector();
     private final EdgeDetector lessDelay = new EdgeDetector();
+    private final EdgeDetector nextPlan = new EdgeDetector();
 
     protected AutoOpMode(Alliance alliance) {
         this.alliance = alliance;
@@ -111,6 +113,10 @@ public abstract class AutoOpMode extends OpMode {
                     AutoSelection.startDelayS - AutoConstants.START_DELAY_STEP_S, 0);
         }
 
+        if (nextPlan.rose(gamepad1.left_stick_button)) {
+            AutoSelection.noTipPlan = AutoSelection.noTipPlan.next();
+        }
+
         if (gamepad1.x) {
             chosenSide = CellSide.LEFT;
         } else if (gamepad1.b) {
@@ -137,6 +143,13 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Start delay", AutoSelection.slot == AutoSelection.Slot.SECOND
                 ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
                 : "none (only for SECOND)");
+        if (AutoSelection.slot != AutoSelection.Slot.SOLO) {
+            telemetry.addData("If FIRST does not tip", "%s   (left stick press)  %s",
+                    AutoSelection.noTipPlan,
+                    AutoSelection.noTipPlan == AutoSelection.NoTipPlan.LEAVE
+                            ? "FIRST parks, SECOND drives over and shoots"
+                            : "FIRST cycles until it tips, SECOND waits for the tip");
+        }
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());

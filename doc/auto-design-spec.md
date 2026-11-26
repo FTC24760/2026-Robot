@@ -89,7 +89,7 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 - PARK pose: partly in the LOADING ZONE (red: x 0-11, y 96-119), current `(12, 108, 180)`. LEAVE = no longer touching the perimeter wall, so driving toward PARK satisfies it.
 - Skip rule: a cycle starts only if `timeLeft >= cycleEstimate + parkWindow`. Cycle estimate is measured, not guessed; start with the current `CYCLE_MIN_TIME_LEFT_S = 9`.
 - PASSIVE partner, or a partner that only parks (SOLO): shoot the pre-loads at once, then keep cycling for as long as time allows (`DEFAULT_CYCLES` = 3 is a maximum; each cycle needs `CYCLE_MIN_TIME_LEFT_S`). After each burst the robot waits `TIP_SETTLE_S` (camera only) so the up CELL is known; the next trip goes back to the same spot if the HIVE did not tip, or to the other CELL's spot if it did. No idle wait before parking (`PARK_DELAY_S` = 0); the reserve window banks PARK. Without a camera the tip is not seen, so every cycle shoots at the CELL believed up (`BALLS_TO_TIP` = 0: no guess).
-- ACTIVE, FIRST: delay 0; leave the shooting zone early so the partner can use it.
+- ACTIVE, FIRST: delay 0; shoot the pre-loads, then follow the agreed no-tip plan (below).
 - ACTIVE, SECOND: delay = menu value (initial guess 5 s; to be measured against the partner's burst).
 - Implemented (`END_DELAY_ON_TIP`): the SECOND wait ends as soon as the up CELL changes (the camera saw the HIVE tip). The fixed delay stays as the fallback. After the wait, if the start pose is not in the shooting zone for the CELL up now (`DRIVE_TO_ZONE_FIRST`; e.g. the HIVE tipped, or start B with the audience CELL up), the robot drives to the shot spot before the pre-loads.
 - Shooting position (implemented, `auto/ShotSpots`): no separate polygon. The zone is the TeleOp one (`ShotZoneGeometry`). SOLO/FIRST shoot from the fixed spot (`SHOOT_*`); SECOND picks the allowed candidate farthest from it (the fixed spot turned about the CELL in `SPOT_ARC_STEP_DEG` steps, same distance so same table row; must be in the zone, on our side with margin, inside the field, `SPOT_KEEP_OUT_IN` from FLOWERS). Hand-computed with the current constants: SECOND shoots at about (25, 21) into the RIGHT CELL and (30, 126) into the LEFT CELL.
@@ -171,3 +171,12 @@ centre position, direction and axis position must be calibrated before enabling.
 ### SECOND (partner shoots first), after the delay
 
 Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive to the up CELL's offset spot on the partner's side (`ShotSpots`) and shoot; if our shots tip it, the next trip goes to the other CELL's spot on our side; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.
+
+### FIRST, and the no-tip plan (agreed with the partner)
+
+If FIRST's pre-loads do not tip the HIVE, the two robots must already agree what happens, since they cannot talk. One init-menu flag (left stick press, `AutoSelection.noTipPlan`, default `DEFAULT_NO_TIP_PLAN` = LEAVE) is set the same on both robots:
+
+- **LEAVE:** FIRST shoots the pre-loads and parks (no cycles, no tip-settle wait). SECOND waits its delay (ending early on a tip), then drives to the up CELL's offset spot and shoots.
+- **STAY:** FIRST cycles until the camera sees the HIVE tip (`tippedSinceStart`), then parks, leaving the area to SECOND. SECOND ignores the delay and waits for the tip, giving up and going anyway at `SECOND_GO_ANYWAY_LEFT_S` (15 s) left.
+
+If the pre-loads do tip it, FIRST parks in both plans (mid-burst tips still finish the burst at the other CELL). SOLO ignores the flag. Not covered: the partner picking the other plan; the menu only shows it, it cannot check.

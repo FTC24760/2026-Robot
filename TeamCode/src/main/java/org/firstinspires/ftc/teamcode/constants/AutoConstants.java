@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.constants;
 
 
+import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 /**
@@ -155,6 +156,14 @@ public class AutoConstants {
     // it in steps of START_DELAY_STEP_S, up to MAX_START_DELAY_S). Measure the partner's
     // burst and agree on the number before the match.
     public static double DEFAULT_START_DELAY_S = 5.0;
+    // FIRST/SECOND, if the first robot's pre-loads do not tip the HIVE (agree with the
+    // partner, both pick the same; init menu: left stick press). LEAVE: FIRST parks and
+    // SECOND drives over and shoots when its delay ends. STAY: FIRST keeps cycling until
+    // the HIVE tips, then parks; SECOND waits for the tip instead of the delay.
+    public static AutoSelection.NoTipPlan DEFAULT_NO_TIP_PLAN = AutoSelection.NoTipPlan.LEAVE;
+    // STAY, SECOND: if the HIVE has not tipped by this much time left, stop waiting and go
+    // anyway (the partner is evidently not tipping it).
+    public static double SECOND_GO_ANYWAY_LEFT_S = 15;
     public static double START_DELAY_STEP_S = 0.5;
     public static double MAX_START_DELAY_S = 15.0;
     // The order they run in. Default: nearest first.

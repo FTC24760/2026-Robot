@@ -25,6 +25,9 @@ public class AutoContext {
     /** Which CELL of our HIVE is up, as our drivers see it. Change it with setUpSide(). */
     public CellSide upSide;
 
+    /** The up CELL when the routine started; a different one later means the HIVE tipped. */
+    public CellSide upAtStart;
+
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
 
@@ -75,6 +78,12 @@ public class AutoContext {
 
     void markStart(double nowS) {
         startS = nowS;
+        upAtStart = upSide;
+    }
+
+    /** True if the HIVE has tipped since the routine started (the camera saw it). */
+    public boolean tippedSinceStart() {
+        return upAtStart != null && upSide != upAtStart;
     }
 
     public double now() {

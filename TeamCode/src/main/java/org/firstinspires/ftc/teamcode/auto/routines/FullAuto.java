@@ -64,7 +64,8 @@ public final class FullAuto {
             int number = i + 1;
             CycleSource source = order[i];
             steps.add(when("cycle " + number,
-                    c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
+                    c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
+                            && mayCycle(c),
                     sequence("cycle " + number + " " + source,
                             collect(source),
                             intake(Intake.Mode.OFF),
@@ -91,6 +92,16 @@ public final class FullAuto {
                 c -> AutoSelection.preset.pose(c),
                 steps.toArray(new AutoStep[0]))
                 .withReserve(driveToPark());
+    }
+
+    // FIRST leaves the area to the partner: it cycles only if we agreed to stay until the
+    // HIVE tips (AutoSelection.noTipPlan), and stops as soon as it has tipped. SOLO and
+    // SECOND cycle as long as there is time.
+    private static boolean mayCycle(AutoContext c) {
+        if (AutoSelection.slot != AutoSelection.Slot.FIRST) {
+            return true;
+        }
+        return AutoSelection.firstStaysUntilTip() && !c.tippedSinceStart();
     }
 
     private static AutoStep driveToPark() {
@@ -137,7 +148,8 @@ public final class FullAuto {
                 // Let the HIVE tip and the camera see it before the next trip is planned.
                 when("tip settle",
                         c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
-                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
+                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
+                                && mayCycle(c),
                         waitSeconds(AutoConstants.TIP_SETTLE_S), null));
     }
 
