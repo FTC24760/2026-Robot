@@ -179,23 +179,23 @@ public final class Steps {
     public static AutoStep startDelay() {
         return new AutoStep() {
             private double untilS;
-            private CellSide upAtStart;
+            private int tipsAtStart;
 
             @Override
             public void start(AutoContext ctx) {
                 untilS = ctx.now() + AutoSelection.effectiveDelayS();
-                upAtStart = ctx.upSide;
+                tipsAtStart = ctx.tips;
             }
 
             @Override
             public boolean update(AutoContext ctx) {
                 // The up CELL changing means the partner's shots tipped the HIVE: go now.
                 boolean tipped = AutoConstants.END_DELAY_ON_TIP
-                        && AutoSelection.effectiveDelayS() > 0 && ctx.upSide != upAtStart;
+                        && AutoSelection.effectiveDelayS() > 0 && ctx.tips > tipsAtStart;
                 if (AutoSelection.secondWaitsForTip()) {
                     // Agreed: the partner keeps cycling until it tips, so wait for that,
                     // not for the clock, unless time is running out.
-                    return ctx.upSide != upAtStart
+                    return ctx.tips > tipsAtStart
                             || ctx.timeLeft() <= AutoConstants.SECOND_GO_ANYWAY_LEFT_S;
                 }
                 return tipped || ctx.now() >= untilS;

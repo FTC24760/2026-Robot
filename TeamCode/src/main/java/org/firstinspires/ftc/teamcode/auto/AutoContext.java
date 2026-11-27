@@ -25,8 +25,11 @@ public class AutoContext {
     /** Which CELL of our HIVE is up, as our drivers see it. Change it with setUpSide(). */
     public CellSide upSide;
 
-    /** The up CELL when the routine started; a different one later means the HIVE tipped. */
-    public CellSide upAtStart;
+    /**
+     * How many tips the camera (or a broken-off burst) has shown since the routine started.
+     * A count, not a comparison with the starting side, so two tips are not read as none.
+     */
+    public int tips;
 
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
@@ -60,6 +63,7 @@ public class AutoContext {
     public void setUpSide(CellSide side) {
         if (side != upSide) {
             upSide = side;
+            tips++;
             ballsSinceTip = 0;
         }
     }
@@ -78,7 +82,7 @@ public class AutoContext {
 
     void markStart(double nowS) {
         startS = nowS;
-        upAtStart = upSide;
+        tips = 0;
     }
 
     /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */
@@ -89,7 +93,7 @@ public class AutoContext {
 
     /** True if the HIVE has tipped since the routine started (the camera saw it). */
     public boolean tippedSinceStart() {
-        return upAtStart != null && upSide != upAtStart;
+        return tips > 0;
     }
 
     public double now() {

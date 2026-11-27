@@ -154,6 +154,38 @@ Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window len
 
 Test points: each preset on each alliance (pose on the field matches the telemetry), delay 0 and 5, with and without a Limelight fix, forced stuck-step to confirm LEAVE+PARK still happens.
 
+## AUTO state machine (draft, up to three tips)
+
+State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips, 0..3, saturating), `cycles` done (max `DEFAULT_CYCLES` = 3), `timeLeft`. A tip is only ever *observed* (the camera sees `up` change, or a burst is interrupted); each observation does `tips++` and `up = other`. `BALLS_TO_TIP` = 0, so no tip is guessed. With no camera read, `up` and `tips` do not change.
+
+| State | Does | Leaves to |
+|---|---|---|
+| WAIT (SECOND only) | stay still | GOTO on a tip (`tips`=1), delay end, or (STAY plan) `SECOND_GO_ANYWAY_LEFT_S` |
+| GOTO | skip the drive if the pose is already in the zone for `up`, else drive to `ShotSpots.spot(up, slot)` | ARRIVE |
+| ARRIVE | wait <= `ARRIVE_CHECK_S` for a camera read since the trip began | GOTO if `up` changed (`tips`++), else SHOOT |
+| SHOOT | spin up, burst; a tip mid-burst (`tips`++) finishes the burst once more at the other CELL | SETTLE |
+| SETTLE | wait >= `TIP_SETTLE_MIN_S`, then for a camera read, <= `TIP_SETTLE_S` | DECIDE |
+| DECIDE | first rule that applies wins (below) | COLLECT or PARK |
+| COLLECT | drive to the cycle's source with the intake on | GOTO |
+| PARK | LEAVE/PARK pose | end |
+
+`timeLeft` <= `RESERVE_TIME_LEFT_S` preempts any state and goes to PARK.
+
+DECIDE: (1) `timeLeft` < `CYCLE_MIN_TIME_LEFT_S` or `cycles` = 3 -> PARK; (2) FIRST with LEAVE -> PARK; (3) FIRST with STAY -> PARK once `tips` >= 1, else COLLECT; (4) otherwise COLLECT. `up` never changes the decision, only where GOTO goes.
+
+By tips (side after each observed tip; the table assumes every tip is seen):
+
+| tips | up | SOLO | FIRST, LEAVE | FIRST, STAY | SECOND |
+|---|---|---|---|---|---|
+| 0 | RIGHT | shoot pre-loads, cycle | pre-loads, park | pre-loads, cycle | wait; if no tip by the delay, go to RIGHT's offset spot on the partner's side |
+| 1 | LEFT | next trip to LEFT's spot, cycle | park | park (tip seen) | partner tipped: shoot LEFT at once from our spot, cycle |
+| 2 | RIGHT | next trip to RIGHT's spot, cycle | park | park | cycle, RIGHT's spot |
+| 3 | LEFT | next trip to LEFT's spot, cycle | park | park | cycle, LEFT's spot; further tips count as 3 |
+
+Bug this fixes: `AutoContext.tippedSinceStart()` compares the current side with the side at the start, so after two tips it reads false again and FIRST/STAY would resume cycling. A counter does not wrap.
+
+Known gaps (fixed camera): a tip while the robot is collecting or driving is only seen at ARRIVE or SETTLE, and a tip while blind is never seen, so a burst can go at the down CELL. The mid-burst check is the only recovery.
+
 ## Camera limitation (fixed, decided)
 
 There is one Limelight 3A, mounted on the chassis, with no pan servo (a pan servo was built and then removed). The camera sees the HIVE only while the chassis faces it, so:

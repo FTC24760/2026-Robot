@@ -61,14 +61,19 @@ public final class FullAuto {
         steps.add(shootHere());
 
         CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
+
         for (int i = 0; i < order.length; i++) {
             int number = i + 1;
             CycleSource source = order[i];
+            CycleSource reversed = order[order.length - 1 - i];
             steps.add(when("cycle " + number,
                     c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
                             && mayCycle(c),
                     sequence("cycle " + number + " " + source,
-                            collect(source),
+                            // Chosen when the step starts: the slot is picked after the
+                            // routine is built, in the init menu.
+                            when("source by slot", FullAuto::collectsReversed,
+                                    collect(reversed), collect(source)),
                             intake(Intake.Mode.OFF),
                             shootCycle()),
                     null));
@@ -103,6 +108,13 @@ public final class FullAuto {
             return true;
         }
         return AutoSelection.firstStaysUntilTip() && !c.tippedSinceStart();
+    }
+
+    // SECOND, with both robots active, takes the sources in the opposite order (the GARDEN
+    // and the two FLOWERS hold the only POLLEN besides the pre-loads).
+    private static boolean collectsReversed(AutoContext c) {
+        return AutoSelection.slot == AutoSelection.Slot.SECOND
+                && AutoConstants.SECOND_COLLECTS_REVERSED;
     }
 
     private static AutoStep driveToPark() {

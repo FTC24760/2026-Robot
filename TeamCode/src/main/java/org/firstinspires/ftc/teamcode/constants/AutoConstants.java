@@ -153,6 +153,12 @@ public class AutoConstants {
         BACK_FLOWER
     }
 
+    // The field holds 20 POLLEN for the auto: 4 pre-loads on each robot and the rest at the
+    // GARDEN and the two FLOWERS (one cycle each). A partner that also cycles empties them.
+    // With both robots active SECOND takes the sources in the opposite order to FIRST/SOLO,
+    // so the two start at opposite ends of the list and only meet if both do 2+ cycles.
+    public static boolean SECOND_COLLECTS_REVERSED = true;
+
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
     public static int MAX_CYCLES = 3;
