@@ -39,16 +39,9 @@ public class AutoContext {
     /** Cycles started so far (0, 1, 2); the next one uses this index. */
     public int cycleIndex;
 
-    /** Pair mode: the own CELL did not come up in time, so shoot at whichever is up. */
-    public boolean ownCellGivenUp;
-
-    /**
-     * The CELL to shoot into next. In a pair (FIRST or SECOND) it is the CELL nearest our
-     * start, whether or not it is up yet (we wait for it); alone it is whichever is up.
-     */
+    /** The CELL to shoot into next: whichever is up, whoever tipped it. */
     public CellSide shotSide() {
-        return AutoSelection.pair() && !ownCellGivenUp
-                ? AutoSelection.ownSide(alliance) : upSide;
+        return upSide;
     }
 
     /**
@@ -59,11 +52,6 @@ public class AutoContext {
         return plannedSide != null ? plannedSide : AutoSelection.ownSide(alliance);
     }
 
-    /** True if the CELL we shoot into next is up now. */
-    public boolean shotCellUp() {
-        return shotSide() == upSide;
-    }
-
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
 
@@ -72,6 +60,7 @@ public class AutoContext {
 
     // Balls we have shot into the current up CELL, for guessing when it tips.
     private int ballsSinceTip;
+    private double burstEndS;
 
     // Background jobs, applied every loop by AutoOpMode.
     public boolean spinUp;
@@ -101,14 +90,37 @@ public class AutoContext {
         }
     }
 
-    /**
-     * Record a finished shot. If BALLS_TO_TIP is set, assume the HIVE tips once that many
-     * balls have gone in, so the next shot goes to the other CELL even if the Limelight
-     * never saw it move.
-     */
+    /** Balls needed in the up CELL for the next tip: 4 for the first, then 8. */
+    public int ballsToTip() {
+        return tips == 0 ? AutoConstants.BALLS_FIRST_TIP : AutoConstants.BALLS_NEXT_TIP;
+    }
+
+    /** Record a finished burst: our balls count toward the next tip. */
     public void recordShot(int balls) {
         ballsSinceTip += balls;
-        if (AutoConstants.BALLS_TO_TIP > 0 && ballsSinceTip >= AutoConstants.BALLS_TO_TIP) {
+        burstEndS = now();
+    }
+
+    /**
+     * Alone, a burst that leaves the count under the threshold cannot have tipped the HIVE,
+     * so the camera wait can be skipped. With a partner its balls are not counted.
+     */
+    public boolean mayHaveTipped() {
+        return AutoSelection.pair() || ballsSinceTip >= ballsToTip();
+    }
+
+    /**
+     * After a burst and the camera wait: if the camera read the HIVE since the burst, it
+     * decides (and a CELL it still shows up caps the count below the threshold). If it did
+     * not, believe the count and take it that the CELL tipped.
+     */
+    public void settleTipBelief() {
+        boolean read = lastCellReadS >= burstEndS && burstEndS > 0;
+        if (read) {
+            if (ballsSinceTip >= ballsToTip()) {
+                ballsSinceTip = ballsToTip() - 1;
+            }
+        } else if (AutoConstants.PREDICT_TIP_WHEN_BLIND && ballsSinceTip >= ballsToTip()) {
             setUpSide(upSide.other());
         }
     }
@@ -116,7 +128,8 @@ public class AutoContext {
     void markStart(double nowS) {
         startS = nowS;
         tips = 0;
-        ownCellGivenUp = false;
+        ballsSinceTip = 0;
+        burstEndS = 0;
         cycleIndex = 0;
         java.util.Arrays.fill(sourceUsed, false);
         chosenSource = null;

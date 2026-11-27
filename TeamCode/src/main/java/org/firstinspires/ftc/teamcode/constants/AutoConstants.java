@@ -161,20 +161,11 @@ public class AutoConstants {
     public static CycleSource[] SOLO_SOURCES = {CycleSource.GARDEN, CycleSource.BACK_FLOWER, CycleSource.NONE};
     public static CycleSource[] FIRST_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
     public static CycleSource[] SECOND_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};
-    // FIRST and SECOND each shoot only into the CELL nearest their start (A: audience CELL,
-    // B: far CELL), and only while it is up; each burst tips it and so frees the partner.
-    // How long to wait for it to come up before giving up and shooting at whichever is up.
-    // PLACEHOLDER: set from a timed run with the partner.
-    public static double OWN_CELL_WAIT_S = 6;
-    // SECOND's first burst does not wait OWN_CELL_WAIT_S after the delay (the wait would stack
-    // on it). If the camera read the HIVE within this long and our CELL is still down, the
-    // partner has not tipped it: SECOND goes to the other CELL. With no recent read it cannot
-    // tell, and takes it that the partner (who agreed to shoot first) tipped it.
+    // SECOND's first burst: after the agreed delay, if the camera read the HIVE within this long
+    // and our CELL is still down, the partner has not tipped it and SECOND shoots the CELL that
+    // is up. With no recent read it cannot tell, and takes it that the partner (who agreed to
+    // shoot first) tipped it.
     public static double BLIND_READ_MAX_AGE_S = 2.0;
-    // Stop waiting at this much of the auto left, whatever OWN_CELL_WAIT_S says: it is the
-    // last moment to drive to the other CELL's spot, shoot and still bank PARK (the reserve
-    // window starts at RESERVE_TIME_LEFT_S). PLACEHOLDER: time the trip and a burst.
-    public static double GIVE_UP_AT_TIME_LEFT_S = 14;
 
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
@@ -216,10 +207,15 @@ public class AutoConstants {
     public static boolean ADAPTIVE_SOLO_SOURCES = true;
 
     // ---- Following the HIVE when it tips. ----
-    // The Limelight is the main way the auto knows which CELL is up. As a backup when it
-    // cannot see the HIVE, assume our own shots tipped it after this many balls into the
-    // up CELL. 0 = do not guess (the manual only says "enough" POLLEN; set it once known).
-    public static int BALLS_TO_TIP = 0;
+    // The Limelight is the main way the auto knows which CELL is up. A tip needs balls in the
+    // up CELL: the first only BALLS_FIRST_TIP (the CELL starts with 3 NECTAR in it), every
+    // later one BALLS_NEXT_TIP. So the 20 POLLEN make at most three tips (4 + 8 + 8), and each
+    // later tip takes two bursts. Our own balls are counted; the partner's are not. When the
+    // camera cannot see the HIVE after a burst, believe the count and take it that the CELL
+    // tipped; when it can, the camera wins.
+    public static int BALLS_FIRST_TIP = 4;
+    public static int BALLS_NEXT_TIP = 8;
+    public static boolean PREDICT_TIP_WHEN_BLIND = true;
     public static int BALLS_PER_SHOT = 4;
     // If the HIVE tips during a shot, stop feeding, let the turret swing to the new up
     // CELL for this long, then carry on.

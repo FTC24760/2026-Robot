@@ -229,51 +229,24 @@ public final class Steps {
     }
 
     /**
-     * In a pair, wait until the CELL we shoot into is up (the partner's burst flips it), at
-     * most {@code capS}; then give up on it and shoot at whichever is up. Ends at once alone,
-     * without a camera, or when it is already up.
+     * SECOND's first burst: the partner agreed to shoot first and the delay has run. If the
+     * camera read the HIVE just now and our CELL is still down, the partner has not tipped
+     * it, so leave the belief alone (SECOND then shoots the CELL that is up). Without a
+     * recent read it cannot tell, so take it that the partner tipped the HIVE and shoot our
+     * own CELL.
      */
-    public static AutoStep awaitShotCell(String name, double capS) {
-        return new AutoStep() {
-            private double startS;
-            // SECOND's first burst: the agreed delay was already waited (startDelay), and the
-            // partner was to shoot first, so there is no further wait and no stale belief.
-            private boolean secondFirst;
-
-            @Override
-            public void start(AutoContext ctx) {
-                startS = ctx.now();
-                secondFirst = AutoSelection.slot == AutoSelection.Slot.SECOND
-                        && ctx.cycleIndex == 0;
+    public static AutoStep assumePartnerTipped() {
+        return instant("assume partner shot first", ctx -> {
+            if (AutoSelection.slot != AutoSelection.Slot.SECOND || !ctx.robot.hasAutoAim()
+                    || !AutoConstants.DETECT_UP_SIDE) {
+                return;
             }
-
-            @Override
-            public boolean update(AutoContext ctx) {
-                if (!AutoSelection.pair() || ctx.ownCellGivenUp || ctx.shotCellUp()
-                        || !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE) {
-                    return true;
-                }
-                if (secondFirst || ctx.now() - startS >= capS
-                        || ctx.timeLeft() <= AutoConstants.GIVE_UP_AT_TIME_LEFT_S) {
-                    boolean seesHive = ctx.lastCellReadS >= 0
-                            && ctx.now() - ctx.lastCellReadS <= AutoConstants.BLIND_READ_MAX_AGE_S;
-                    if (secondFirst && !seesHive) {
-                        // No camera read of the HIVE: do not trust the starting belief. The
-                        // partner agreed to shoot first, so take it that it tipped the HIVE.
-                        ctx.upSide = AutoSelection.ownSide(ctx.alliance);
-                    } else {
-                        ctx.ownCellGivenUp = true;
-                    }
-                    return true;
-                }
-                return false;
+            boolean seesHive = ctx.lastCellReadS >= 0
+                    && ctx.now() - ctx.lastCellReadS <= AutoConstants.BLIND_READ_MAX_AGE_S;
+            if (!seesHive) {
+                ctx.upSide = AutoSelection.ownSide(ctx.alliance);
             }
-
-            @Override
-            public String name() {
-                return name;
-            }
-        };
+        });
     }
 
     /** Choose between two steps when this step starts. Either may be null (skip). */
@@ -400,12 +373,6 @@ public final class Steps {
             double dt = now - lastS;
             lastS = now;
 
-            // In a pair our burst (or the partner's) tipped the HIVE: this CELL is down, and
-            // the partner now shoots the other one. Stop; the rest waits for the next turn.
-            if (ctx.upSide != aimedAt && AutoSelection.pair() && !ctx.ownCellGivenUp) {
-                ctx.robot.shootSequence.cancel();
-                return true;
-            }
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;

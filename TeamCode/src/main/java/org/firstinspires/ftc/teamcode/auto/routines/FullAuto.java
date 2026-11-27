@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
 import static org.firstinspires.ftc.teamcode.auto.Steps.awaitCamera;
-import static org.firstinspires.ftc.teamcode.auto.Steps.awaitShotCell;
+import static org.firstinspires.ftc.teamcode.auto.Steps.assumePartnerTipped;
 import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
@@ -53,6 +53,7 @@ public final class FullAuto {
         // there is nothing useful to collect meanwhile. After the wait SECOND runs the same
         // loop as SOLO: shoot the up CELL from its spot, collect, shoot again, then park.
         steps.add(startDelay());
+        steps.add(assumePartnerTipped());
 
         // Pre-loads, from the start pose with no driving, unless that pose cannot score into
         // the CELL that is up now (the HIVE tipped while we waited, or start B with the
@@ -201,11 +202,6 @@ public final class FullAuto {
     // The drivetrain is never commanded; only the turret aims.
     private static AutoStep shootHere() {
         return sequence("shoot here",
-                // In a pair: shoot only when our CELL is up (the partner's burst flips it).
-                awaitShotCell("wait for our CELL", AutoConstants.OWN_CELL_WAIT_S),
-                when("gave up on our CELL",
-                        c -> c.plannedSide != null && c.shotSide() != c.plannedSide,
-                        driveToShot(), null),
                 spinUp(true),
                 shoot(),
                 when("after a tip", c -> c.shotInterrupted,
@@ -216,11 +212,14 @@ public final class FullAuto {
                 when("tip settle",
                         c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
                                 && c.cycles > c.cycleIndex && mayCycle(c)
+                                && c.mayHaveTipped()
                                 && chooseSource(c, c.cycleIndex) != null,
                         awaitCamera("tip check",
                                 c -> c.now() + AutoConstants.TIP_SETTLE_MIN_S,
                                 AutoConstants.TIP_SETTLE_S),
-                        null));
+                        null),
+                // No camera read of the HIVE: believe the ball count (4, then 8).
+                instant("tip belief", AutoContext::settleTipBelief));
     }
 
     // Drive to the spot for the CELL up now, then check the camera once more on arrival: if
@@ -259,12 +258,12 @@ public final class FullAuto {
     }
 
     // The spot for this CELL as {x, y, heading}, red frame. In a pair each robot shoots into
-    // the CELL nearest its start from the straight-on spot. Once it has given up on that
-    // CELL it shoots into the partner's, from the offset spot, because the partner is
-    // sitting at its own straight-on spot.
+    // whichever CELL is up: the one nearest its start from the straight-on spot, the other
+    // from the offset spot, because the partner is sitting at its own straight-on spot.
     private static double[] spotFor(AutoContext c, CellSide cell) {
         AutoSelection.Slot slot = !AutoSelection.pair() ? AutoSelection.slot
-                : c.ownCellGivenUp ? AutoSelection.Slot.SECOND : AutoSelection.Slot.SOLO;
+                : cell == AutoSelection.ownSide(c.alliance) ? AutoSelection.Slot.SOLO
+                : AutoSelection.Slot.SECOND;
         return ShotSpots.spot(cell, slot);
     }
 
