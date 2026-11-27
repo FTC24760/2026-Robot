@@ -248,7 +248,8 @@ public final class Steps {
                         || !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE) {
                     return true;
                 }
-                if (ctx.now() - startS >= capS) {
+                if (ctx.now() - startS >= capS
+                        || ctx.timeLeft() <= AutoConstants.GIVE_UP_AT_TIME_LEFT_S) {
                     ctx.ownCellGivenUp = true;
                     return true;
                 }

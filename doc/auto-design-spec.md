@@ -183,6 +183,8 @@ Ideal plan (every 4-ball burst scores and tips the HIVE; only POLLEN, NECTAR is 
 
 Pair handshake (FIRST or SECOND): each robot shoots only into the CELL nearest its start (A: audience CELL, B: far CELL; `AutoSelection.ownSide`, `AutoContext.shotSide`) from the straight-on spot, and only while that CELL is up. Each burst tips the HIVE, which frees the partner. Turns alternate F S F S F, so the up CELL before each burst is RIGHT, LEFT, RIGHT, LEFT, RIGHT, and neither robot drives to the other side. A robot whose CELL is down waits (`awaitShotCell`, at most `OWN_CELL_WAIT_S`, then `ownCellGivenUp`: shoot at whichever CELL is up, with the old SECOND offset spot). A tip during our own burst ends the burst. FIRST no longer parks after its pre-loads; `noTipPlan` now only controls whether SECOND waits for a tip or for its delay. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
 
+Not-so-ideal, FIRST (the same rule, shown on a miss): the pre-loads do not tip, so FIRST's CELL is still up and it shoots the GARDEN balls at it with no wait. If that burst tips, the partner shoots its pre-loads, collects the back FLOWER and shoots again. If that tips, FIRST's CELL is up again and FIRST shoots the wall-FLOWER balls. If it does not, FIRST stops waiting after `OWN_CELL_WAIT_S`, or at `GIVE_UP_AT_TIME_LEFT_S` left (the latest time to drive over, shoot and still park), drives to the other CELL's offset spot (not the partner's straight-on spot), shoots, then parks (reserve window).
+
 By tips (side after each observed tip; the table assumes every tip is seen):
 
 | tips | up | SOLO | FIRST, LEAVE | FIRST, STAY | SECOND |

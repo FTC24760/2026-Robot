@@ -216,9 +216,10 @@ public final class FullAuto {
     // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
     private static Pose shotPose(AutoContext c, CellSide cell) {
         // In a pair each robot shoots into the CELL nearest its start from the straight-on
-        // spot; the offset spots are only for shooting into the partner's CELL.
-        AutoSelection.Slot slot = AutoSelection.pair() && !c.ownCellGivenUp
-                ? AutoSelection.Slot.SOLO : AutoSelection.slot;
+        // spot. Once it has given up on that CELL it shoots into the partner's, from the
+        // offset spot, because the partner is sitting at its own straight-on spot.
+        AutoSelection.Slot slot = !AutoSelection.pair() ? AutoSelection.slot
+                : c.ownCellGivenUp ? AutoSelection.Slot.SECOND : AutoSelection.Slot.SOLO;
         double[] s = ShotSpots.spot(cell, slot);
         return c.pose(s[0], s[1], s[2]);
     }

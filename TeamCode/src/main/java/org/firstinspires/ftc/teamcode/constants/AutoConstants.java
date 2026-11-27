@@ -166,6 +166,10 @@ public class AutoConstants {
     // How long to wait for it to come up before giving up and shooting at whichever is up.
     // PLACEHOLDER: set from a timed run with the partner.
     public static double OWN_CELL_WAIT_S = 6;
+    // Stop waiting at this much of the auto left, whatever OWN_CELL_WAIT_S says: it is the
+    // last moment to drive to the other CELL's spot, shoot and still bank PARK (the reserve
+    // window starts at RESERVE_TIME_LEFT_S). PLACEHOLDER: time the trip and a burst.
+    public static double GIVE_UP_AT_TIME_LEFT_S = 14;
 
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
