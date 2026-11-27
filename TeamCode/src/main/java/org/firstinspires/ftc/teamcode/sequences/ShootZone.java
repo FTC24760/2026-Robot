@@ -22,6 +22,7 @@ public class ShootZone {
     private boolean inZone;
     private boolean readyToFire;
     private boolean wasReadyToFire;
+    private boolean wasUnconfirmed;
     private boolean ledSet;
     private double lastRumbleS = -1e9;
     // Set by the stop button: no pre-spin until the robot has left the zone.
@@ -31,6 +32,8 @@ public class ShootZone {
     private boolean reloadDisarmed;
     private boolean wasShootActive;
     private boolean fedThisShot;
+    private boolean shotEnded;
+    private boolean upStateUnconfirmed;
     private double intakeSinceShotS;
 
     public ShootZone(Gamepad driver, Gamepad operator) {
@@ -49,6 +52,21 @@ public class ShootZone {
     /** True once the driver feedback has started (TeleOp only; Auto never updates it). */
     public boolean isFeedbackShown() {
         return ledSet;
+    }
+
+    /**
+     * True while in the zone, loaded and otherwise ready, but waiting for a recent read of
+     * which CELL is up. The shoot button still works.
+     */
+    public boolean isUpStateUnconfirmed() {
+        return upStateUnconfirmed;
+    }
+
+    /** True once after a shot that fed balls ends (the HIVE may have tipped). */
+    public boolean takeShotEnded() {
+        boolean ended = shotEnded;
+        shotEnded = false;
+        return ended;
     }
 
     /** True while disarmed after a shot, waiting for the robot to reload or leave the zone. */
@@ -76,9 +94,11 @@ public class ShootZone {
      * @param aimReady       Robot.aimReady()
      * @param wheelAtSpeed   Shooter.isReadyToFeed()
      * @param shootActive    a shoot sequence is running (no rumble then)
+     * @param upStateKnown   the camera or driver recently said which CELL is up
      */
     public void update(double distanceIn, double offAxisDeg, boolean aimReady,
-                       boolean wheelAtSpeed, boolean shootActive, double nowS) {
+                       boolean wheelAtSpeed, boolean shootActive, boolean upStateKnown,
+                       double nowS) {
         // Hysteresis: easier to stay in than to get in.
         inZone = ShotZoneGeometry.inZone(distanceIn, offAxisDeg, inZone);
         if (!inZone) {
@@ -88,7 +108,9 @@ public class ShootZone {
 
         boolean wheelOk = !ShootGateConstants.PRESPIN_IN_ZONE || prespinSuppressed
                 || wheelAtSpeed;
-        readyToFire = inZone && !reloadDisarmed && aimReady && wheelOk;
+        boolean otherwiseReady = inZone && !reloadDisarmed && aimReady && wheelOk;
+        readyToFire = otherwiseReady && upStateKnown;
+        upStateUnconfirmed = otherwiseReady && !upStateKnown;
 
         // Rumble on becoming ready, but not again within READY_RUMBLE_COOLDOWN_S, so a
         // readiness that flickers (e.g. speed near the limit) does not buzz constantly.
@@ -99,14 +121,17 @@ public class ShootZone {
             operator.rumble(ShootGateConstants.READY_RUMBLE_MS);
             lastRumbleS = nowS;
         }
-        if (ShootGateConstants.READY_LED && (readyToFire != wasReadyToFire || !ledSet)) {
+        if (ShootGateConstants.READY_LED && (readyToFire != wasReadyToFire
+                || upStateUnconfirmed != wasUnconfirmed || !ledSet)) {
+            // Green ready, amber waiting for the up CELL, red not ready.
             double red = readyToFire ? 0 : 1;
-            double green = readyToFire ? 1 : 0;
+            double green = readyToFire ? 1 : upStateUnconfirmed ? 0.5 : 0;
             driver.setLedColor(red, green, 0, Gamepad.LED_DURATION_CONTINUOUS);
             operator.setLedColor(red, green, 0, Gamepad.LED_DURATION_CONTINUOUS);
             ledSet = true;
         }
         wasReadyToFire = readyToFire;
+        wasUnconfirmed = upStateUnconfirmed;
     }
 
     /**
@@ -118,6 +143,7 @@ public class ShootZone {
                                    boolean intaking, double loopSeconds) {
         fedThisShot |= feeding;
         if (wasShootActive && !shootActive) {
+            shotEnded |= fedThisShot;
             if (fedThisShot && !stopShot && ShootGateConstants.REARM_INTAKE_S > 0) {
                 reloadDisarmed = true;
                 intakeSinceShotS = 0;

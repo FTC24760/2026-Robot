@@ -24,6 +24,8 @@ public class OperatorControls {
     private boolean rpmDownPressed;
     private final EdgeDetector flowerToggle = new EdgeDetector();
     private final EdgeDetector aimToggle = new EdgeDetector();
+    private final EdgeDetector flipCell = new EdgeDetector();
+    private boolean flipCellPressed;
 
     private boolean shootPressed;
     private boolean flowerTogglePressed;
@@ -46,6 +48,7 @@ public class OperatorControls {
         flowerTogglePressed = flowerToggle.rose(pad.y);
         aimTogglePressed = aimToggle.rose(pad.a);
         pulseTogglePressed = pulseToggle.rose(pad.x);
+        flipCellPressed = flipCell.rose(pad.dpad_right);
     }
 
     /** X: switch pulse shooting on/off. */
@@ -73,6 +76,11 @@ public class OperatorControls {
 
     public boolean flowerTogglePressed() {
         return flowerTogglePressed;
+    }
+
+    /** D-pad right: aim at the other CELL when the camera cannot say which is up. */
+    public boolean flipCellPressed() {
+        return flipCellPressed;
     }
 
     public boolean aimTogglePressed() {

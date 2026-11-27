@@ -161,6 +161,12 @@ There is one Limelight 3A, mounted on the chassis, with no pan servo (a pan serv
 - the odometry-based plan is the fallback whenever the camera has no view (timeouts in `Steps.awaitCamera` end at once without a sighting);
 - redirecting mid-drive on a tip seen en route is not possible and is out of scope.
 
+## TeleOp ready-to-fire and the up/down state
+
+Ready = in the shot zone (distance ring and approach angle) AND loaded (intake ran `REARM_INTAKE_S` since the last shot, or the robot left and re-entered the zone) AND the up/down state is confirmed. The driver presses shoot; there is no auto-fire.
+
+The turret and hood always aim at the believed-up CELL from odometry (`HiveTracker` remembers the field position). The camera is fixed, so it only reads the HIVE while the chassis faces it; what odometry cannot know is whether the HIVE has tipped. `ShootGateConstants.UPSIDE_CHECK` therefore requires the last camera read of our CELLS (up or down) to be at most `UPSIDE_MAX_AGE_S` old and to be later than the last shot that fed balls. A normal cycle passes or drives under the HIVE before reaching the zone, so the read is fresh. A down-read of one CELL switches the aim to the other (known field point from `AutoConstants`). If no recent read: amber LED, "UP CELL UNCONFIRMED", no rumble; the shoot button still works and D-pad right (driver or operator) flips the aimed CELL, which counts as a read until the camera disagrees. The age of the read is logged (`ShootZone` tag) each time the ready signal fires, to set `UPSIDE_MAX_AGE_S`.
+
 ### SECOND (partner shoots first), after the delay
 
 Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive to the up CELL's offset spot on the partner's side (`ShotSpots`) and shoot; if our shots tip it, the next trip goes to the other CELL's spot on our side; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.

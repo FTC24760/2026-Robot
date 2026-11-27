@@ -17,6 +17,9 @@ import org.firstinspires.ftc.teamcode.subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.subsystems.Turret;
 import org.firstinspires.ftc.teamcode.subsystems.Vision;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
+import org.firstinspires.ftc.teamcode.utils.HiveCell;
+import org.firstinspires.ftc.teamcode.utils.HiveSide;
 import org.firstinspires.ftc.teamcode.utils.HiveTracker;
 import org.firstinspires.ftc.teamcode.utils.MathUtil;
 import org.firstinspires.ftc.teamcode.utils.ShotTable;
@@ -40,7 +43,6 @@ public class AimController {
     // Where the upward-facing CELL of our HIVE is on the field, from the camera and
     // odometry; null without auto-aim.
     private HiveTracker hiveTracker;
-    // Optional servo that keeps the camera facing the HIVE; null if not enabled or missing.
     private Alliance alliance;
     // True while the turret should follow hiveTracker.
     private boolean aiming;
@@ -80,6 +82,78 @@ public class AimController {
 
     public Vision getVision() {
         return vision;
+    }
+
+    /** True if the up/down state is current (see ShootGateConstants.UPSIDE_CHECK). */
+    public boolean upStateConfirmed(long nowNs) {
+        return hiveTracker == null || !ShootGateConstants.UPSIDE_CHECK
+                || hiveTracker.upStateConfirmed(nowNs);
+    }
+
+    /** Seconds since the camera or driver last said which CELL is up; NaN if never. */
+    public double upStateAgeS(long nowNs) {
+        return hiveTracker == null ? Double.NaN : hiveTracker.upStateAgeS(nowNs);
+    }
+
+    /** A shot that fed balls ended: the HIVE may have tipped, so wait for a new read. */
+    public void noteShotFed(long nowNs) {
+        if (hiveTracker != null) {
+            hiveTracker.noteShot(nowNs);
+        }
+    }
+
+    /**
+     * Driver override while the camera cannot say: aim at the other CELL (or the right one,
+     * which starts up, if none is tracked). Counts as a read until the camera disagrees.
+     */
+    public void flipUpCell(long nowNs) {
+        if (hiveTracker == null) {
+            return;
+        }
+        HiveCell now = hiveTracker.getCell();
+        HiveCell next = now != null ? otherCell(now)
+                : cellAt(CellSide.RIGHT);
+        assumeUp(next, nowNs);
+    }
+
+    // Our CELL on the other end of the HIVE.
+    private HiveCell otherCell(HiveCell cell) {
+        return cellOf(cell.alliance, cell.side.other());
+    }
+
+    private HiveCell cellAt(CellSide side) {
+        for (HiveCell c : HiveCell.values()) {
+            if (c.alliance == alliance && CellSide.of(alliance, c.side) == side) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    private static HiveCell cellOf(Alliance alliance, HiveSide side) {
+        for (HiveCell c : HiveCell.values()) {
+            if (c.alliance == alliance && c.side == side) {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    // Aim at this CELL from the field points in AutoConstants (red frame, flipped for blue)
+    // and take it as read now.
+    private void assumeUp(HiveCell cell, long nowNs) {
+        if (cell == null || cell.alliance != alliance) {
+            return;
+        }
+        boolean left = CellSide.of(alliance, cell.side) == CellSide.LEFT;
+        double x = left ? AutoConstants.LEFT_CELL_X : AutoConstants.RIGHT_CELL_X;
+        double y = left ? AutoConstants.LEFT_CELL_Y : AutoConstants.RIGHT_CELL_Y;
+        if (alliance == Alliance.BLUE) {
+            x = AutoConstants.FIELD_SIZE_IN - x;
+            y = AutoConstants.FIELD_SIZE_IN - y;
+        }
+        hiveTracker.assume(cell, x, y, nowNs);
+        hiveTracker.noteRead(nowNs);
     }
 
     /** The robot's pose was reset: move the remembered CELL position with it. */
@@ -123,10 +197,14 @@ public class AimController {
         // Only aim at a CELL that is facing up; the other one cannot be scored in.
         Vision.Fix fix = vision.getFix();
         if (fix != null) {
+            hiveTracker.noteRead(fix.captureNs);
             if (fix.cellUp) {
                 hiveTracker.addSighting(fix, turret.getAngleDeg());
             } else {
+                // The two CELLS are joined: this one down means the other is up. Keep aiming
+                // at it from its known position until the camera sees it.
                 hiveTracker.sawCellDown(fix.sighting.cell);
+                assumeUp(otherCell(fix.sighting.cell), nowNs);
             }
         }
 
@@ -247,6 +325,9 @@ public class AimController {
         if (rpmTrim != 0) {
             telemetry.addData("RPM trim", "%+.0f", rpmTrim);
         }
+        double readAge = upStateAgeS(nowNs);
+        telemetry.addData("Up/down read age", Double.isNaN(readAge) ? "never"
+                : String.format("%.1f s%s", readAge, upStateConfirmed(nowNs) ? "" : " (stale)"));
         if (aiming) {
             telemetry.addData("Aim source", hiveTracker.seesTarget(nowNs)
                     ? "camera" : "odometry (camera lost it)");

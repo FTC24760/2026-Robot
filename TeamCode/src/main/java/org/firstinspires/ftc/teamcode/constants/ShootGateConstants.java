@@ -55,6 +55,14 @@ public class ShootGateConstants {
     // has run this long since the shot, or the robot leaves the zone. There is no ball
     // sensor, so this stands in for "reloaded". PLACEHOLDER: time a real reload. 0 = off.
     public static double REARM_INTAKE_S = 2.0;
+    // The ready signal also needs to know which CELL is up. The camera is fixed, so it only
+    // reads the HIVE while the chassis faces it; the up/down state is trusted for this long
+    // after the last read, and only if that read came after the last shot (a burst may have
+    // tipped the HIVE). Otherwise the zone shows "UP CELL UNCONFIRMED" (amber, no rumble);
+    // the shoot button still works, and the driver can press D-pad right to flip the cell.
+    // PLACEHOLDER: set from the read ages logged at each ready signal. false = off.
+    public static boolean UPSIDE_CHECK = true;
+    public static double UPSIDE_MAX_AGE_S = 8;
     // Rumble the driver and operator gamepads for this long when the robot becomes ready.
     public static int READY_RUMBLE_MS = 250;
     public static double READY_RUMBLE_COOLDOWN_S = 2.0;

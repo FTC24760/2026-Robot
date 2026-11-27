@@ -6,6 +6,7 @@ import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
@@ -94,6 +95,7 @@ public class Robot {
     private AimController aim;
     // TeleOp shooting zone and the "ready to fire" signal.
     private ShootZone zone;
+    private boolean wasReady;
     /** Feed in timed push/retract pulses while shooting. Operator X in teleop. */
     public boolean pulseShoot = true;
     private double pulseStartS = -1;
@@ -294,6 +296,9 @@ public class Robot {
         if (operator.pulseTogglePressed()) {
             pulseShoot = !pulseShoot;
         }
+        if (controls.flipCellPressed() || operator.flipCellPressed()) {
+            aim.flipUpCell(nowNs);
+        }
         if (controls.flowerTogglePressed() || operator.flowerTogglePressed()) {
             flowerArm.toggle();
         }
@@ -321,8 +326,16 @@ public class Robot {
 
         updateDrive();
         runTeleopTurret();
+        if (zone.takeShotEnded()) {
+            aim.noteShotFed(nowNs);
+        }
         zone.update(targetDistanceIn(), targetOffAxisDeg(), aimReady(), shooter.isReadyToFeed(),
-                shootSequence.isActive(), nowSeconds());
+                shootSequence.isActive(), aim.upStateConfirmed(nowNs), nowSeconds());
+        if (zone.isReadyToFire() && !wasReady) {
+            // To set UPSIDE_MAX_AGE_S: how old was the up/down read each time we signalled?
+            RobotLog.ii("ShootZone", "READY, up/down read age %.1f s", aim.upStateAgeS(nowNs));
+        }
+        wasReady = zone.isReadyToFire();
 
         // Intake and transfer, highest priority first.
         boolean pulsing = pulseActive(shootSequence.inFeedingStage() && aimReady());
@@ -566,6 +579,9 @@ public class Robot {
                         : targetOffAxisDeg() > ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
                         ? String.format("Not ready: bad angle (%.0f deg off the opening)", targetOffAxisDeg())
                         : "Not ready: outside shooting zone");
+ } else if (zone.isUpStateUnconfirmed()) {
+                telemetry.addLine("UP CELL UNCONFIRMED (no recent camera read): D-pad right flips"
+                        + " the cell, or shoot anyway");
             } else {
                 String blocked = aimBlockReason();
                 telemetry.addLine("In zone, not ready: " + (zone.isReloading() ? "reloading (run intake or leave the zone)"

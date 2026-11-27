@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.utils;
 import com.pedropathing.math.Pose;
 import com.pedropathing.math.Velocity;
 
+import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.constants.TurretConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Vision;
@@ -33,6 +34,12 @@ public class HiveTracker {
     private double fieldX, fieldY; // inches
     private double tagHeightM;
     private long lastVisionNs;
+    // Up/down knowledge, separate from where the CELL is. lastReadNs: the camera (or the
+    // driver) last said which CELL is up; lastShotNs: the last shot that fed balls, which
+    // may have tipped the HIVE. 0 = never. assumedNs: the target was set without a sighting.
+    private long lastReadNs;
+    private long lastShotNs;
+    private long assumedNs;
 
     /** Record the odometry pose and when it was read. Call once per loop. */
     public void recordPose(long ns, Pose pose) {
@@ -89,6 +96,40 @@ public class HiveTracker {
         lastVisionNs = fix.captureNs;
     }
 
+    /** The camera (or the driver) read which CELL is up, at this time. */
+    public void noteRead(long ns) {
+        lastReadNs = Math.max(lastReadNs, ns);
+    }
+
+    /** A shot that fed balls ended: the HIVE may have tipped, so earlier reads are stale. */
+    public void noteShot(long ns) {
+        lastShotNs = ns;
+    }
+
+    /**
+     * Point the target at this CELL at a known field position without seeing it (the other
+     * CELL after a down-read, or the driver's flip). The camera replaces it on the next
+     * sighting.
+     */
+    public void assume(HiveCell assumed, double x, double y, long nowNs) {
+        has = true;
+        cell = assumed;
+        fieldX = x;
+        fieldY = y;
+        assumedNs = nowNs;
+    }
+
+    /** True if a read after the last shot is no older than UPSIDE_MAX_AGE_S. */
+    public boolean upStateConfirmed(long nowNs) {
+        return lastReadNs > 0 && lastReadNs > lastShotNs
+                && (nowNs - lastReadNs) * 1e-9 <= ShootGateConstants.UPSIDE_MAX_AGE_S;
+    }
+
+    /** Seconds since the last read of which CELL is up; NaN if never. */
+    public double upStateAgeS(long nowNs) {
+        return lastReadNs > 0 ? (nowNs - lastReadNs) * 1e-9 : Double.NaN;
+    }
+
     /** The camera saw this CELL facing down: the remembered target is no longer valid. */
     public void sawCellDown(HiveCell downCell) {
         if (has && cell == downCell) {
@@ -139,7 +180,7 @@ public class HiveTracker {
             return false;
         }
         double maxS = VisionConstants.ODOMETRY_FALLBACK_MAX_S;
-        return maxS <= 0 || (nowNs - lastVisionNs) * 1e-9 <= maxS;
+        return maxS <= 0 || (nowNs - Math.max(lastVisionNs, assumedNs)) * 1e-9 <= maxS;
     }
 
     /** True if the camera has seen the target recently (not just remembered). */
