@@ -46,6 +46,14 @@ public class AutoContext {
                 ? AutoSelection.ownSide(alliance) : upSide;
     }
 
+    /**
+     * The CELL whose shot spot the robot is at (or last drove to). Before the first trip it
+     * is at its start pose, which is the spot for the CELL nearest the start.
+     */
+    public CellSide spotSide() {
+        return plannedSide != null ? plannedSide : AutoSelection.ownSide(alliance);
+    }
+
     /** True if the CELL we shoot into next is up now. */
     public boolean shotCellUp() {
         return shotSide() == upSide;

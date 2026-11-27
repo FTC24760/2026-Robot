@@ -135,9 +135,10 @@ public final class FullAuto {
             default:
                 return false;
         }
-        // Alone, the burst before this cycle tipped the HIVE, so the next one is at the other
-        // CELL's spot. In a pair each robot comes back to its own CELL.
-        double cross = AutoSelection.pair() ? 0 : AutoConstants.CROSS_TRIP_S;
+        // The trip to the next burst crosses the field only if that CELL's spot is not where
+        // we are. Judged from what the camera showed after the last burst: a burst that did
+        // not tip leaves the same CELL up, so there is no cross trip to pay for.
+        double cross = c.shotSide() != c.spotSide() ? AutoConstants.CROSS_TRIP_S : 0;
         return c.timeLeft() >= cost + cross + AutoConstants.BURST_S + AutoConstants.PARK_TRIP_S
                 + AutoConstants.CYCLE_MARGIN_S;
     }
