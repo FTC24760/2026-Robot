@@ -150,14 +150,22 @@ public class AutoConstants {
     public enum CycleSource {
         WALL_FLOWER,
         GARDEN,
-        BACK_FLOWER
+        BACK_FLOWER,
+        /** No cycle: the slot has no more POLLEN to take. */
+        NONE
     }
 
-    // The field holds 20 POLLEN for the auto: 4 pre-loads on each robot and the rest at the
-    // GARDEN and the two FLOWERS (one cycle each). A partner that also cycles empties them.
-    // With both robots active SECOND takes the sources in the opposite order to FIRST/SOLO,
-    // so the two start at opposite ends of the list and only meet if both do 2+ cycles.
-    public static boolean SECOND_COLLECTS_REVERSED = true;
+    // Planned split (ideal case, nothing missed): SOLO takes the GARDEN then the back
+    // FLOWER; FIRST the GARDEN then the wall FLOWER; SECOND the back FLOWER. The 20 POLLEN
+    // are 4 pre-loaded on each robot and one cycle (4) at each source.
+    public static CycleSource[] SOLO_SOURCES = {CycleSource.GARDEN, CycleSource.BACK_FLOWER, CycleSource.NONE};
+    public static CycleSource[] FIRST_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
+    public static CycleSource[] SECOND_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};
+    // FIRST and SECOND each shoot only into the CELL nearest their start (A: audience CELL,
+    // B: far CELL), and only while it is up; each burst tips it and so frees the partner.
+    // How long to wait for it to come up before giving up and shooting at whichever is up.
+    // PLACEHOLDER: set from a timed run with the partner.
+    public static double OWN_CELL_WAIT_S = 6;
 
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
@@ -178,10 +186,6 @@ public class AutoConstants {
     public static double SECOND_GO_ANYWAY_LEFT_S = 15;
     public static double START_DELAY_STEP_S = 0.5;
     public static double MAX_START_DELAY_S = 15.0;
-    // The order they run in. Default: nearest first.
-    public static CycleSource CYCLE_1 = CycleSource.GARDEN;
-    public static CycleSource CYCLE_2 = CycleSource.WALL_FLOWER;
-    public static CycleSource CYCLE_3 = CycleSource.BACK_FLOWER;
     // Skip a cycle that starts with less than this much of the auto left.
     public static double CYCLE_MIN_TIME_LEFT_S = 9;
 

@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.auto;
 
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.utils.Alliance;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
+import org.firstinspires.ftc.teamcode.utils.HiveSide;
 
 /**
  * What the drive team chose on the init menu. Static, so the choices survive from one
@@ -57,6 +60,19 @@ public final class AutoSelection {
     /** SECOND, delay over, no tip yet: keep waiting for the partner to tip it? */
     public static boolean secondWaitsForTip() {
         return slot == Slot.SECOND && noTipPlan == NoTipPlan.STAY;
+    }
+
+    /** FIRST or SECOND: the partner shoots into the same HIVE. */
+    public static boolean pair() {
+        return slot != Slot.SOLO;
+    }
+
+    /**
+     * The CELL nearest this start, which a robot in a pair shoots into: preset A (audience
+     * wall) the AUDIENCE CELL, B (far wall) the FAR CELL.
+     */
+    public static CellSide ownSide(Alliance alliance) {
+        return CellSide.of(alliance, preset == StartPreset.A ? HiveSide.AUDIENCE : HiveSide.FAR);
     }
 
     /** How long to wait before the pre-loads, given the slot. */

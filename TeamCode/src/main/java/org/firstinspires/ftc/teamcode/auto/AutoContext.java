@@ -31,6 +31,23 @@ public class AutoContext {
      */
     public int tips;
 
+    /** Pair mode: the own CELL did not come up in time, so shoot at whichever is up. */
+    public boolean ownCellGivenUp;
+
+    /**
+     * The CELL to shoot into next. In a pair (FIRST or SECOND) it is the CELL nearest our
+     * start, whether or not it is up yet (we wait for it); alone it is whichever is up.
+     */
+    public CellSide shotSide() {
+        return AutoSelection.pair() && !ownCellGivenUp
+                ? AutoSelection.ownSide(alliance) : upSide;
+    }
+
+    /** True if the CELL we shoot into next is up now. */
+    public boolean shotCellUp() {
+        return shotSide() == upSide;
+    }
+
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
 
@@ -83,6 +100,7 @@ public class AutoContext {
     void markStart(double nowS) {
         startS = nowS;
         tips = 0;
+        ownCellGivenUp = false;
     }
 
     /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */

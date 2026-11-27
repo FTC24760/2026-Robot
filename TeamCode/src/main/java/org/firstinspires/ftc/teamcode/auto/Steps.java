@@ -225,7 +225,41 @@ public final class Steps {
      * driver's choice, or the start default.
      */
     public static AutoStep byUpSide(AutoStep leftUp, AutoStep rightUp) {
-        return when("by up CELL", ctx -> ctx.upSide == CellSide.LEFT, leftUp, rightUp);
+        return when("by shot CELL", ctx -> ctx.shotSide() == CellSide.LEFT, leftUp, rightUp);
+    }
+
+    /**
+     * In a pair, wait until the CELL we shoot into is up (the partner's burst flips it), at
+     * most {@code capS}; then give up on it and shoot at whichever is up. Ends at once alone,
+     * without a camera, or when it is already up.
+     */
+    public static AutoStep awaitShotCell(String name, double capS) {
+        return new AutoStep() {
+            private double startS;
+
+            @Override
+            public void start(AutoContext ctx) {
+                startS = ctx.now();
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                if (!AutoSelection.pair() || ctx.ownCellGivenUp || ctx.shotCellUp()
+                        || !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE) {
+                    return true;
+                }
+                if (ctx.now() - startS >= capS) {
+                    ctx.ownCellGivenUp = true;
+                    return true;
+                }
+                return false;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+        };
     }
 
     /** Choose between two steps when this step starts. Either may be null (skip). */
@@ -352,6 +386,12 @@ public final class Steps {
             double dt = now - lastS;
             lastS = now;
 
+            // In a pair our burst (or the partner's) tipped the HIVE: this CELL is down, and
+            // the partner now shoots the other one. Stop; the rest waits for the next turn.
+            if (ctx.upSide != aimedAt && AutoSelection.pair() && !ctx.ownCellGivenUp) {
+                ctx.robot.shootSequence.cancel();
+                return true;
+            }
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;

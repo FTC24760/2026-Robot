@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
 import static org.firstinspires.ftc.teamcode.auto.Steps.awaitCamera;
+import static org.firstinspires.ftc.teamcode.auto.Steps.awaitShotCell;
 import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
@@ -56,24 +57,20 @@ public final class FullAuto {
         // the CELL that is up now (the HIVE tipped while we waited, or start B with the
         // audience CELL up): then drive to the shot spot first.
         steps.add(when("start pose in zone?",
-                c -> AutoConstants.DRIVE_TO_ZONE_FIRST && !c.inZoneNow(c.upSide),
+                c -> AutoConstants.DRIVE_TO_ZONE_FIRST && !c.inZoneNow(c.shotSide()),
                 driveToShot(), null));
         steps.add(shootHere());
 
-        CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
-
-        for (int i = 0; i < order.length; i++) {
+        for (int i = 0; i < 3; i++) {
             int number = i + 1;
-            CycleSource source = order[i];
-            CycleSource reversed = order[order.length - 1 - i];
+            int index = i;
             steps.add(when("cycle " + number,
                     c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
-                            && mayCycle(c),
-                    sequence("cycle " + number + " " + source,
+                            && mayCycle(c) && sourceFor(index) != CycleSource.NONE,
+                    sequence("cycle " + number,
                             // Chosen when the step starts: the slot is picked after the
                             // routine is built, in the init menu.
-                            when("source by slot", FullAuto::collectsReversed,
-                                    collect(reversed), collect(source)),
+                            collectNumber(index),
                             intake(Intake.Mode.OFF),
                             shootCycle()),
                     null));
@@ -100,21 +97,32 @@ public final class FullAuto {
                 .withReserve(driveToPark());
     }
 
-    // FIRST leaves the area to the partner: it cycles only if we agreed to stay until the
-    // HIVE tips (AutoSelection.noTipPlan), and stops as soon as it has tipped. SOLO and
-    // SECOND cycle as long as there is time.
+    // Every slot cycles through its own sources while there is time (see sourceFor). FIRST no
+    // longer parks after its pre-loads: the pair take turns on the two CELLS (shotSide).
     private static boolean mayCycle(AutoContext c) {
-        if (AutoSelection.slot != AutoSelection.Slot.FIRST) {
-            return true;
-        }
-        return AutoSelection.firstStaysUntilTip() && !c.tippedSinceStart();
+        return true;
     }
 
-    // SECOND, with both robots active, takes the sources in the opposite order (the GARDEN
-    // and the two FLOWERS hold the only POLLEN besides the pre-loads).
-    private static boolean collectsReversed(AutoContext c) {
-        return AutoSelection.slot == AutoSelection.Slot.SECOND
-                && AutoConstants.SECOND_COLLECTS_REVERSED;
+    // The source for this cycle (0, 1, 2) in our slot. Read when a step starts, because
+    // the slot is picked in the init menu after the routine is built.
+    private static CycleSource sourceFor(int index) {
+        switch (AutoSelection.slot) {
+            case FIRST:
+                return AutoConstants.FIRST_SOURCES[index];
+            case SECOND:
+                return AutoConstants.SECOND_SOURCES[index];
+            case SOLO:
+            default:
+                return AutoConstants.SOLO_SOURCES[index];
+        }
+    }
+
+    private static AutoStep collectNumber(int index) {
+        return when("collect for slot", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
+                collect(AutoConstants.FIRST_SOURCES[index]),
+                when("collect for slot", c -> AutoSelection.slot == AutoSelection.Slot.SECOND,
+                        collect(AutoConstants.SECOND_SOURCES[index]),
+                        collect(AutoConstants.SOLO_SOURCES[index])));
     }
 
     private static AutoStep driveToPark() {
@@ -130,6 +138,8 @@ public final class FullAuto {
             case WALL_FLOWER:
                 return collectFromFlower("wall FLOWER", c -> c.pose(AutoConstants.WALL_FLOWER_X,
                         AutoConstants.WALL_FLOWER_Y, AutoConstants.WALL_FLOWER_H));
+            case NONE:
+                return instant("no source", c -> { });
             case GARDEN:
             default:
                 return sequence("GARDEN",
@@ -152,6 +162,11 @@ public final class FullAuto {
     // The drivetrain is never commanded; only the turret aims.
     private static AutoStep shootHere() {
         return sequence("shoot here",
+                // In a pair: shoot only when our CELL is up (the partner's burst flips it).
+                awaitShotCell("wait for our CELL", AutoConstants.OWN_CELL_WAIT_S),
+                when("gave up on our CELL",
+                        c -> c.plannedSide != null && c.shotSide() != c.plannedSide,
+                        driveToShot(), null),
                 spinUp(true),
                 shoot(),
                 when("after a tip", c -> c.shotInterrupted,
@@ -174,7 +189,7 @@ public final class FullAuto {
     private static AutoStep driveToShot() {
         return sequence("to shot",
                 instant("plan trip", c -> {
-                    c.plannedSide = c.upSide;
+                    c.plannedSide = c.shotSide();
                     c.tripStartS = c.now();
                 }),
                 driveToSpot(),
@@ -183,9 +198,9 @@ public final class FullAuto {
                         sequence("arrival check",
                                 awaitCamera("camera on arrival", c -> c.tripStartS,
                                         AutoConstants.ARRIVE_CHECK_S),
-                                when("tipped on the way", c -> c.upSide != c.plannedSide,
+                                when("tipped on the way", c -> c.shotSide() != c.plannedSide,
                                         sequence("redirect",
-                                                instant("replan", c -> c.plannedSide = c.upSide),
+                                                instant("replan", c -> c.plannedSide = c.shotSide()),
                                                 driveToSpot()),
                                         null)),
                         null));
@@ -200,7 +215,11 @@ public final class FullAuto {
 
     // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
     private static Pose shotPose(AutoContext c, CellSide cell) {
-        double[] s = ShotSpots.spot(cell, AutoSelection.slot);
+        // In a pair each robot shoots into the CELL nearest its start from the straight-on
+        // spot; the offset spots are only for shooting into the partner's CELL.
+        AutoSelection.Slot slot = AutoSelection.pair() && !c.ownCellGivenUp
+                ? AutoSelection.Slot.SOLO : AutoSelection.slot;
+        double[] s = ShotSpots.spot(cell, slot);
         return c.pose(s[0], s[1], s[2]);
     }
 }

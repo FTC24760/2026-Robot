@@ -173,7 +173,15 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips 
 
 DECIDE: (1) `timeLeft` < `CYCLE_MIN_TIME_LEFT_S` or `cycles` = 3 -> PARK; (2) FIRST with LEAVE -> PARK; (3) FIRST with STAY -> PARK once `tips` >= 1, else COLLECT; (4) otherwise COLLECT. `up` never changes the decision, only where GOTO goes.
 
-POLLEN budget: the auto has 20 POLLEN, 4 pre-loaded on each robot and 12 on the field (GARDEN and the two FLOWERS, taken as one cycle each; a robot holds 4). So at most 3 cycles exist for the alliance, not per robot. SOLO (partner parks) can use all three, in `CYCLE_1..3` order. With both robots active, SECOND takes the sources in reverse order (`SECOND_COLLECTS_REVERSED`), so the two start at opposite ends of the list and only collide if both reach a second cycle. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
+Ideal plan (every 4-ball burst scores and tips the HIVE; only POLLEN, NECTAR is ignored): the auto has 20 POLLEN, 4 pre-loaded on each robot and one 4-ball cycle at each of the GARDEN and the two FLOWERS.
+
+| Slot | Collects (`*_SOURCES`) | Bursts |
+|---|---|---|
+| SOLO | GARDEN, back FLOWER | 3: pre-load, GARDEN at the other CELL, back FLOWER at the first CELL again |
+| FIRST (start A) | GARDEN, wall FLOWER | 3: pre-load, GARDEN, wall FLOWER |
+| SECOND (start B) | back FLOWER | 2: pre-load, back FLOWER |
+
+Pair handshake (FIRST or SECOND): each robot shoots only into the CELL nearest its start (A: audience CELL, B: far CELL; `AutoSelection.ownSide`, `AutoContext.shotSide`) from the straight-on spot, and only while that CELL is up. Each burst tips the HIVE, which frees the partner. Turns alternate F S F S F, so the up CELL before each burst is RIGHT, LEFT, RIGHT, LEFT, RIGHT, and neither robot drives to the other side. A robot whose CELL is down waits (`awaitShotCell`, at most `OWN_CELL_WAIT_S`, then `ownCellGivenUp`: shoot at whichever CELL is up, with the old SECOND offset spot). A tip during our own burst ends the burst. FIRST no longer parks after its pre-loads; `noTipPlan` now only controls whether SECOND waits for a tip or for its delay. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
 
 By tips (side after each observed tip; the table assumes every tip is seen):
 
