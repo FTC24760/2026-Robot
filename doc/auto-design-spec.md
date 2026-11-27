@@ -156,7 +156,7 @@ Test points: each preset on each alliance (pose on the field matches the telemet
 
 ## AUTO state machine (draft, up to three tips)
 
-State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips, 0..3, saturating), `cycles` done (max `DEFAULT_CYCLES` = 3), `timeLeft`. A tip is only ever *observed* (the camera sees `up` change, or a burst is interrupted); each observation does `tips++` and `up = other`. `BALLS_TO_TIP` = 0, so no tip is guessed. With no camera read, `up` and `tips` do not change.
+State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips since the start, `AutoContext.tips`), `cycles` done (max `DEFAULT_CYCLES` = 3), `timeLeft`. A tip is only ever *observed* (the camera sees `up` change, or a burst is interrupted); each observation does `tips++` and `up = other`. `BALLS_TO_TIP` = 0, so no tip is guessed. With no camera read, `up` and `tips` do not change.
 
 | State | Does | Leaves to |
 |---|---|---|
@@ -173,6 +173,8 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips,
 
 DECIDE: (1) `timeLeft` < `CYCLE_MIN_TIME_LEFT_S` or `cycles` = 3 -> PARK; (2) FIRST with LEAVE -> PARK; (3) FIRST with STAY -> PARK once `tips` >= 1, else COLLECT; (4) otherwise COLLECT. `up` never changes the decision, only where GOTO goes.
 
+POLLEN budget: the auto has 20 POLLEN, 4 pre-loaded on each robot and 12 on the field (GARDEN and the two FLOWERS, taken as one cycle each; a robot holds 4). So at most 3 cycles exist for the alliance, not per robot. SOLO (partner parks) can use all three, in `CYCLE_1..3` order. With both robots active, SECOND takes the sources in reverse order (`SECOND_COLLECTS_REVERSED`), so the two start at opposite ends of the list and only collide if both reach a second cycle. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
+
 By tips (side after each observed tip; the table assumes every tip is seen):
 
 | tips | up | SOLO | FIRST, LEAVE | FIRST, STAY | SECOND |
@@ -180,9 +182,9 @@ By tips (side after each observed tip; the table assumes every tip is seen):
 | 0 | RIGHT | shoot pre-loads, cycle | pre-loads, park | pre-loads, cycle | wait; if no tip by the delay, go to RIGHT's offset spot on the partner's side |
 | 1 | LEFT | next trip to LEFT's spot, cycle | park | park (tip seen) | partner tipped: shoot LEFT at once from our spot, cycle |
 | 2 | RIGHT | next trip to RIGHT's spot, cycle | park | park | cycle, RIGHT's spot |
-| 3 | LEFT | next trip to LEFT's spot, cycle | park | park | cycle, LEFT's spot; further tips count as 3 |
+| 3 | LEFT | next trip to LEFT's spot, cycle | park | park | cycle, LEFT's spot |
 
-Bug this fixes: `AutoContext.tippedSinceStart()` compares the current side with the side at the start, so after two tips it reads false again and FIRST/STAY would resume cycling. A counter does not wrap.
+Fixed: `tippedSinceStart()` used to compare the current side with the starting side, so after two tips it read false again and FIRST/STAY would resume cycling. It is now `tips > 0` (and the SECOND wait uses `tips > tipsAtStart`). The table stops at 3 tips; the counter itself does not.
 
 Known gaps (fixed camera): a tip while the robot is collecting or driving is only seen at ARRIVE or SETTLE, and a tip while blind is never seen, so a burst can go at the down CELL. The mid-burst check is the only recovery.
 
