@@ -201,9 +201,18 @@ public abstract class AutoOpMode extends OpMode {
         // Background jobs. Shooter before intake, so feed gating uses this loop's speed.
         robot.flowerArm.setDown(ctx.flowerDown);
         // Off (not idling) whenever we are not shooting, e.g. while driving, to save battery.
-        robot.runShooterOrStop(ctx.spinUp || robot.shootSequence.wantsShooter());
+        // In the shooting zone it pre-spins to the table speed, as in TeleOp.
+        robot.runShooterOrStop(ctx.spinUp || robot.shootSequence.wantsShooter()
+                || robot.zoneWantsPrespin());
         robot.shootSequence.update(robot.nowSeconds());
         aimTurret();
+        // The TeleOp "ready to fire" decision; Steps.toZoneAndReady fires on it.
+        double camDist = robot.targetDistanceIn();
+        double camOff = robot.targetOffAxisDeg();
+        boolean camera = !Double.isNaN(camDist) && !Double.isNaN(camOff);
+        robot.updateAutoZone(camera ? camDist : ctx.upCellDistanceIn(),
+                camera ? camOff : ctx.upCellOffAxisDeg(), ctx.upStateKnown(),
+                ctx.intakeMode == Intake.Mode.INTAKE);
         boolean pulsing = robot.pulseActive(
                 robot.shootSequence.inFeedingStage() && robot.aimReady());
         robot.runIntake(pulsing ? robot.pulseFeedMode()
@@ -223,6 +232,8 @@ public abstract class AutoOpMode extends OpMode {
         double readAge = robot.upStateAgeS();
         telemetry.addData("Up CELL", "%s (camera read %s)", ctx.upSide,
                 Double.isNaN(readAge) ? "never" : String.format("%.0f s ago", readAge));
+        telemetry.addData("Zone", robot.isReadyToFire() ? "READY" : robot.isInZone() ? "in zone"
+                : "out of zone");
         telemetry.addData("Time left s", "%.1f", ctx.timeLeft());
         robot.endLoop();
     }

@@ -36,9 +36,17 @@ public class ShootZone {
     private boolean upStateUnconfirmed;
     private double intakeSinceShotS;
 
+    // Rumble and LED for the drive team (TeleOp). Auto turns it off and fires by itself.
+    private boolean feedback = true;
+
     public ShootZone(Gamepad driver, Gamepad operator) {
         this.driver = driver;
         this.operator = operator;
+    }
+
+    /** Off: no rumble or LED (Auto, which fires by itself when ready). */
+    public void setFeedback(boolean on) {
+        feedback = on;
     }
 
     public boolean isInZone() {
@@ -114,14 +122,14 @@ public class ShootZone {
 
         // Rumble on becoming ready, but not again within READY_RUMBLE_COOLDOWN_S, so a
         // readiness that flickers (e.g. speed near the limit) does not buzz constantly.
-        if (readyToFire && !wasReadyToFire && !shootActive
+        if (feedback && readyToFire && !wasReadyToFire && !shootActive
                 && ShootGateConstants.READY_RUMBLE_MS > 0
                 && nowS - lastRumbleS >= ShootGateConstants.READY_RUMBLE_COOLDOWN_S) {
             driver.rumble(ShootGateConstants.READY_RUMBLE_MS);
             operator.rumble(ShootGateConstants.READY_RUMBLE_MS);
             lastRumbleS = nowS;
         }
-        if (ShootGateConstants.READY_LED && (readyToFire != wasReadyToFire
+        if (feedback && ShootGateConstants.READY_LED && (readyToFire != wasReadyToFire
                 || upStateUnconfirmed != wasUnconfirmed || !ledSet)) {
             // Green ready, amber waiting for the up CELL, red not ready.
             double red = readyToFire ? 0 : 1;

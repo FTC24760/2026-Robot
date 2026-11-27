@@ -235,6 +235,34 @@ public class Robot {
         return zone.isReadyToFire();
     }
 
+    /**
+     * Auto: run the same shooting-zone and "ready to fire" decision as TeleOp, without the
+     * driver feedback (the auto fires by itself). Call once per loop after the turret is aimed.
+     *
+     * @param distanceIn   distance to the up CELL (camera, else odometry)
+     * @param offAxisDeg   degrees off the CELL's opening axis
+     * @param upStateKnown a recent camera read of which CELL is up, since the last burst
+     * @param intaking     the intake is running (counts as reloading)
+     */
+    public void updateAutoZone(double distanceIn, double offAxisDeg, boolean upStateKnown,
+                               boolean intaking) {
+        zone.setFeedback(false);
+        zone.updateReloadArming(shootSequence.isActive(), shootSequence.isFeeding(), false,
+                intaking, loopSeconds);
+        zone.update(distanceIn, offAxisDeg, aimReady(), shooter.isReadyToFeed(),
+                shootSequence.isActive(), upStateKnown, nowSeconds());
+        if (zone.isReadyToFire() && !wasReady) {
+            RobotLog.ii("ShootZone", "AUTO READY, %.0f in, %.0f deg off axis", distanceIn,
+                    offAxisDeg);
+        }
+        wasReady = zone.isReadyToFire();
+    }
+
+    /** True if the wheel should be held at the table speed (in the zone, not reloading). */
+    public boolean zoneWantsPrespin() {
+        return zone.wantsPrespin();
+    }
+
     /** Seconds since the camera or driver last said which CELL is up; NaN if never. */
     public double upStateAgeS() {
         return aim.upStateAgeS(nowNs);

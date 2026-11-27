@@ -44,8 +44,14 @@ public final class TripTimes {
      */
     public static double cycleS(CycleSource source, double[] from, double[] next) {
         double[] at = sourceXY(source);
-        double collect = source == CycleSource.GARDEN
-                ? 0 : AutoConstants.FLOWER_ARM_S + AutoConstants.FLOWER_COLLECT_S;
+        if (source == CycleSource.GARDEN) {
+            // Line up against the wall first, then along it.
+            double lx = AutoConstants.GARDEN_LEAD_IN_X;
+            double ly = AutoConstants.GARDEN_Y;
+            return driveS(from[0], from[1], lx, ly) + driveS(lx, ly, at[0], at[1])
+                    + driveS(at[0], at[1], next[0], next[1]);
+        }
+        double collect = AutoConstants.FLOWER_ARM_S + AutoConstants.FLOWER_COLLECT_S;
         return driveS(from[0], from[1], at[0], at[1]) + collect
                 + driveS(at[0], at[1], next[0], next[1]);
     }

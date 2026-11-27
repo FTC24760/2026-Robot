@@ -37,11 +37,11 @@ Non-goals (for now): FLOWER collection (no mechanism), NECTAR handling (robot ca
 
 | Preset | Pose (x, y, deg) | Footprint | Notes |
 |---|---|---|---|
-| A | (59, 8.5, 180) | x 50-68, y 0-17 | audience wall; clear of GARDEN and LOADING ZONE; current start |
-| B | (61.5, 135.5, 180) | x 52.5-70.5, y 127-144 | far wall; FLOWER at x 45-51 needs left edge >= 51; column C needs right edge <= 72, so centre x must be 60-63 |
+| A | (59, 9, 90) | x 50.5-67.5, y 0-18 | audience wall, back to the wall, facing the AUDIENCE (RIGHT) CELL 52 in away; clear of GARDEN and LOADING ZONE |
+| B | (61.5, 135, 270) | x 53-70, y 126-144 | far wall, back to the wall, facing the FAR (LEFT) CELL 47 in away; FLOWER at x 45-51 and column C (<= 72) allow centre x 59.5-63.5 |
 
-Blue: A -> (85, 135.5, 0); B -> (82.5, 8.5, 0).
-B has only about 1.5 in. of slack each side. Use a jig or tape mark. Existing `SHOOT_LEFT_UP_X = 59` overlaps the FLOWER by about 1 in.; change it to 61.5.
+Blue: A -> (85, 135, 270); B -> (82.5, 9, 90).
+Both starts face the HIVE (decided 2026-11-27) so the fixed camera watches it from the start: FIRST sees whether its pre-loads tipped it, SECOND sees the partner's burst during its delay. Both are inside the shooting zone for the CELL they face.
 
 ```java
 public enum StartPreset {
@@ -92,7 +92,9 @@ reserve window (last ~4 s): drive to LEAVE+PARK, regardless of state
 - ACTIVE, FIRST: delay 0; shoot the pre-loads, then follow the agreed no-tip plan (below).
 - ACTIVE, SECOND: delay = menu value (initial guess 5 s; to be measured against the partner's burst).
 - Implemented (`END_DELAY_ON_TIP`): the SECOND wait ends as soon as the up CELL changes (the camera saw the HIVE tip). The fixed delay stays as the fallback. After the wait, if the start pose is not in the shooting zone for the CELL up now (`DRIVE_TO_ZONE_FIRST`; e.g. the HIVE tipped, or start B with the audience CELL up), the robot drives to the shot spot before the pre-loads.
-- Shooting position (implemented, `auto/ShotSpots`): no separate polygon. The zone is the TeleOp one (`ShotZoneGeometry`). SOLO/FIRST shoot from the fixed spot (`SHOOT_*`); SECOND picks the allowed candidate farthest from it (the fixed spot turned about the CELL in `SPOT_ARC_STEP_DEG` steps, same distance so same table row; must be in the zone, on our side with margin, inside the field, `SPOT_KEEP_OUT_IN` from FLOWERS). Hand-computed with the current constants: SECOND shoots at about (25, 21) into the RIGHT CELL and (30, 126) into the LEFT CELL.
+- Shooting position (implemented, `auto/ZoneTargets`, decided 2026-11-27): no fixed spot. The zone is the TeleOp one (`ShotZoneGeometry`, ring + angle; numbers still to be measured). Already in the zone: no drive. Otherwise the robot drives to the nearest point `ZONE_INSET_IN` (3 in) inside the zone edge and faces the up CELL there (camera on the HIVE). The only extra auto limits: not past the middle line (G402, `OWN_SIDE_*`), `WALL_TURN_CLEAR_IN` from every wall so it can turn, `SPOT_KEEP_OUT_IN` from FLOWERS, and in a pair, for the partner's CELL, `PARTNER_CLEAR_IN` from the partner's start. With the placeholder constants (one table row at 52.5 in, 60 deg): from the GARDEN to the RIGHT CELL about (21.5, 21.5), from the wall FLOWER (17.5, 33.5), from the back FLOWER to the LEFT CELL (31.5, 129.5).
+- Firing (decided 2026-11-27): the same "ready to fire" decision as TeleOp (`ShootZone`: in zone + aim/hood settled + wheel at speed + recent up/down read + loaded), run every auto loop with the driver feedback off (`Robot.updateAutoZone`). The wheel pre-spins in the zone as in TeleOp. The difference: auto fires by itself the first loop it is ready (`Steps.toZoneAndReady`), or after `READY_TIMEOUT_S` anyway. If the camera sees the up CELL change before firing, it goes to the other CELL's zone (`MAX_REDIRECTS`).
+- Turning near walls: the robot (17 x 18 in) sweeps its corners out to 12.4 in when it turns, so it turns only with its centre `WALL_TURN_CLEAR_IN` (13.5 in) from every wall. A drive that starts against a wall with a turn moves straight off it first; one that ends against a wall finishes the turn and moves straight in (`Steps.legs`). The GARDEN pass lines up against the wall at `GARDEN_LEAD_IN_X` first, then drives along it with no turn.
 - FIRST leaves early (`FIRST_PARK_DELAY_S`, default 0): parks right after its last shot instead of waiting `PARK_DELAY_S` (0 for SOLO and SECOND), so the partner has the shooting area.
 
 ## 6. Subsystems and controllers (shared by Auto and TeleOp)
@@ -161,9 +163,9 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips 
 | State | Does | Leaves to |
 |---|---|---|
 | WAIT (SECOND only) | stay still | GOTO on a tip (`tips`=1), delay end, or (STAY plan) `SECOND_GO_ANYWAY_LEFT_S` |
-| GOTO | skip the drive if the pose is already in the zone for `up`, else drive to `ShotSpots.spot(up, slot)` | ARRIVE |
-| ARRIVE | wait <= `ARRIVE_CHECK_S` for a camera read since the trip began | GOTO if `up` changed (`tips`++), else SHOOT |
-| SHOOT | spin up, burst; a tip mid-burst (`tips`++) finishes the burst once more at the other CELL | SETTLE |
+| GOTO | skip the drive if already in the zone for `up`, else drive to `ZoneTargets.target(up)` facing the CELL | READY |
+| READY | wait for the TeleOp ready-to-fire test, <= `READY_TIMEOUT_S` | GOTO if `up` changed (`tips`++), else SHOOT |
+| SHOOT | burst (auto-fire); a tip mid-burst (`tips`++) finishes the burst once more at the other CELL | SETTLE |
 | SETTLE | wait >= `TIP_SETTLE_MIN_S`, then for a camera read, <= `TIP_SETTLE_S` | DECIDE |
 | DECIDE | first rule that applies wins (below) | COLLECT or PARK |
 | COLLECT | drive to the cycle's source with the intake on | GOTO |
@@ -181,11 +183,11 @@ Tips and the plan: a tip needs balls in the up CELL, and the first needs only 4 
 | FIRST (start A) | GARDEN, wall FLOWER | pre-load at its CELL (tips), GARDEN at the other CELL (joins SECOND's burst there: 8, tips), wall FLOWER back at its CELL |
 | SECOND (start B) | back FLOWER | pre-load at its CELL (4 of 8), back FLOWER at the CELL that is up then |
 
-Each robot goes to whichever CELL is up (`AutoContext.shotSide` = `upSide`): the CELL nearest its start from the straight-on spot, the other from the offset spot, because the partner sits at its own straight-on spot. A trip is re-checked on arrival and redirected if the HIVE tipped on the way. Nobody waits for "their" CELL, because one is always up. Tip belief: the camera decides; our own balls are counted (`AutoContext.ballsToTip`, `recordShot`), and when the camera has not read the HIVE since the burst the count is believed (`settleTipBelief`, `PREDICT_TIP_WHEN_BLIND`). Alone, a burst that leaves the count under the threshold skips the camera wait (`mayHaveTipped`). With a partner its balls are not counted, so the camera wait stays. `noTipPlan` now only controls whether SECOND waits for a tip or for its delay. FIRST no longer parks after its pre-loads. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
+Each robot goes to whichever CELL is up (`AutoContext.shotSide` = `upSide`), to the nearest usable point of that CELL's zone; for the partner's CELL it keeps `PARTNER_CLEAR_IN` from the partner's start. A trip is re-checked before firing and redirected if the HIVE tipped on the way. Nobody waits for "their" CELL, because one is always up. Tip belief: the camera decides; our own balls are counted (`AutoContext.ballsToTip`, `recordShot`), and when the camera has not read the HIVE since the burst the count is believed (`settleTipBelief`, `PREDICT_TIP_WHEN_BLIND`). Alone, a burst that leaves the count under the threshold skips the camera wait (`mayHaveTipped`). With a partner its balls are not counted, so the camera wait stays. `noTipPlan` now only controls whether SECOND waits for a tip or for its delay. FIRST no longer parks after its pre-loads. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
 
 SECOND (the partner agreed to shoot first): it waits the agreed delay, or a seen tip, and then decides at once (`assumePartnerTipped`). If the camera read the HIVE within `BLIND_READ_MAX_AGE_S` it trusts that read (our CELL still down means the partner has not tipped it, so SECOND shoots the CELL that is up); with no recent read it takes it that the partner tipped the HIVE and shoots its own CELL. If the partner never fires, the blind case wastes one burst.
 
-Time budget (30 s) and the choice of source: a cycle starts only if its two trips, one burst (`BURST_S`), the trip from the next shot spot to PARK and `CYCLE_MARGIN_S` fit in `timeLeft`. Trips are worked out from the poses (`TripTimes`): straight-line distance, x `CROSS_DETOUR` when the drive crosses between the audience and far halves, at `AVG_SPEED_IN_PER_S`, plus `TURN_S`; a FLOWER adds `FLOWER_ARM_S` + `FLOWER_COLLECT_S`, the GARDEN is collected while driving. SOLO (`ADAPTIVE_SOLO_SOURCES`) takes, for each cycle, the cheapest unused source that fits, for the CELL that is up after the last burst (a miss leaves the same CELL up, so the next trip is shorter). FIRST and SECOND keep their fixed lists. PARK is always banked: the reserve window (`RESERVE_TIME_LEFT_S`) abandons whatever is running and drives to PARK. Every step change is logged as `AutoStep` with the time left; use those times to replace the placeholder speed and costs. With the placeholders (about 35 in/s, not measured), SOLO from start A does: burst, GARDEN, burst at the far spot, then parks (no third burst fits); after a miss on the first burst it stays at the first spot, takes the GARDEN, and bursts again.
+Time budget (30 s) and the choice of source: a cycle starts only if its two trips, one burst (`BURST_S`), the trip from the next shot spot to PARK and `CYCLE_MARGIN_S` fit in `timeLeft`. Trips are worked out from the poses (`TripTimes`): straight-line distance, x `CROSS_DETOUR` when the drive crosses between the audience and far halves, at `AVG_SPEED_IN_PER_S`, plus `TURN_S`; a FLOWER adds `FLOWER_ARM_S` + `FLOWER_COLLECT_S`, the GARDEN is collected while driving. Sources are in a fixed order (decided 2026-11-27): SOLO GARDEN, wall FLOWER, back FLOWER; FIRST GARDEN, wall FLOWER; SECOND back FLOWER. A source that does not fit ends the cycles. PARK is always banked: the reserve window (`RESERVE_TIME_LEFT_S`) abandons whatever is running and drives to PARK. Every step change is logged as `AutoStep` with the time left; use those times to replace the placeholder speed and costs. With the placeholders (about 35 in/s, not measured), SOLO from start A does: burst, GARDEN, burst at the far spot, then parks (no third burst fits); after a miss on the first burst it stays at the first spot, takes the GARDEN, and bursts again.
 
 By tips (side after each observed tip; the table assumes every tip is seen):
 
@@ -203,7 +205,7 @@ Known gaps (fixed camera): a tip while the robot is collecting or driving is onl
 ## Camera limitation (fixed, decided)
 
 There is one Limelight 3A, mounted on the chassis, with no pan servo (a pan servo was built and then removed). The camera sees the HIVE only while the chassis faces it, so:
-- tips are read at the shot spot (after a burst, on arrival), not while collecting or driving;
+- tips are read while the robot is at the start or in the zone (it faces the up CELL there: before firing, during the burst, after it), not while collecting or driving;
 - the odometry-based plan is the fallback whenever the camera has no view (timeouts in `Steps.awaitCamera` end at once without a sighting);
 - redirecting mid-drive on a tip seen en route is not possible and is out of scope.
 
@@ -215,7 +217,7 @@ The turret and hood always aim at the believed-up CELL from odometry (`HiveTrack
 
 ### SECOND (partner shoots first), after the delay
 
-Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive to the up CELL's offset spot on the partner's side (`ShotSpots`) and shoot; if our shots tip it, the next trip goes to the other CELL's spot on our side; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.
+Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive into the up CELL's zone, clear of the partner's start (`ZoneTargets`), and shoot; if our shots tip it, the next trip goes to the other CELL's zone; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.
 
 ### FIRST, and the no-tip plan (agreed with the partner)
 
@@ -228,4 +230,4 @@ If the pre-loads do tip it, FIRST parks in both plans (mid-burst tips still fini
 
 ### Camera-confirmed tip checks (SOLO, also used by FIRST/SECOND)
 
-`Steps.awaitCamera` waits for a camera read of one of our CELLS (`ctx.lastCellReadS`, set in `AutoOpMode.trackUpSide`) taken after a given time, capped, and ends at once without a camera. A CELL read facing down also sets the other one up (the two are joined). Used twice: after a burst (min `TIP_SETTLE_MIN_S` 0.4 s so the HIVE has time to tip, cap `TIP_SETTLE_S` 1.5 s) and on arrival at a shot spot (`ARRIVE_CHECK_S` 0.5 s; if `upSide` differs from the side the trip was planned for, `driveToShot` drives to the other spot before spin-up). Not possible with the fixed camera: redirecting mid-drive when a tip is seen en route; the extra leg is paid only after arriving.
+`Steps.awaitCamera` waits for a camera read of one of our CELLS (`ctx.lastCellReadS`, set in `AutoOpMode.trackUpSide`) taken after a given time, capped, and ends at once without a camera. A CELL read facing down also sets the other one up (the two are joined). Used twice: after a burst (min `TIP_SETTLE_MIN_S` 0.4 s so the HIVE has time to tip, cap `TIP_SETTLE_S` 1.5 s) and, in effect, before firing: `toZoneAndReady` waits for a fresh up/down read as part of the ready test and goes to the other CELL's zone if `upSide` changed. Not possible with the fixed camera: redirecting mid-drive when a tip is seen en route; the extra leg is paid only after arriving.
