@@ -21,6 +21,7 @@ import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
 import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
 import org.firstinspires.ftc.teamcode.auto.ShotSpots;
+import org.firstinspires.ftc.teamcode.auto.TripTimes;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
@@ -65,12 +66,16 @@ public final class FullAuto {
             int number = i + 1;
             int index = i;
             steps.add(when("cycle " + number,
-                    c -> c.cycles >= number && mayCycle(c) && cycleFits(c, index),
+                    c -> c.cycles >= number && mayCycle(c) && chooseSource(c, index) != null,
                     sequence("cycle " + number,
-                            instant("cycle started", c -> c.cycleIndex = index + 1),
-                            // Chosen when the step starts: the slot is picked after the
-                            // routine is built, in the init menu.
-                            collectNumber(index),
+                            instant("choose source", c -> {
+                                c.cycleIndex = index + 1;
+                                c.chosenSource = chooseSource(c, index);
+                                c.sourceUsed[c.chosenSource.ordinal()] = true;
+                            }),
+                            // Chosen when the step starts: the slot and the up CELL are only
+                            // known by then.
+                            collectChosen(),
                             intake(Intake.Mode.OFF),
                             shootCycle()),
                     null));
@@ -117,38 +122,46 @@ public final class FullAuto {
         }
     }
 
-    // The cycle can still be done with its burst and the park trip in the time left.
-    private static boolean cycleFits(AutoContext c, int index) {
-        CycleSource source = sourceFor(index);
-        double cost;
-        switch (source) {
-            case GARDEN:
-                cost = AutoConstants.GARDEN_CYCLE_S;
-                break;
-            case WALL_FLOWER:
-                cost = AutoConstants.WALL_FLOWER_CYCLE_S;
-                break;
-            case BACK_FLOWER:
-                cost = AutoConstants.BACK_FLOWER_CYCLE_S;
-                break;
-            case NONE:
-            default:
-                return false;
+    /**
+     * The source for the next cycle, or null if none fits. SOLO (ADAPTIVE_SOLO_SOURCES) takes
+     * the cheapest unused one for the CELL that is up now; FIRST and SECOND take the next one
+     * in their fixed list. A source counts only if its trips, a burst, the park trip and the
+     * margin fit in the time left: the park is never given up for a cycle.
+     */
+    private static CycleSource chooseSource(AutoContext c, int index) {
+        CycleSource[] candidates;
+        if (!AutoSelection.pair() && AutoConstants.ADAPTIVE_SOLO_SOURCES) {
+            candidates = new CycleSource[] {
+                    CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
+        } else {
+            candidates = new CycleSource[] {sourceFor(index)};
         }
-        // The trip to the next burst crosses the field only if that CELL's spot is not where
-        // we are. Judged from what the camera showed after the last burst: a burst that did
-        // not tip leaves the same CELL up, so there is no cross trip to pay for.
-        double cross = c.shotSide() != c.spotSide() ? AutoConstants.CROSS_TRIP_S : 0;
-        return c.timeLeft() >= cost + cross + AutoConstants.BURST_S + AutoConstants.PARK_TRIP_S
-                + AutoConstants.CYCLE_MARGIN_S;
+
+        double[] from = spotXY(c, c.spotSide());
+        double[] next = spotXY(c, c.shotSide());
+        double park = TripTimes.driveS(next[0], next[1], AutoConstants.PARK_X, AutoConstants.PARK_Y);
+        CycleSource best = null;
+        double bestS = Double.MAX_VALUE;
+        for (CycleSource source : candidates) {
+            if (source == CycleSource.NONE || c.sourceUsed[source.ordinal()]) {
+                continue;
+            }
+            double cycle = TripTimes.cycleS(source, from, next);
+            double need = cycle + AutoConstants.BURST_S + park + AutoConstants.CYCLE_MARGIN_S;
+            if (need <= c.timeLeft() && cycle < bestS) {
+                best = source;
+                bestS = cycle;
+            }
+        }
+        return best;
     }
 
-    private static AutoStep collectNumber(int index) {
-        return when("collect for slot", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
-                collect(AutoConstants.FIRST_SOURCES[index]),
-                when("collect for slot", c -> AutoSelection.slot == AutoSelection.Slot.SECOND,
-                        collect(AutoConstants.SECOND_SOURCES[index]),
-                        collect(AutoConstants.SOLO_SOURCES[index])));
+    private static AutoStep collectChosen() {
+        return when("source garden", c -> c.chosenSource == CycleSource.GARDEN,
+                collect(CycleSource.GARDEN),
+                when("source wall flower", c -> c.chosenSource == CycleSource.WALL_FLOWER,
+                        collect(CycleSource.WALL_FLOWER),
+                        collect(CycleSource.BACK_FLOWER)));
     }
 
     private static AutoStep driveToPark() {
@@ -203,7 +216,7 @@ public final class FullAuto {
                 when("tip settle",
                         c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
                                 && c.cycles > c.cycleIndex && mayCycle(c)
-                                && cycleFits(c, c.cycleIndex),
+                                && chooseSource(c, c.cycleIndex) != null,
                         awaitCamera("tip check",
                                 c -> c.now() + AutoConstants.TIP_SETTLE_MIN_S,
                                 AutoConstants.TIP_SETTLE_S),
@@ -241,12 +254,22 @@ public final class FullAuto {
 
     // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
     private static Pose shotPose(AutoContext c, CellSide cell) {
-        // In a pair each robot shoots into the CELL nearest its start from the straight-on
-        // spot. Once it has given up on that CELL it shoots into the partner's, from the
-        // offset spot, because the partner is sitting at its own straight-on spot.
+        double[] s = spotFor(c, cell);
+        return c.pose(s[0], s[1], s[2]);
+    }
+
+    // The spot for this CELL as {x, y, heading}, red frame. In a pair each robot shoots into
+    // the CELL nearest its start from the straight-on spot. Once it has given up on that
+    // CELL it shoots into the partner's, from the offset spot, because the partner is
+    // sitting at its own straight-on spot.
+    private static double[] spotFor(AutoContext c, CellSide cell) {
         AutoSelection.Slot slot = !AutoSelection.pair() ? AutoSelection.slot
                 : c.ownCellGivenUp ? AutoSelection.Slot.SECOND : AutoSelection.Slot.SOLO;
-        double[] s = ShotSpots.spot(cell, slot);
-        return c.pose(s[0], s[1], s[2]);
+        return ShotSpots.spot(cell, slot);
+    }
+
+    private static double[] spotXY(AutoContext c, CellSide cell) {
+        double[] s = spotFor(c, cell);
+        return new double[] {s[0], s[1]};
     }
 }

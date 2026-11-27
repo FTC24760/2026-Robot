@@ -31,6 +31,11 @@ public class AutoContext {
      */
     public int tips;
 
+    /** Which sources a cycle has already emptied, by CycleSource ordinal. */
+    public final boolean[] sourceUsed = new boolean[AutoConstants.CycleSource.values().length];
+    /** The source of the cycle running now. */
+    public AutoConstants.CycleSource chosenSource;
+
     /** Cycles started so far (0, 1, 2); the next one uses this index. */
     public int cycleIndex;
 
@@ -113,6 +118,8 @@ public class AutoContext {
         tips = 0;
         ownCellGivenUp = false;
         cycleIndex = 0;
+        java.util.Arrays.fill(sourceUsed, false);
+        chosenSource = null;
     }
 
     /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */

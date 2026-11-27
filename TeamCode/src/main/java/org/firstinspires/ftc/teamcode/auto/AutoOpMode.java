@@ -215,7 +215,7 @@ public abstract class AutoOpMode extends OpMode {
 
         String stepName = routine.currentStep();
         if (!stepName.equals(lastLoggedStep)) {
-            // Times to fill in the planned durations in AutoConstants (GARDEN_CYCLE_S ...).
+            // Times to fill in the planned durations in AutoConstants (AVG_SPEED_IN_PER_S, BURST_S ...).
             RobotLog.ii("AutoStep", "%5.1f s left: %s", ctx.timeLeft(), stepName);
             lastLoggedStep = stepName;
         }
