@@ -161,7 +161,7 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips 
 | State | Does | Leaves to |
 |---|---|---|
 | WAIT (SECOND only) | stay still | GOTO on a tip (`tips`=1), delay end, or (STAY plan) `SECOND_GO_ANYWAY_LEFT_S` |
-| GOTO | skip the drive if the pose is already in the zone for `up`, else drive to `ShotSpots.spot(up, slot)` with the wheel off, back on `SPIN_UP_LEAD_S` before arrival | ARRIVE |
+| GOTO | skip the drive if the pose is already in the zone for `up`, else drive to `ShotSpots.spot(up, slot)` | ARRIVE |
 | ARRIVE | wait <= `ARRIVE_CHECK_S` for a camera read since the trip began | GOTO if `up` changed (`tips`++), else SHOOT |
 | SHOOT | spin up, burst; a tip mid-burst (`tips`++) finishes the burst once more at the other CELL | SETTLE |
 | SETTLE | wait >= `TIP_SETTLE_MIN_S`, then for a camera read, <= `TIP_SETTLE_S` | DECIDE |
