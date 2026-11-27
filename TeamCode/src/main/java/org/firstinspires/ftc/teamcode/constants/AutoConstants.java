@@ -190,8 +190,22 @@ public class AutoConstants {
     public static double SECOND_GO_ANYWAY_LEFT_S = 15;
     public static double START_DELAY_STEP_S = 0.5;
     public static double MAX_START_DELAY_S = 15.0;
-    // Skip a cycle that starts with less than this much of the auto left.
-    public static double CYCLE_MIN_TIME_LEFT_S = 9;
+    // A cycle (drive out, collect, drive back, burst) only starts if it fits in the time
+    // left together with the park trip: cycle cost + BURST_S + PARK_TRIP_S + CYCLE_MARGIN_S.
+    // The 30 s does not hold every cycle, so later ones are dropped, never the park.
+    // PLACEHOLDERS from rough distances at an assumed ~35 in/s average: replace them with
+    // the times from the "AutoStep" log lines (each step change is logged with time left).
+    // Drive out, collect and drive back, from the shot spot (excludes the burst):
+    public static double GARDEN_CYCLE_S = 4;
+    public static double WALL_FLOWER_CYCLE_S = 8.5;
+    public static double BACK_FLOWER_CYCLE_S = 7;
+    // One burst at the spot: spin-up, feed (SHOOT_FEED_S), tip settle.
+    public static double BURST_S = 4.5;
+    // Longest drive to PARK from where a cycle ends (the reserve window needs the same).
+    public static double PARK_TRIP_S = 4;
+    public static double CYCLE_MARGIN_S = 1.5;
+    // SOLO alternates CELLS (each burst tips the HIVE), so its next burst is across the field.
+    public static double CROSS_TRIP_S = 4;
 
     // ---- Following the HIVE when it tips. ----
     // The Limelight is the main way the auto knows which CELL is up. As a backup when it

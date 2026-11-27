@@ -65,9 +65,9 @@ public final class FullAuto {
             int number = i + 1;
             int index = i;
             steps.add(when("cycle " + number,
-                    c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
-                            && mayCycle(c) && sourceFor(index) != CycleSource.NONE,
+                    c -> c.cycles >= number && mayCycle(c) && cycleFits(c, index),
                     sequence("cycle " + number,
+                            instant("cycle started", c -> c.cycleIndex = index + 1),
                             // Chosen when the step starts: the slot is picked after the
                             // routine is built, in the init menu.
                             collectNumber(index),
@@ -115,6 +115,31 @@ public final class FullAuto {
             default:
                 return AutoConstants.SOLO_SOURCES[index];
         }
+    }
+
+    // The cycle can still be done with its burst and the park trip in the time left.
+    private static boolean cycleFits(AutoContext c, int index) {
+        CycleSource source = sourceFor(index);
+        double cost;
+        switch (source) {
+            case GARDEN:
+                cost = AutoConstants.GARDEN_CYCLE_S;
+                break;
+            case WALL_FLOWER:
+                cost = AutoConstants.WALL_FLOWER_CYCLE_S;
+                break;
+            case BACK_FLOWER:
+                cost = AutoConstants.BACK_FLOWER_CYCLE_S;
+                break;
+            case NONE:
+            default:
+                return false;
+        }
+        // Alone, the burst before this cycle tipped the HIVE, so the next one is at the other
+        // CELL's spot. In a pair each robot comes back to its own CELL.
+        double cross = AutoSelection.pair() ? 0 : AutoConstants.CROSS_TRIP_S;
+        return c.timeLeft() >= cost + cross + AutoConstants.BURST_S + AutoConstants.PARK_TRIP_S
+                + AutoConstants.CYCLE_MARGIN_S;
     }
 
     private static AutoStep collectNumber(int index) {
@@ -176,8 +201,8 @@ public final class FullAuto {
                 // Let the HIVE tip and the camera see it before the next trip is planned.
                 when("tip settle",
                         c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
-                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S
-                                && mayCycle(c),
+                                && c.cycles > c.cycleIndex && mayCycle(c)
+                                && cycleFits(c, c.cycleIndex),
                         awaitCamera("tip check",
                                 c -> c.now() + AutoConstants.TIP_SETTLE_MIN_S,
                                 AutoConstants.TIP_SETTLE_S),

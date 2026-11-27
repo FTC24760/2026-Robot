@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.auto;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
@@ -36,6 +37,8 @@ import org.firstinspires.ftc.teamcode.utils.PoseHandoff;
  * The rules (G401) forbid touching the controls once the countdown begins.
  */
 public abstract class AutoOpMode extends OpMode {
+    private String lastLoggedStep = "";
+
     private final Alliance alliance;
 
     private Robot robot;
@@ -210,7 +213,13 @@ public abstract class AutoOpMode extends OpMode {
         // For TeleOp to start from (the auto can be stopped at any loop).
         PoseHandoff.save(robot.drivetrain.getPose(), alliance, ctx.upSide);
 
-        telemetry.addData("Auto step", routine.currentStep());
+        String stepName = routine.currentStep();
+        if (!stepName.equals(lastLoggedStep)) {
+            // Times to fill in the planned durations in AutoConstants (GARDEN_CYCLE_S ...).
+            RobotLog.ii("AutoStep", "%5.1f s left: %s", ctx.timeLeft(), stepName);
+            lastLoggedStep = stepName;
+        }
+        telemetry.addData("Auto step", stepName);
         double readAge = robot.upStateAgeS();
         telemetry.addData("Up CELL", "%s (camera read %s)", ctx.upSide,
                 Double.isNaN(readAge) ? "never" : String.format("%.0f s ago", readAge));

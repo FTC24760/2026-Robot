@@ -31,6 +31,9 @@ public class AutoContext {
      */
     public int tips;
 
+    /** Cycles started so far (0, 1, 2); the next one uses this index. */
+    public int cycleIndex;
+
     /** Pair mode: the own CELL did not come up in time, so shoot at whichever is up. */
     public boolean ownCellGivenUp;
 
@@ -101,6 +104,7 @@ public class AutoContext {
         startS = nowS;
         tips = 0;
         ownCellGivenUp = false;
+        cycleIndex = 0;
     }
 
     /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */
