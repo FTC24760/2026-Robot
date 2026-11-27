@@ -173,6 +173,12 @@ public class Robot {
     }
 
     /** True if auto-aim was enabled and the Limelight was found. */
+    /** TeleOp: remember the CELL for good and switch to the other after a down-read. */
+    public Robot enableTeleOpMemory() {
+        aim.enableTeleOpMemory();
+        return this;
+    }
+
     public boolean hasAutoAim() {
         return aim.hasAutoAim();
     }

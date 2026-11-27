@@ -27,7 +27,8 @@ public abstract class MatchTeleOp extends RobotTeleOp {
 
     @Override
     protected Robot createRobot() {
-        Robot robot = new Robot(this).enableShooterAssist().enableAutoAim(alliance);
+        Robot robot = new Robot(this).enableShooterAssist().enableAutoAim(alliance)
+                .enableTeleOpMemory();
         // Carry on from where AUTO left the robot; fall back to the fixed start pose when
         // there was no AUTO just before (practice, or AUTO for the other alliance).
         Pose fromAuto = PoseHandoff.take(alliance);

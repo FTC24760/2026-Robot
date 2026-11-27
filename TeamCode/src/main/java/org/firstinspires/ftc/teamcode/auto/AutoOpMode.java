@@ -290,9 +290,6 @@ public abstract class AutoOpMode extends OpMode {
         if (seen != null) {
             ctx.setUpSide(seen);
         }
-        // The turret keeps the remembered CELL for good, so tell it when the auto's own
-        // belief moved (e.g. a ball-count tip) while the camera could not see it.
-        robot.syncUpSide(ctx.upSide);
     }
 
     // The turret follows the Limelight's target when it has one. Without one it points

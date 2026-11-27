@@ -48,6 +48,9 @@ public class AimController {
     private boolean aiming;
     // The driver can switch auto-aim off mid-match if the camera misbehaves.
     private boolean aimEnabled = true;
+    // TeleOp only: keep the remembered CELL for good and, after a down-read, aim at the
+    // other CELL from its known point. AUTO keeps its own odometry fallback instead.
+    private boolean teleOpMemory;
     private String aimNote = "";
     // The shot (RPM, hood) from the shot table for the current target distance, or null
     // when there is no target distance (then the fixed Configurables values are used).
@@ -74,6 +77,13 @@ public class AimController {
         hiveTracker = new HiveTracker();
         this.alliance = alliance;
         return vision;
+    }
+
+    public void enableTeleOpMemory() {
+        teleOpMemory = true;
+        if (hiveTracker != null) {
+            hiveTracker.setKeepForever(true);
+        }
     }
 
     public boolean hasAutoAim() {
@@ -224,7 +234,9 @@ public class AimController {
                 // The two CELLS are joined: this one down means the other is up. Keep aiming
                 // at it from its known position until the camera sees it.
                 hiveTracker.sawCellDown(fix.sighting.cell);
-                assumeUp(otherCell(fix.sighting.cell), nowNs);
+                if (teleOpMemory) {
+                    assumeUp(otherCell(fix.sighting.cell), nowNs);
+                }
             }
         }
 

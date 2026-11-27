@@ -40,6 +40,8 @@ public class HiveTracker {
     private long lastReadNs;
     private long lastShotNs;
     private long assumedNs;
+    // TeleOp: keep the remembered CELL on the TeleOp setting instead of AUTO's.
+    private boolean keepForever;
 
     /** Record the odometry pose and when it was read. Call once per loop. */
     public void recordPose(long ns, Pose pose) {
@@ -94,6 +96,10 @@ public class HiveTracker {
         has = true;
         cell = fix.sighting.cell;
         lastVisionNs = fix.captureNs;
+    }
+
+    public void setKeepForever(boolean keep) {
+        keepForever = keep;
     }
 
     /** The camera (or the driver) read which CELL is up, at this time. */
@@ -179,7 +185,8 @@ public class HiveTracker {
         if (!VisionConstants.ODOMETRY_FALLBACK) {
             return false;
         }
-        double maxS = VisionConstants.ODOMETRY_FALLBACK_MAX_S;
+        double maxS = keepForever ? VisionConstants.TELEOP_ODOMETRY_FALLBACK_MAX_S
+                : VisionConstants.ODOMETRY_FALLBACK_MAX_S;
         return maxS <= 0 || (nowNs - Math.max(lastVisionNs, assumedNs)) * 1e-9 <= maxS;
     }
 
