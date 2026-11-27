@@ -208,10 +208,12 @@ public abstract class AutoOpMode extends OpMode {
                 : robot.shootSequence.isActive() ? Intake.Mode.OFF : ctx.intakeMode);
 
         // For TeleOp to start from (the auto can be stopped at any loop).
-        PoseHandoff.save(robot.drivetrain.getPose(), alliance);
+        PoseHandoff.save(robot.drivetrain.getPose(), alliance, ctx.upSide);
 
         telemetry.addData("Auto step", routine.currentStep());
-        telemetry.addData("Up CELL", "%s%s", ctx.upSide, robot.isAiming() ? " (Limelight)" : " (odometry)");
+        double readAge = robot.upStateAgeS();
+        telemetry.addData("Up CELL", "%s (camera read %s)", ctx.upSide,
+                Double.isNaN(readAge) ? "never" : String.format("%.0f s ago", readAge));
         telemetry.addData("Time left s", "%.1f", ctx.timeLeft());
         robot.endLoop();
     }
@@ -222,7 +224,7 @@ public abstract class AutoOpMode extends OpMode {
             routine.stop(ctx);
         }
         if (robot != null && routineStarted) {
-            PoseHandoff.save(robot.drivetrain.getPose(), alliance);
+            PoseHandoff.save(robot.drivetrain.getPose(), alliance, ctx.upSide);
         }
         if (robot != null) {
             robot.stop();
@@ -288,6 +290,9 @@ public abstract class AutoOpMode extends OpMode {
         if (seen != null) {
             ctx.setUpSide(seen);
         }
+        // The turret keeps the remembered CELL for good, so tell it when the auto's own
+        // belief moved (e.g. a ball-count tip) while the camera could not see it.
+        robot.syncUpSide(ctx.upSide);
     }
 
     // The turret follows the Limelight's target when it has one. Without one it points

@@ -116,6 +116,20 @@ public class AimController {
         assumeUp(next, nowNs);
     }
 
+    /**
+     * Aim at this CELL if the tracker is not already on it, without counting as a read:
+     * the up/down state stays unconfirmed until the camera or driver says so.
+     */
+    public void syncUpSide(CellSide side, long nowNs) {
+        if (hiveTracker == null || side == null) {
+            return;
+        }
+        HiveCell now = hiveTracker.getCell();
+        if (now == null || CellSide.of(alliance, now.side) != side) {
+            assumeUp(cellAt(side), nowNs, false);
+        }
+    }
+
     // Our CELL on the other end of the HIVE.
     private HiveCell otherCell(HiveCell cell) {
         return cellOf(cell.alliance, cell.side.other());
@@ -142,6 +156,10 @@ public class AimController {
     // Aim at this CELL from the field points in AutoConstants (red frame, flipped for blue)
     // and take it as read now.
     private void assumeUp(HiveCell cell, long nowNs) {
+        assumeUp(cell, nowNs, true);
+    }
+
+    private void assumeUp(HiveCell cell, long nowNs, boolean asRead) {
         if (cell == null || cell.alliance != alliance) {
             return;
         }
@@ -153,7 +171,9 @@ public class AimController {
             y = AutoConstants.FIELD_SIZE_IN - y;
         }
         hiveTracker.assume(cell, x, y, nowNs);
-        hiveTracker.noteRead(nowNs);
+        if (asRead) {
+            hiveTracker.noteRead(nowNs);
+        }
     }
 
     /** The robot's pose was reset: move the remembered CELL position with it. */

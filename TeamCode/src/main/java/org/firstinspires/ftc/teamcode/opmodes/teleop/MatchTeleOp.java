@@ -32,6 +32,8 @@ public abstract class MatchTeleOp extends RobotTeleOp {
         // there was no AUTO just before (practice, or AUTO for the other alliance).
         Pose fromAuto = PoseHandoff.take(alliance);
         robot.setPose(fromAuto != null ? fromAuto : TeleOpConstants.startingPose(alliance));
+        // Aim at the CELL AUTO believed was up; it stays unconfirmed until the camera reads.
+        robot.syncUpSide(PoseHandoff.takenUpSide());
         telemetry.addData("Alliance", alliance);
         telemetry.addData("Start pose from", fromAuto != null
                 ? "end of AUTO" : "TeleOpConstants (no recent AUTO)");

@@ -51,6 +51,8 @@ public class VisionConstants {
     // loses it. It forgets the HIVE when the camera sees that CELL facing down.
     public static boolean ODOMETRY_FALLBACK = true;
     // Stop trusting the remembered position this many seconds after the camera last saw
-    // it, in case odometry drifts. 0 = keep it until the camera says otherwise.
-    public static double ODOMETRY_FALLBACK_MAX_S = 20.0;
+    // it, in case odometry drifts. 0 = keep it until the camera says otherwise. Which CELL
+    // is up has its own age limit (ShootGateConstants.UPSIDE_MAX_AGE_S), so the turret can
+    // keep aiming from odometry while that is unconfirmed.
+    public static double ODOMETRY_FALLBACK_MAX_S = 0;
 }

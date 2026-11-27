@@ -20,6 +20,7 @@ import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.sequences.ShootZone;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
@@ -226,6 +227,16 @@ public class Robot {
     /** True while in the zone with the aim ready and (when pre-spinning) the wheel at speed. */
     public boolean isReadyToFire() {
         return zone.isReadyToFire();
+    }
+
+    /** Seconds since the camera or driver last said which CELL is up; NaN if never. */
+    public double upStateAgeS() {
+        return aim.upStateAgeS(nowNs);
+    }
+
+    /** Aim at this CELL until the camera says otherwise (start of TeleOp, or the auto's belief). */
+    public void syncUpSide(CellSide side) {
+        aim.syncUpSide(side, nowNs);
     }
 
     /** Why aimReady() is false, for telemetry; null when ready. */
