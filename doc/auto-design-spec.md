@@ -154,19 +154,12 @@ Shooting-zone polygon; delay default; `CYCLE_*` order and count; park window len
 
 Test points: each preset on each alliance (pose on the field matches the telemetry), delay 0 and 5, with and without a Limelight fix, forced stuck-step to confirm LEAVE+PARK still happens.
 
-## Camera pan servo (optional, off by default)
+## Camera limitation (fixed, decided)
 
-`CameraPanConstants.ENABLED` adds a servo (270 degrees, or geared) that turns the Limelight
-about a vertical axis so it keeps facing the middle of our HIVE while the robot drives. The
-target is the HIVE centre from `AutoConstants` CELL points (not field (0,0)), flipped for
-blue, aimed from the odometry pose with a velocity lead (`CameraPan`, called from
-`AimController.update`). Vision applies the pan angle (commanded angle `SERVO_LAG_S` before
-frame capture) and swings the lens about `AXIS_*` when converting tags to the robot frame, so
-`HiveTracker` and the up-CELL check are unchanged. Effect: the camera can read which CELL is
-up while the robot collects or drives, so a tip is seen without returning to the shot spot.
-Limits: the servo has no feedback (angle is the command), travel is 270 degrees so a HIVE
-behind the robot can be out of reach (`OUT OF TRAVEL` in telemetry), and the pan servo name,
-centre position, direction and axis position must be calibrated before enabling.
+There is one Limelight 3A, mounted on the chassis, with no pan servo (a pan servo was built and then removed). The camera sees the HIVE only while the chassis faces it, so:
+- tips are read at the shot spot (after a burst, on arrival), not while collecting or driving;
+- the odometry-based plan is the fallback whenever the camera has no view (timeouts in `Steps.awaitCamera` end at once without a sighting);
+- redirecting mid-drive on a tip seen en route is not possible and is out of scope.
 
 ### SECOND (partner shoots first), after the delay
 
@@ -183,4 +176,4 @@ If the pre-loads do tip it, FIRST parks in both plans (mid-burst tips still fini
 
 ### Camera-confirmed tip checks (SOLO, also used by FIRST/SECOND)
 
-`Steps.awaitCamera` waits for a camera read of one of our CELLS (`ctx.lastCellReadS`, set in `AutoOpMode.trackUpSide`) taken after a given time, capped, and ends at once without a camera. A CELL read facing down also sets the other one up (the two are joined). Used twice: after a burst (min `TIP_SETTLE_MIN_S` 0.4 s so the HIVE has time to tip, cap `TIP_SETTLE_S` 1.5 s) and on arrival at a shot spot (`ARRIVE_CHECK_S` 0.5 s; if `upSide` differs from the side the trip was planned for, `driveToShot` drives to the other spot before spin-up). Not done: redirecting mid-drive when a tip is seen en route (needs the pan servo to see it); the extra leg is paid only after arriving.
+`Steps.awaitCamera` waits for a camera read of one of our CELLS (`ctx.lastCellReadS`, set in `AutoOpMode.trackUpSide`) taken after a given time, capped, and ends at once without a camera. A CELL read facing down also sets the other one up (the two are joined). Used twice: after a burst (min `TIP_SETTLE_MIN_S` 0.4 s so the HIVE has time to tip, cap `TIP_SETTLE_S` 1.5 s) and on arrival at a shot spot (`ARRIVE_CHECK_S` 0.5 s; if `upSide` differs from the side the trip was planned for, `driveToShot` drives to the other spot before spin-up). Not possible with the fixed camera: redirecting mid-drive when a tip is seen en route; the extra leg is paid only after arriving.

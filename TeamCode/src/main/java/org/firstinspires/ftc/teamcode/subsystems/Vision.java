@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Position;
-import org.firstinspires.ftc.teamcode.constants.CameraPanConstants;
 import org.firstinspires.ftc.teamcode.constants.VisionConstants;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.HiveCell;
@@ -94,8 +93,6 @@ public class Vision implements Subsystem {
     private final Limelight3A limelight;
     private final Map<HiveCell, CellSighting> sightings = new EnumMap<>(HiveCell.class);
 
-    // Optional servo that turns the camera; null for a fixed mount.
-    private CameraPan pan;
     private Alliance alliance;
     private HiveTarget target;
     private long targetNs;
@@ -110,11 +107,6 @@ public class Vision implements Subsystem {
         limelight.setPollRateHz(VisionConstants.POLL_RATE_HZ);
         limelight.pipelineSwitch(VisionConstants.PIPELINE);
         limelight.start();
-    }
-
-    /** The camera rides on this pan servo: apply its angle when reading tag positions. */
-    public void setPan(CameraPan pan) {
-        this.pan = pan;
     }
 
     public void setAlliance(Alliance alliance) {
@@ -132,8 +124,7 @@ public class Vision implements Subsystem {
             // Age of the image: time on the Limelight plus time since it reached the hub.
             double ageMs = result.getCaptureLatency() + result.getTargetingLatency()
                     + result.getStaleness();
-            long captureNs = nowNs - MathUtil.msToNs(ageMs);
-            readSightings(result, pan == null ? 0 : pan.angleAtNs(captureNs));
+            readSightings(result);
             long stamp = result.getControlHubTimeStampNanos();
             newFrame = stamp != lastFrameStampNs;
             lastFrameStampNs = stamp;
@@ -215,7 +206,7 @@ public class Vision implements Subsystem {
     }
 
     // Average the visible tags of each CELL into one point per CELL.
-    private void readSightings(LLResult result, double panDeg) {
+    private void readSightings(LLResult result) {
         Map<HiveCell, double[]> sums = new EnumMap<>(HiveCell.class);
 
         for (LLResultTypes.FiducialResult tag : result.getFiducialResults()) {
@@ -225,7 +216,7 @@ public class Vision implements Subsystem {
             }
 
             Position p = tag.getTargetPoseCameraSpace().getPosition().toUnit(DistanceUnit.METER);
-            double[] robot = cameraToRobot(p.x, p.y, p.z, panDeg);
+            double[] robot = cameraToRobot(p.x, p.y, p.z);
 
             double[] sum = sums.get(cell);
             if (sum == null) {
@@ -248,11 +239,9 @@ public class Vision implements Subsystem {
 
     /**
      * Limelight camera space (x right, y down, z out of the lens) to the robot frame
-     * (X forward, Y left, Z up), using the mounting in VisionConstants. {@code panDeg} is
-     * how far a pan servo has turned the camera to the left (0 for a fixed mount); the
-     * lens swings about the pan axis in CameraPanConstants.
+     * (X forward, Y left, Z up), using the fixed mounting in VisionConstants.
      */
-    static double[] cameraToRobot(double x, double y, double z, double panDeg) {
+    static double[] cameraToRobot(double x, double y, double z) {
         if (VisionConstants.CAMERA_UPSIDE_DOWN) {
             x = -x;
             y = -y;
@@ -269,20 +258,13 @@ public class Vision implements Subsystem {
         double up = along * Math.sin(pitch) + top * Math.cos(pitch);
 
         // Turn the camera to its yaw on the robot.
-        double yaw = Math.toRadians(VisionConstants.CAMERA_YAW_DEG + panDeg);
+        double yaw = Math.toRadians(VisionConstants.CAMERA_YAW_DEG);
         double robotForward = forward * Math.cos(yaw) - left * Math.sin(yaw);
         double robotLeft = forward * Math.sin(yaw) + left * Math.cos(yaw);
 
-        // The lens position: its offset from the pan axis turns with the pan.
-        double offF = VisionConstants.CAMERA_FORWARD_M - CameraPanConstants.AXIS_FORWARD_M;
-        double offL = VisionConstants.CAMERA_LEFT_M - CameraPanConstants.AXIS_LEFT_M;
-        double pr = Math.toRadians(panDeg);
-        double lensF = CameraPanConstants.AXIS_FORWARD_M + offF * Math.cos(pr) - offL * Math.sin(pr);
-        double lensL = CameraPanConstants.AXIS_LEFT_M + offF * Math.sin(pr) + offL * Math.cos(pr);
-
         return new double[]{
-                robotForward + lensF,
-                robotLeft + lensL,
+                robotForward + VisionConstants.CAMERA_FORWARD_M,
+                robotLeft + VisionConstants.CAMERA_LEFT_M,
                 up + VisionConstants.CAMERA_UP_M
         };
     }
