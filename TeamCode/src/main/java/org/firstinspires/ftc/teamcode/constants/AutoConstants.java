@@ -242,6 +242,10 @@ public class AutoConstants {
     // in in about 1 s (PULSE_BALLS x (PULSE_PUSH + PULSE_RETRACT)); the rest is margin.
     // Raise it if the last ball is left behind.
     public static double SHOOT_FEED_S = 2;
+    // Turn the wheel back on this long before arriving at a shot spot (distance left at
+    // AVG_SPEED_IN_PER_S), so it is at speed when the shot starts instead of spinning up
+    // from rest there. About the wheel's spin-up time from off; 0 = spin up on arrival.
+    public static double SPIN_UP_LEAD_S = 1.5;
     // Give up on a shot whose wheel never reaches speed after this long.
     public static double SHOOT_TIMEOUT_S = 4.0;
 

@@ -65,6 +65,9 @@ public final class Steps {
      * switched off just before the robot moves, to save battery; if the drive is skipped
      * (already there) the shooter is left as it was, so it never flicks off and on.
      *
+     * The wheel is switched back on SPIN_UP_LEAD_S before the robot arrives (by distance
+     * left at AVG_SPEED_IN_PER_S), so it is at or near speed when the shot step starts.
+     *
      * Already there (within ALREADY_THERE_IN / _DEG): the drivetrain is not touched at
      * all. A tiny path makes Pedro jerk the robot while it corrects odometry noise.
      */
@@ -72,9 +75,43 @@ public final class Steps {
                                    boolean shooterOff) {
         AutoStep drive = drivePath(name, target);
         if (shooterOff) {
-            drive = sequence(name, spinUp(false), drive);
+            drive = sequence(name, spinUp(false), spinUpNearEnd(drive, target));
         }
         return when(name, ctx -> !alreadyAt(ctx, target.apply(ctx)), drive, null);
+    }
+
+    // Runs a drive and turns the shooter on once the robot is within the spin-up lead
+    // distance of the target (the target is read once, when the drive starts).
+    private static AutoStep spinUpNearEnd(AutoStep drive, Function<AutoContext, Pose> target) {
+        return new AutoStep() {
+            private Pose to;
+
+            @Override
+            public void start(AutoContext ctx) {
+                to = target.apply(ctx);
+                drive.start(ctx);
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                double leadIn = AutoConstants.SPIN_UP_LEAD_S * AutoConstants.AVG_SPEED_IN_PER_S;
+                Pose p = ctx.robot.drivetrain.getPose();
+                if (leadIn > 0 && Math.hypot(to.x() - p.x(), to.y() - p.y()) <= leadIn) {
+                    ctx.spinUp = true;
+                }
+                return drive.update(ctx);
+            }
+
+            @Override
+            public void end(AutoContext ctx) {
+                drive.end(ctx);
+            }
+
+            @Override
+            public String name() {
+                return drive.name();
+            }
+        };
     }
 
     private static boolean alreadyAt(AutoContext ctx, Pose to) {
