@@ -236,10 +236,15 @@ public final class Steps {
     public static AutoStep awaitShotCell(String name, double capS) {
         return new AutoStep() {
             private double startS;
+            // SECOND's first burst: the agreed delay was already waited (startDelay), and the
+            // partner was to shoot first, so there is no further wait and no stale belief.
+            private boolean secondFirst;
 
             @Override
             public void start(AutoContext ctx) {
                 startS = ctx.now();
+                secondFirst = AutoSelection.slot == AutoSelection.Slot.SECOND
+                        && ctx.cycleIndex == 0;
             }
 
             @Override
@@ -248,9 +253,17 @@ public final class Steps {
                         || !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE) {
                     return true;
                 }
-                if (ctx.now() - startS >= capS
+                if (secondFirst || ctx.now() - startS >= capS
                         || ctx.timeLeft() <= AutoConstants.GIVE_UP_AT_TIME_LEFT_S) {
-                    ctx.ownCellGivenUp = true;
+                    boolean seesHive = ctx.lastCellReadS >= 0
+                            && ctx.now() - ctx.lastCellReadS <= AutoConstants.BLIND_READ_MAX_AGE_S;
+                    if (secondFirst && !seesHive) {
+                        // No camera read of the HIVE: do not trust the starting belief. The
+                        // partner agreed to shoot first, so take it that it tipped the HIVE.
+                        ctx.upSide = AutoSelection.ownSide(ctx.alliance);
+                    } else {
+                        ctx.ownCellGivenUp = true;
+                    }
                     return true;
                 }
                 return false;

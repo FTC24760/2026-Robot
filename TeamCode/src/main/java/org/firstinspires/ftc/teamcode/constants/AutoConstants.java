@@ -166,6 +166,11 @@ public class AutoConstants {
     // How long to wait for it to come up before giving up and shooting at whichever is up.
     // PLACEHOLDER: set from a timed run with the partner.
     public static double OWN_CELL_WAIT_S = 6;
+    // SECOND's first burst does not wait OWN_CELL_WAIT_S after the delay (the wait would stack
+    // on it). If the camera read the HIVE within this long and our CELL is still down, the
+    // partner has not tipped it: SECOND goes to the other CELL. With no recent read it cannot
+    // tell, and takes it that the partner (who agreed to shoot first) tipped it.
+    public static double BLIND_READ_MAX_AGE_S = 2.0;
     // Stop waiting at this much of the auto left, whatever OWN_CELL_WAIT_S says: it is the
     // last moment to drive to the other CELL's spot, shoot and still bank PARK (the reserve
     // window starts at RESERVE_TIME_LEFT_S). PLACEHOLDER: time the trip and a burst.
