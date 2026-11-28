@@ -160,10 +160,12 @@ public class AutoConstants {
         NONE
     }
 
-    // Fixed order (decided with the team): SOLO takes the GARDEN, the wall FLOWER, then the
-    // back FLOWER; in a pair FIRST takes the GARDEN then the wall FLOWER, SECOND the back
+    // SOLO (decided with the team): keep shooting the CELL that is up (the other side once it
+    // tips); before each shot after the pre-loads, collect from the unused source nearest to
+    // the robot that still fits in the time left. Off: SOLO_SOURCES in order instead.
+    // In a pair the split is fixed: FIRST the GARDEN then the wall FLOWER, SECOND the back
     // FLOWER. The 20 POLLEN are 4 pre-loaded on each robot and one cycle (4) at each source.
-    // A source is skipped (and the cycles end) if it does not fit in the time left.
+    public static boolean SOLO_NEAREST_SOURCE = true;
     public static CycleSource[] SOLO_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
     public static CycleSource[] FIRST_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
     public static CycleSource[] SECOND_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};

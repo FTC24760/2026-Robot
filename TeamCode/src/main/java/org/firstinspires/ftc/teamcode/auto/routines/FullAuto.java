@@ -117,25 +117,44 @@ public final class FullAuto {
     }
 
     /**
-     * The source for this cycle in the slot's fixed order, or null if there is none or it
-     * does not fit: its trips, a burst, the park trip and the margin must fit in the time
-     * left, so the park is never given up for a cycle.
+     * The source for this cycle, or null if none fits. SOLO (SOLO_NEAREST_SOURCE) takes the
+     * unused source nearest to the robot; FIRST and SECOND take the next one in their fixed
+     * list, so the partner can rely on it. A source counts only if its trips, a burst into
+     * the CELL that is up, the park trip and the margin fit in the time left: the park is
+     * never given up for a cycle.
      */
     private static CycleSource chooseSource(AutoContext c, int index) {
-        CycleSource source = sourceFor(index);
-        if (source == CycleSource.NONE) {
-            return null;
+        CycleSource[] candidates;
+        if (!AutoSelection.pair() && AutoConstants.SOLO_NEAREST_SOURCE) {
+            candidates = new CycleSource[] {
+                    CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
+        } else {
+            candidates = new CycleSource[] {sourceFor(index)};
         }
+
         Pose me = c.robot.drivetrain.getPose();
         double[] from = {c.redX(me), c.redY(me)};
-        double[] at = TripTimes.sourceXY(source);
-        double[] t = ZoneTargets.target(c.shotSide(), at[0], at[1], AutoSelection.pair(),
-                AutoSelection.ownSide(c.alliance));
-        double[] next = t != null ? new double[] {t[0], t[1]} : at;
-        double park = TripTimes.driveS(next[0], next[1], AutoConstants.PARK_X, AutoConstants.PARK_Y);
-        double need = TripTimes.cycleS(source, from, next) + AutoConstants.BURST_S + park
-                + AutoConstants.CYCLE_MARGIN_S;
-        return need <= c.timeLeft() ? source : null;
+        CycleSource best = null;
+        double bestS = Double.MAX_VALUE;
+        for (CycleSource source : candidates) {
+            if (source == CycleSource.NONE || c.sourceUsed[source.ordinal()]) {
+                continue;
+            }
+            double[] at = TripTimes.sourceXY(source);
+            double[] t = ZoneTargets.target(c.shotSide(), at[0], at[1], AutoSelection.pair(),
+                    AutoSelection.ownSide(c.alliance));
+            double[] next = t != null ? new double[] {t[0], t[1]} : at;
+            double park = TripTimes.driveS(next[0], next[1], AutoConstants.PARK_X,
+                    AutoConstants.PARK_Y);
+            double need = TripTimes.cycleS(source, from, next) + AutoConstants.BURST_S + park
+                    + AutoConstants.CYCLE_MARGIN_S;
+            double away = TripTimes.driveS(from[0], from[1], at[0], at[1]);
+            if (need <= c.timeLeft() && away < bestS) {
+                best = source;
+                bestS = away;
+            }
+        }
+        return best;
     }
 
     private static AutoStep collectChosen() {
