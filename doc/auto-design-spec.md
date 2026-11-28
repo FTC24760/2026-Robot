@@ -137,9 +137,8 @@ The alliance is the OpMode (`Auto: Red` / `Auto: Blue`), so the right TeleOp is 
 | Start preset | D-pad left/right (A / B) | A |
 | Slot | A cycles SOLO / PAIR; SOLO also sets start A | SOLO |
 | Cycles | D-pad up/down, 0-3 | `DEFAULT_CYCLES` (3) |
-| Up-CELL override | X = LEFT, B = RIGHT, Y = automatic | automatic |
 
-Telemetry shows the selection, the exact coordinates to place the robot at for this alliance, what PAIR will do from this start, and warnings: a start that does not match the slot; a start outside the zone; a CELL with no usable zone point; poses past our side of the field (G402); PAIR from B without a camera. Selections are statics in `AutoSelection`, so they persist between matches until the app restarts or code is deployed.
+There is no up-CELL override: which CELL is up at the start comes only from the camera (during init), else RIGHT as the manual sets up every match. Telemetry shows the selection, the exact coordinates to place the robot at for this alliance, what PAIR will do from this start, and warnings: a start that does not match the slot; a start outside the zone; a CELL with no usable zone point; poses past our side of the field (G402); PAIR from B without a camera. Selections are statics in `AutoSelection`, so they persist between matches until the app restarts or code is deployed.
 
 ## Robot and camera
 

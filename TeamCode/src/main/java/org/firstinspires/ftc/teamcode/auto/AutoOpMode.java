@@ -27,9 +27,8 @@ import org.firstinspires.ftc.teamcode.utils.PoseHandoff;
  *   d-pad left / right  start preset (where the robot is placed; see StartPreset)
  *   A                   our slot: SOLO (sets start A) / PAIR (each robot its own zone)
  *   d-pad up / down     more / fewer collection cycles after the pre-loads
- *   X / B               our LEFT / RIGHT CELL is up (override)
- *   Y                   back to automatic (Limelight if it sees the HIVE, else RIGHT,
- *                       which is how the manual sets up every match)
+ * Which CELL is up at the start comes only from the camera (else RIGHT, which is how the
+ * manual sets up every match); there is no driver override.
  * The alliance is the OpMode (Auto: Red / Auto: Blue), so the right TeleOp is preselected.
  * Choices are kept for the next match (AutoSelection).
  * The rules (G401) forbid touching the controls once the countdown begins.
@@ -45,7 +44,6 @@ public abstract class AutoOpMode extends OpMode {
     private boolean routineStarted;
 
     // Driver's choice during init; null means "let the Limelight decide".
-    private CellSide chosenSide;
     private CellSide seenSide;
 
     private final EdgeDetector moreCycles = new EdgeDetector();
@@ -108,14 +106,6 @@ public abstract class AutoOpMode extends OpMode {
             }
         }
 
-        if (gamepad1.x) {
-            chosenSide = CellSide.LEFT;
-        } else if (gamepad1.b) {
-            chosenSide = CellSide.RIGHT;
-        } else if (gamepad1.y) {
-            chosenSide = null;
-        }
-
         // Only read the camera here: nothing may move until the match starts.
         if (robot.hasAutoAim()) {
             robot.vision.update(System.nanoTime());
@@ -139,7 +129,6 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
-        telemetry.addLine("X = LEFT CELL up, B = RIGHT CELL up, Y = automatic");
         telemetry.addLine("Hands off the controller once the countdown starts (G401)");
         for (String w : ctx.zoneWarnings(AutoSelection.preset, startSide())) {
             telemetry.addLine("!! Outside the shooting zone: " + w);
@@ -251,9 +240,6 @@ public abstract class AutoOpMode extends OpMode {
     }
 
     private CellSide startSide() {
-        if (chosenSide != null) {
-            return chosenSide;
-        }
         if (AutoConstants.DETECT_UP_SIDE && seenSide != null) {
             return seenSide;
         }
@@ -261,9 +247,6 @@ public abstract class AutoOpMode extends OpMode {
     }
 
     private String sideSource() {
-        if (chosenSide != null) {
-            return "driver";
-        }
         if (AutoConstants.DETECT_UP_SIDE && seenSide != null) {
             return "Limelight";
         }
