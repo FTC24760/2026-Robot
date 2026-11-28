@@ -184,11 +184,11 @@ public class AutoConstants {
     // ---- Following the HIVE when it tips. ----
     // The Limelight is the main way the auto knows which CELL is up. A tip needs balls in the
     // up CELL: the first only BALLS_FIRST_TIP (the CELL starts with 3 NECTAR in it), every
-    // later one BALLS_NEXT_TIP. So the 20 POLLEN make at most three tips (4 + 8 + 8), and each
-    // later tip takes two bursts. Our own balls are counted; the partner's are not. When the
+    // later one BALLS_NEXT_TIP. So the 20 POLLEN make at most three tips (3 + 8 + 8 = 19),
+    // and each later tip takes two bursts. Our own balls are counted; the partner's are not. When the
     // camera cannot see the HIVE after a burst, believe the count and take it that the CELL
     // tipped; when it can, the camera wins.
-    public static int BALLS_FIRST_TIP = 4;
+    public static int BALLS_FIRST_TIP = 3;
     public static int BALLS_NEXT_TIP = 8;
     public static boolean PREDICT_TIP_WHEN_BLIND = true;
     public static int BALLS_PER_SHOT = 4;

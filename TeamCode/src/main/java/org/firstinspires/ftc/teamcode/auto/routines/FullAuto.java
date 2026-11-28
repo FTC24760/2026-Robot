@@ -195,7 +195,7 @@ public final class FullAuto {
                                 && chooseSource(c, c.cycleIndex) != null,
                         awaitTip("watch for tip", AutoConstants.TIP_WATCH_S),
                         null),
-                // No camera read since the burst: believe the ball count (4, then 8).
+                // No camera read since the burst: believe the ball count (3, then 8).
                 instant("tip belief", AutoContext::settleTipBelief));
     }
 }

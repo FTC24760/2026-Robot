@@ -90,7 +90,7 @@ public class AutoContext {
         }
     }
 
-    /** Balls needed in the up CELL for the next tip: 4 for the first, then 8. */
+    /** Balls needed in the up CELL for the next tip: 3 for the first, then 8. */
     public int ballsToTip() {
         return tips == 0 ? AutoConstants.BALLS_FIRST_TIP : AutoConstants.BALLS_NEXT_TIP;
     }
@@ -101,7 +101,7 @@ public class AutoContext {
         burstEndS = now();
     }
 
-    /** SOLO: our balls in the up CELL have reached the tip threshold (4, then 8). */
+    /** SOLO: our balls in the up CELL have reached the tip threshold (3, then 8). */
     public boolean tipExpected() {
         return !AutoSelection.pair() && ballsSinceTip >= ballsToTip();
     }
