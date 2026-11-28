@@ -44,6 +44,61 @@ This is what the code on `auto-redesign` does. The sections below hold the reaso
 
 The partner's auto is unknown; we only run our code on our robot. The only partner rule is static: stay `PARTNER_CLEAR_IN` from the partner's start. Agree routes with the partner team before each match.
 
+## TeleOp behavior summary (current, 2026-11-27)
+
+What `TeleOp: Red` / `TeleOp: Blue` (`MatchTeleOp`, `Robot.update`) do on `auto-redesign`. Numbers are placeholders until measured.
+
+### Start
+
+- **Pose:** carries on from where AUTO left the robot (`PoseHandoff`) if AUTO ran for the same alliance within `PoseHandoff.MAX_AGE_S` (60 s); otherwise starts from `TeleOpConstants`, and telemetry says to check it.
+- **Up CELL:** aims at the CELL AUTO believed was up. It counts as unconfirmed until the camera reads the HIVE.
+
+### Aiming
+
+- The turret auto-aims at the up CELL: at the camera target when it sees one, otherwise from odometry at the remembered CELL position. In TeleOp that memory never expires (`TELEOP_ODOMETRY_FALLBACK_MAX_S` = 0); only the up/down state ages.
+- Wheel speed and hood come from the shot table for the target distance, plus the RPM trim.
+- A camera read of one CELL facing down switches the aim to the other CELL.
+- The operator's right stick moves the turret by hand while it is pushed; A (either pad) switches auto-aim off and on.
+
+### Shooting
+
+- **No auto-fire.** The driver or operator holds the right trigger to shoot; releasing it stops the burst.
+- **Fire gate (every ball):** wheel at speed, turret settled on the target (`AIM_SETTLE_S`), hood settled (`HOOD_SETTLE_S`), robot slower than `MAX_SPEED_IN_PER_S` and turning slower than `MAX_TURN_DEG_PER_S`.
+- Feeding pulses by default (operator X toggles it).
+- D-pad left (driver) or a reverse request cancels the shot.
+
+### Shooting zone and the ready signal
+
+- **Zone:** target distance inside the shot table's calibrated range (+ margin) and the shot within `ZONE_MAX_OFF_AXIS_DEG` of the up CELL's opening axis, with hysteresis. It is the same zone AUTO uses.
+- **Pre-spin:** in the zone the wheel spins up to the table speed so a shot goes at once. D-pad left stops pre-spin until the robot leaves the zone.
+- **Ready to fire:** in the zone, aim and hood settled, wheel at speed, loaded, and a recent camera read of which CELL is up (`UPSIDE_MAX_AGE_S`, and after the last shot).
+  - Ready: gamepad LED green and a short rumble on both pads (`READY_RUMBLE_MS`, with a cooldown).
+  - Everything ready except the up/down read: LED amber, "UP CELL UNCONFIRMED", no rumble. D-pad right (either pad) flips the aimed CELL, which counts as a read until the camera disagrees.
+  - Not ready: LED red.
+- **Loaded:** there is no ball sensor. After a shot that fed balls the zone is disarmed (no pre-spin, not ready) until the intake has run `REARM_INTAKE_S` or the robot leaves the zone.
+- The shoot trigger works whether or not the robot is ready, inside the zone or out.
+
+### Intake
+
+Priority, highest first: reverse (left bumper, either pad) > pulse feeding while shooting > feeding > hold while a shot spins up > intake (driver left trigger, operator right bumper) > off. Y (either pad) raises and lowers the FLOWER arm.
+
+### Controls
+
+| Control | Driver (gamepad 1) | Operator (gamepad 2) |
+|---|---|---|
+| Drive (field-centric) | left stick move, right stick X turn | - |
+| Shoot (hold) | right trigger | right trigger |
+| Intake (hold) | left trigger | right bumper |
+| Reverse intake (hold) | left bumper | left bumper |
+| FLOWER arm toggle | Y | Y |
+| Auto-aim on/off | A | A |
+| Flip aimed CELL | D-pad right | D-pad right |
+| RPM trim +/- 50 (max +/- 500) | D-pad up / down | D-pad up / down |
+| Stop shooter and pre-spin | D-pad left | - |
+| Pulse feeding on/off | - | X |
+| Manual turret | - | right stick X |
+| Reset pose | Create / Back | - |
+
 ## 1. Goals
 
 1. One AUTO OpMode that works for either alliance, either start spot, and a partner that is passive, FIRST, or SECOND.
