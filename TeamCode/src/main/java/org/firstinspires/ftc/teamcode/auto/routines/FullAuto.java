@@ -141,8 +141,7 @@ public final class FullAuto {
                 continue;
             }
             double[] at = TripTimes.sourceXY(source);
-            double[] t = ZoneTargets.target(c.shotSide(), at[0], at[1], AutoSelection.pair(),
-                    AutoSelection.ownSide(c.alliance));
+            double[] t = ZoneTargets.target(c.shotSide(), at[0], at[1], AutoSelection.pair());
             double[] next = t != null ? new double[] {t[0], t[1]} : at;
             double park = TripTimes.driveS(next[0], next[1], AutoConstants.PARK_X,
                     AutoConstants.PARK_Y);

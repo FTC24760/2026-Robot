@@ -14,7 +14,7 @@ import org.firstinspires.ftc.teamcode.utils.ShotZoneGeometry;
  * range, shot within ZONE_MAX_OFF_AXIS_DEG of the CELL's opening axis). A point is used only
  * if it is ZONE_INSET_IN inside the zone's edge, on our side of the middle line (G402), clear
  * of the walls enough to turn (WALL_TURN_CLEAR_IN), clear of the FLOWERS, and, for the
- * partner's CELL in a pair, clear of the partner's start (where it shoots from). The heading
+ * pair, clear of the partner's start (its auto is unknown; it likely shoots from there). The heading
  * there faces the CELL, so the fixed camera sees the HIVE while the robot waits and shoots.
  *
  * Red frame (our RIGHT CELL is the AUDIENCE one); pass results through ctx.pose().
@@ -62,12 +62,12 @@ public final class ZoneTargets {
      * The usable zone point for this CELL nearest to (fromX, fromY), as {x, y, headingDeg},
      * or null if there is none (e.g. the shot table is empty).
      */
-    public static double[] target(CellSide cell, double fromX, double fromY, boolean pair,
-                                  CellSide ownSide) {
-        // In a pair the partner shoots its own CELL (the one nearest its start) from near its
-        // start; keep away from there when we shoot that CELL.
+    public static double[] target(CellSide cell, double fromX, double fromY, boolean pair) {
+        // In a pair we do not know the partner's auto, only where it starts (the other
+        // preset), and most autos shoot their pre-loads from there or close by. Never pick a
+        // point near the partner's start, whichever CELL we shoot.
         double[] partner = null;
-        if (pair && cell != ownSide) {
+        if (pair) {
             partner = AutoSelection.preset == StartPreset.A
                     ? new double[] {AutoConstants.START_B_X, AutoConstants.START_B_Y}
                     : new double[] {AutoConstants.START_A_X, AutoConstants.START_A_Y};

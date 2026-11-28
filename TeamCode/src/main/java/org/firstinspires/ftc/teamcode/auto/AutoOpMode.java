@@ -105,6 +105,12 @@ public abstract class AutoOpMode extends OpMode {
 
         if (nextSlot.rose(gamepad1.a)) {
             AutoSelection.slot = AutoSelection.slot.next();
+            // The stronger robot takes FIRST and starts at A; the weaker SECOND starts at B.
+            StartPreset forSlot = AutoSelection.presetForSlot();
+            if (forSlot != null && forSlot != AutoSelection.preset) {
+                AutoSelection.preset = forSlot;
+                robot.setPose(routine.startPose(ctx));
+            }
         }
         if (moreDelay.rose(gamepad1.right_bumper)) {
             AutoSelection.startDelayS = Math.min(
@@ -150,8 +156,8 @@ public abstract class AutoOpMode extends OpMode {
             telemetry.addData("If FIRST does not tip", "%s   (left stick press)  %s",
                     AutoSelection.noTipPlan,
                     AutoSelection.noTipPlan == AutoSelection.NoTipPlan.LEAVE
-                            ? "FIRST parks, SECOND drives over and shoots"
-                            : "FIRST cycles until it tips, SECOND waits for the tip");
+                            ? "SECOND goes when its delay ends"
+                            : "SECOND waits for the tip (or until 15 s left)");
         }
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
@@ -253,6 +259,11 @@ public abstract class AutoOpMode extends OpMode {
 
     // Selections that look like a mistake.
     private void addWarnings() {
+        StartPreset forSlot = AutoSelection.presetForSlot();
+        if (forSlot != null && forSlot != AutoSelection.preset) {
+            telemetry.addLine("!! " + AutoSelection.slot + " normally starts at " + forSlot
+                    + ", not " + AutoSelection.preset);
+        }
         if (AutoSelection.slot == AutoSelection.Slot.SECOND && AutoSelection.startDelayS <= 0) {
             telemetry.addLine("!! SECOND slot with no delay: we will shoot at the same time as the partner");
         }

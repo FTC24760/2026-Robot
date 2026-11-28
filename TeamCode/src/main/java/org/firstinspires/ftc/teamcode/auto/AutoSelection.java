@@ -52,9 +52,19 @@ public final class AutoSelection {
     /** Only used in the FIRST and SECOND slots. */
     public static NoTipPlan noTipPlan = AutoConstants.DEFAULT_NO_TIP_PLAN;
 
-    /** FIRST, after the pre-loads, and the HIVE did not tip: keep cycling? */
-    public static boolean firstStaysUntilTip() {
-        return slot == Slot.FIRST && noTipPlan == NoTipPlan.STAY;
+    /**
+     * The start that goes with the slot: FIRST (the stronger robot) at A, SECOND at B; null
+     * for SOLO (any start, normally A).
+     */
+    public static StartPreset presetForSlot() {
+        switch (slot) {
+            case FIRST:
+                return StartPreset.A;
+            case SECOND:
+                return StartPreset.B;
+            default:
+                return null;
+        }
     }
 
     /** SECOND, delay over, no tip yet: keep waiting for the partner to tip it? */

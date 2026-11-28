@@ -228,8 +228,7 @@ public class AutoContext {
                     ZoneTargets.offAxisDeg(sx, sy, upAtStart)));
         }
         for (CellSide cell : CellSide.values()) {
-            if (ZoneTargets.target(cell, sx, sy, AutoSelection.pair(),
-                    AutoSelection.ownSide(alliance)) == null) {
+            if (ZoneTargets.target(cell, sx, sy, AutoSelection.pair()) == null) {
                 out.add("no usable zone point for the " + cell + " CELL");
             }
         }

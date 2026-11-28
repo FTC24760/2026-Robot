@@ -316,8 +316,7 @@ public final class Steps {
     /** The zone target for the CELL that is up now, from where the robot is, as a pose. */
     static Pose zoneTargetPose(AutoContext ctx, CellSide cell) {
         Pose me = ctx.robot.drivetrain.getPose();
-        double[] t = ZoneTargets.target(cell, ctx.redX(me), ctx.redY(me), AutoSelection.pair(),
-                AutoSelection.ownSide(ctx.alliance));
+        double[] t = ZoneTargets.target(cell, ctx.redX(me), ctx.redY(me), AutoSelection.pair());
         return t == null ? null : ctx.pose(t[0], t[1], t[2]);
     }
 

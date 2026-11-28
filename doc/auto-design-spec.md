@@ -173,7 +173,7 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips 
 
 `timeLeft` <= `RESERVE_TIME_LEFT_S` preempts any state and goes to PARK.
 
-DECIDE: (1) `timeLeft` < `CYCLE_MIN_TIME_LEFT_S` or `cycles` = 3 -> PARK; (2) FIRST with LEAVE -> PARK; (3) FIRST with STAY -> PARK once `tips` >= 1, else COLLECT; (4) otherwise COLLECT. `up` never changes the decision, only where GOTO goes.
+DECIDE: (1) no source left that fits (trips + `BURST_S` + park trip + `CYCLE_MARGIN_S` <= `timeLeft`) or `cycles` = 3 -> PARK; (2) otherwise COLLECT. Every slot, FIRST included, cycles until then. `up` never changes the decision, only where GOTO goes.
 
 Tips and the plan: a tip needs balls in the up CELL, and the first needs only 4 POLLEN (each CELL starts with 3 NECTAR in it); every later tip needs 8, which is two bursts (`BALLS_FIRST_TIP`, `BALLS_NEXT_TIP`). The 20 POLLEN (4 pre-loaded on each robot, one 4-ball cycle at each of the GARDEN and the two FLOWERS; NECTAR ignored) therefore make at most three tips: 4 + 8 + 8. Either robot's balls count, and whichever CELL is up gets them.
 
@@ -219,14 +219,16 @@ The turret and hood always aim at the believed-up CELL from odometry (`HiveTrack
 
 Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive into the up CELL's zone, clear of the partner's start (`ZoneTargets`), and shoot; if our shots tip it, the next trip goes to the other CELL's zone; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.
 
-### FIRST, and the no-tip plan (agreed with the partner)
+### Slots and the partner (decided 2026-11-27)
 
-If FIRST's pre-loads do not tip the HIVE, the two robots must already agree what happens, since they cannot talk. One init-menu flag (left stick press, `AutoSelection.noTipPlan`, default `DEFAULT_NO_TIP_PLAN` = LEAVE) is set the same on both robots:
+The stronger robot takes FIRST and always starts at A; the weaker takes SECOND and starts at B. Picking the slot on the init menu sets the start (`AutoSelection.presetForSlot`); a hand-changed start shows a warning. FIRST never parks early: it cycles (GARDEN, wall FLOWER) like SOLO. The partner's auto is unknown (we only run our code on our robot), so the only partner rule is static: no zone point within `PARTNER_CLEAR_IN` (24 in) of the partner's start, whichever CELL we shoot, because most autos shoot their pre-loads from their start or close by. Not covered: a partner that drives into the zone we use; agree routes with the partner team before the match.
 
-- **LEAVE:** FIRST shoots the pre-loads and parks (no cycles, no tip-settle wait). SECOND waits its delay (ending early on a tip), then drives to the up CELL's offset spot and shoots.
-- **STAY:** FIRST cycles until the camera sees the HIVE tip (`tippedSinceStart`), then parks, leaving the area to SECOND. SECOND ignores the delay and waits for the tip, giving up and going anyway at `SECOND_GO_ANYWAY_LEFT_S` (15 s) left.
+One init-menu flag (left stick press, `AutoSelection.noTipPlan`, default LEAVE) now only changes how SECOND waits:
 
-If the pre-loads do tip it, FIRST parks in both plans (mid-burst tips still finish the burst at the other CELL). SOLO ignores the flag. Not covered: the partner picking the other plan; the menu only shows it, it cannot check.
+- **LEAVE:** SECOND waits its delay (ending early on a seen tip), then goes.
+- **STAY:** SECOND ignores the delay and waits for the tip, going anyway at `SECOND_GO_ANYWAY_LEFT_S` (15 s) left.
+
+SOLO and FIRST ignore the flag.
 
 ### Camera-confirmed tip checks (SOLO, also used by FIRST/SECOND)
 

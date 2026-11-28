@@ -65,8 +65,8 @@ public class AutoConstants {
     // faces the up CELL there (so the fixed camera sees it), and fires when the TeleOp
     // "ready to fire" test passes. Extra auto limits: not past the middle line (G402,
     // OWN_SIDE_*), WALL_TURN_CLEAR_IN from every wall (so it can turn there), SPOT_KEEP_OUT_IN
-    // from FLOWERS, and in a pair, for the partner's CELL, PARTNER_CLEAR_IN from the
-    // partner's start (it shoots from there). Searched on a ZONE_GRID_IN grid.
+    // from FLOWERS, and in a pair PARTNER_CLEAR_IN from the partner's start (its auto is
+    // unknown; it likely shoots from there). Searched on a ZONE_GRID_IN grid.
     public static double ZONE_INSET_IN = 3;
     public static double ZONE_GRID_IN = 2;
     public static double PARTNER_CLEAR_IN = 24;
