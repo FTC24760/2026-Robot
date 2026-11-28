@@ -111,12 +111,11 @@ public class AutoConstants {
     // Park this long after the last shot or cycle. 0 = at once; the rest
     // of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
     public static double PARK_DELAY_S = 0;
-    // After a burst, wait at least TIP_SETTLE_MIN_S (the HIVE needs time to tip), then until
-    // the camera has read one of our CELLS, but no longer than TIP_SETTLE_S, before leaving
-    // the zone. The next trip then goes to the right CELL: the same one if it did not tip,
-    // the other if it did. 0 = do not wait. PLACEHOLDERS: time a real tip.
-    public static double TIP_SETTLE_MIN_S = 0.4;
-    public static double TIP_SETTLE_S = 1.5;
+    // SOLO, after a burst that brought our count to the tip threshold: keep watching the
+    // HIVE until the camera sees it tip, at most this long, before planning the next trip.
+    // It ends the moment the tip is seen (each HIVE tips at a slightly different speed, so
+    // there is no fixed wait). Set it above the slowest tip seen. 0 = do not watch.
+    public static double TIP_WATCH_S = 1.5;
     public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
     // Reserve window: when this many seconds are left and the normal route has not started
     // its park drive, whatever step is running is abandoned and the robot drives to PARK

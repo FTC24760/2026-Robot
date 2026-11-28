@@ -17,7 +17,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
-import java.util.function.ToDoubleFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -270,26 +269,25 @@ public final class Steps {
     }
 
     /**
-     * Wait until the camera has read one of our CELLS at or after {@code sinceS(ctx)}
-     * (evaluated when the step starts), but never longer than {@code maxS}. Ends at once
-     * without a camera. Use it to be sure ctx.upSide is current before choosing a side.
+     * After a burst that should have tipped the HIVE: keep watching until the camera sees the
+     * tip, at most {@code maxS}. Ends the moment the tip is seen, so a HIVE that tips a little
+     * faster or slower costs only its own time. Ends at once without a camera.
      */
-    public static AutoStep awaitCamera(String name, ToDoubleFunction<AutoContext> sinceS,
-                                       double maxS) {
+    public static AutoStep awaitTip(String name, double maxS) {
         return new AutoStep() {
             private double startS;
-            private double since;
+            private int tipsAtStart;
 
             @Override
             public void start(AutoContext ctx) {
                 startS = ctx.now();
-                since = sinceS.applyAsDouble(ctx);
+                tipsAtStart = ctx.tips;
             }
 
             @Override
             public boolean update(AutoContext ctx) {
                 return !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE
-                        || ctx.lastCellReadS >= since || ctx.now() - startS >= maxS;
+                        || ctx.tips > tipsAtStart || ctx.now() - startS >= maxS;
             }
 
             @Override

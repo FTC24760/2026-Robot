@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
-import static org.firstinspires.ftc.teamcode.auto.Steps.awaitCamera;
+import static org.firstinspires.ftc.teamcode.auto.Steps.awaitTip;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
 import static org.firstinspires.ftc.teamcode.auto.Steps.instant;
@@ -178,7 +178,7 @@ public final class FullAuto {
 
     // Into the zone for the CELL that is up (no drive if already in it), wait until ready to
     // fire, fire. If the HIVE tips mid-burst, go to the other CELL's zone and finish there.
-    // Then let the HIVE tip and the camera (facing it) see it before the next trip is planned.
+    // Then, if a tip is expected, watch for it before the next trip is planned.
     private static AutoStep zoneShot() {
         return sequence("zone shot",
                 toZoneAndReady(),
@@ -186,15 +186,16 @@ public final class FullAuto {
                 when("after a tip", c -> c.shotInterrupted,
                         sequence("finish at other CELL", toZoneAndReady(), shoot()),
                         null),
-                when("tip settle",
-                        c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
-                                && c.cycles > c.cycleIndex && c.mayHaveTipped()
+                // SOLO, when our balls should have tipped it: watch for the tip before
+                // choosing the next source and side. PAIR needs no wait: it only shoots its
+                // own CELL and checks the camera again before every shot.
+                when("watch for tip",
+                        c -> AutoConstants.TIP_WATCH_S > 0 && c.robot.hasAutoAim()
+                                && c.tipExpected() && c.cycles > c.cycleIndex
                                 && chooseSource(c, c.cycleIndex) != null,
-                        awaitCamera("tip check",
-                                c -> c.now() + AutoConstants.TIP_SETTLE_MIN_S,
-                                AutoConstants.TIP_SETTLE_S),
+                        awaitTip("watch for tip", AutoConstants.TIP_WATCH_S),
                         null),
-                // No camera read of the HIVE: believe the ball count (4, then 8).
+                // No camera read since the burst: believe the ball count (4, then 8).
                 instant("tip belief", AutoContext::settleTipBelief));
     }
 }

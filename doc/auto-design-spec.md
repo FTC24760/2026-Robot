@@ -18,7 +18,7 @@ What the code on `auto-redesign` does. All numbers are placeholders until measur
 
 - **Getting into the zone:** if the robot is already in the TeleOp shooting zone (distance ring + off-axis angle, `ShotZoneGeometry`), it does not drive. Otherwise it drives to the nearest point `ZONE_INSET_IN` (3 in) inside the zone edge (`ZoneTargets`). Those points are on our side of the middle line, at least `WALL_TURN_CLEAR_IN` from every wall, clear of FLOWERS, and in a pair at least `PARTNER_CLEAR_IN` (24 in) from the partner's start. The robot faces the CELL there so the fixed camera sees the HIVE.
 - **Firing:** the same "ready to fire" test as TeleOp (`ShootZone`): in the zone, aim and hood settled, wheel at speed, and a recent camera read of which CELL is up. Auto fires as soon as it passes, or after `READY_TIMEOUT_S` (1.5 s) anyway. The wheel pre-spins in the zone.
-- **After a burst:** wait up to `TIP_SETTLE_S` (1.5 s) for the camera to show whether the HIVE tipped. With no read, go by our own ball count: the first tip needs 4 balls, each later tip 8.
+- **After a burst:** each HIVE tips at a slightly different speed, so there is no fixed wait. SOLO, when our balls should have tipped it (4 for the first tip, then 8), keeps watching until the camera sees the tip, at most `TIP_WATCH_S` (1.5 s), then plans the next trip. PAIR does not wait. With no camera read since the burst, the robot goes by its ball count. Before every shot a fresh camera read is required anyway (the ready test).
 - **Tip mid-burst:** feeding stops at once. SOLO finishes the burst at the other CELL; PAIR holds the rest until its own CELL is up again.
 - **Time budget:** a cycle starts only if collecting, the shot, the drive to park and a margin all fit in the time left.
 - **End of auto:** with `RESERVE_TIME_LEFT_S` (6 s) left, whatever is running is dropped and the robot parks.
@@ -148,5 +148,6 @@ There is no up-CELL override: which CELL is up at the start comes only from the 
 
 - Shot table rows and the zone angle limit (`ZONE_MAX_OFF_AXIS_DEG`); they decide where the zone points are.
 - Average drive speed (`AVG_SPEED_IN_PER_S`), `BURST_S`, `TURN_S`, FLOWER times: from the `AutoStep` log lines of a timed practice run.
-- `READY_TIMEOUT_S`, `UPSIDE_MAX_AGE_S`, `TIP_SETTLE_S`: from the `ShootZone` log lines.
+- `READY_TIMEOUT_S`, `UPSIDE_MAX_AGE_S`: from the `ShootZone` log lines. `TIP_WATCH_S`: above the slowest tip seen.
+- Hood servo full-travel time (`HOOD_SETTLE_S`, 0.3 s placeholder). Blocker: measured about 0.25 s, set to 0.3 s.
 - `WALL_TURN_CLEAR_IN` with the real bumpers; camera view of the CELL tags from both starts (Hive Vision test OpMode).

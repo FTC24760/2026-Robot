@@ -101,21 +101,19 @@ public class AutoContext {
         burstEndS = now();
     }
 
-    /**
-     * Alone, a burst that leaves the count under the threshold cannot have tipped the HIVE,
-     * so the camera wait can be skipped. With a partner its balls are not counted.
-     */
-    public boolean mayHaveTipped() {
-        return AutoSelection.pair() || ballsSinceTip >= ballsToTip();
+    /** SOLO: our balls in the up CELL have reached the tip threshold (4, then 8). */
+    public boolean tipExpected() {
+        return !AutoSelection.pair() && ballsSinceTip >= ballsToTip();
     }
 
     /**
-     * After a burst and the camera wait: if the camera read the HIVE since the burst, it
-     * decides (and a CELL it still shows up caps the count below the threshold). If it did
-     * not, believe the count and take it that the CELL tipped.
+     * After a burst (and the tip watch): if the camera read the HIVE after the burst, it
+     * decides; a CELL it still shows up means the balls missed, so the count is capped below
+     * the threshold. With no read since the burst, believe the count and take it that the
+     * CELL tipped. A seen tip has already reset the count (setUpSide).
      */
     public void settleTipBelief() {
-        boolean read = lastCellReadS >= burstEndS && burstEndS > 0;
+        boolean read = lastCellReadS > burstEndS && burstEndS > 0;
         if (read) {
             if (ballsSinceTip >= ballsToTip()) {
                 ballsSinceTip = ballsToTip() - 1;
