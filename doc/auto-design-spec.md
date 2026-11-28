@@ -28,9 +28,17 @@ This is what the code on `auto-redesign` does. The sections below hold the reaso
 ### FIRST (stronger robot, start A)
 
 1. Shoots the pre-loads from the start in Zone A, with no delay.
-2. GARDEN, then shoots whichever CELL is up: Zone A if the pre-loads missed, Zone B if they tipped.
-3. Wall FLOWER, then shoots whichever CELL is up.
+2. GARDEN, then shoots (see below which zone).
+3. Wall FLOWER, then shoots.
 4. Parks. Never goes to the back FLOWER.
+
+Which zone depends on where the partner starts, which the drive team asks the partner team before the match and sets on the init menu (left stick press, `AutoSelection.partnerStart`, default UNKNOWN). We do not know the partner's auto, so its start is the only thing we can keep clear of; Zone B points all sit in the corner between the HIVE and the far wall, where a partner shooting its pre-loads would most likely be.
+
+- **UNKNOWN (default):** FIRST never drives into Zone B. It shoots only Zone A and holds fire while that CELL is down (like EQUAL from A), so tip 2 is up to the partner.
+- **FAR_WALL (start B):** FIRST shoots whichever CELL is up, keeping `PARTNER_CLEAR_IN` from start B.
+- **ALLIANCE_WALL:** FIRST shoots whichever CELL is up, keeping out of a strip `OWN_SIDE_MARGIN_IN` + `PARTNER_CLEAR_IN` (33 in) wide along our alliance wall. With the current placeholder zone that leaves Zone B almost no points.
+
+If the up CELL has no usable zone point (as can happen with ALLIANCE_WALL), FIRST stays with Zone A and holds fire there. A partner that does not shoot at all: pick SOLO.
 
 ### SECOND (weaker robot, start B)
 
@@ -178,6 +186,7 @@ Alliance stays the OpMode (`Auto: Red` / `Auto: Blue`): the Limelight and `prese
 | Start delay | bumpers, 0.5 s steps, 0-15 s; used only for SECOND | 5 s |
 | Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (3) |
 | Up-CELL override | X = LEFT, B = RIGHT, Y = automatic (existing) | automatic |
+| Partner start (FIRST only) | left stick press: UNKNOWN / FAR_WALL / ALLIANCE_WALL | UNKNOWN |
 
 Telemetry shows the selection, the exact coordinates the robot should be placed at for this alliance, and warnings: SECOND with zero delay; a delay so long that PARK may be skipped; a start that does not match the slot; a start outside the zone; a CELL with no usable zone point. Selections live in `AutoSelection` statics, so they persist between matches until the app restarts or code is deployed. Not done: Limelight wrong-alliance and pose-vs-preset warnings (`USE_AUTO_AIM` is currently false on the base branch).
 

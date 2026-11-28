@@ -35,7 +35,27 @@ public final class AutoSelection {
         }
     }
 
+    /**
+     * FIRST only: where the partner starts, as its team told us before the match. We do not
+     * know the partner's auto, so this is all we have to stay out of its way.
+     */
+    public enum PartnerStart {
+        /** Nobody asked: FIRST shoots only Zone A and never drives into Zone B. */
+        UNKNOWN,
+        /** At start B (far wall): FIRST may use Zone B, PARTNER_CLEAR_IN from there. */
+        FAR_WALL,
+        /** Along our alliance wall: FIRST may use Zone B, PARTNER_CLEAR_IN from that wall. */
+        ALLIANCE_WALL;
+
+        public PartnerStart next() {
+            PartnerStart[] all = values();
+            return all[(ordinal() + 1) % all.length];
+        }
+    }
+
     public static StartPreset preset = StartPreset.A;
+    /** FIRST only. Default UNKNOWN, so a robot whose drive team did not ask plays safe. */
+    public static PartnerStart partnerStart = PartnerStart.UNKNOWN;
     public static Slot slot = Slot.SOLO;
     /** Only used in the SECOND slot. */
     public static double startDelayS = AutoConstants.DEFAULT_START_DELAY_S;
@@ -66,7 +86,8 @@ public final class AutoSelection {
 
     /** We only ever shoot our own CELL (the one nearest our start) and hold fire while it is down. */
     public static boolean ownCellOnly() {
-        return slot == Slot.SECOND || slot == Slot.EQUAL;
+        return slot == Slot.SECOND || slot == Slot.EQUAL
+                || (slot == Slot.FIRST && partnerStart == PartnerStart.UNKNOWN);
     }
 
     /** FIRST, SECOND or EQUAL: the partner shoots into the same HIVE. */

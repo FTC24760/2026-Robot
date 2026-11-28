@@ -45,7 +45,16 @@ public class AutoContext {
      * up (waitsForCell).
      */
     public CellSide shotSide() {
-        return AutoSelection.ownCellOnly() ? AutoSelection.ownSide(alliance) : upSide;
+        CellSide own = AutoSelection.ownSide(alliance);
+        if (AutoSelection.ownCellOnly()) {
+            return own;
+        }
+        // The other CELL has no usable zone point (e.g. FIRST keeping clear of a partner on
+        // the alliance wall): stay with our own CELL and hold fire until it is up again.
+        if (upSide != own && !ZoneTargets.hasTarget(upSide, AutoSelection.pair())) {
+            return own;
+        }
+        return upSide;
     }
 
     /** True while the CELL we shoot into is facing down: hold fire and wait for a tip. */
@@ -152,6 +161,7 @@ public class AutoContext {
     }
 
     void markStart(double nowS) {
+        ZoneTargets.forget();
         startS = nowS;
         tips = 0;
         ballsSinceTip = 0;

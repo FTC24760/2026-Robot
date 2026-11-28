@@ -55,6 +55,7 @@ public abstract class AutoOpMode extends OpMode {
     private final EdgeDetector nextPreset = new EdgeDetector();
     private final EdgeDetector previousPreset = new EdgeDetector();
     private final EdgeDetector nextSlot = new EdgeDetector();
+    private final EdgeDetector nextPartnerStart = new EdgeDetector();
     private final EdgeDetector moreDelay = new EdgeDetector();
     private final EdgeDetector lessDelay = new EdgeDetector();
 
@@ -111,6 +112,9 @@ public abstract class AutoOpMode extends OpMode {
                 robot.setPose(routine.startPose(ctx));
             }
         }
+        if (nextPartnerStart.rose(gamepad1.left_stick_button)) {
+            AutoSelection.partnerStart = AutoSelection.partnerStart.next();
+        }
         if (moreDelay.rose(gamepad1.right_bumper)) {
             AutoSelection.startDelayS = Math.min(
                     AutoSelection.startDelayS + AutoConstants.START_DELAY_STEP_S,
@@ -147,6 +151,13 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Start delay", AutoSelection.shootsAfterPartner()
                 ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
                 : "none (only for SECOND, or EQUAL at B)");
+        if (AutoSelection.slot == AutoSelection.Slot.FIRST) {
+            AutoSelection.PartnerStart ps = AutoSelection.partnerStart;
+            telemetry.addData("Partner starts", "%s   (left stick press)  %s", ps,
+                    ps == AutoSelection.PartnerStart.UNKNOWN
+                            ? "Zone A only, never Zone B (ask the partner team!)"
+                            : "Zone B allowed, clear of the partner");
+        }
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
