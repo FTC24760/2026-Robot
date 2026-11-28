@@ -50,7 +50,7 @@ The partner's auto is unknown; we only run our code on our robot. The only partn
 2. Auto and TeleOp share the same subsystem and controller code (no duplicated aiming or shooting logic).
 3. Always bank LEAVE and PARK. Shots are worth more, but they never put LEAVE/PARK at risk.
 
-Non-goals (for now): FLOWER collection (no mechanism), NECTAR handling (robot cannot intake it), Limelight blob pipeline for POLLEN.
+Non-goals (for now): scoring into FLOWERS (the robot collects POLLEN from FLOWERS, but has no mechanism to put NECTAR or POLLEN into a FLOWER at end game), NECTAR handling (robot cannot intake it), Limelight blob pipeline for POLLEN.
 
 ## 2. Field and frame
 
