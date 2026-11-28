@@ -33,12 +33,11 @@ What the code on `auto-redesign` does. All numbers are placeholders until measur
 
 ### PAIR (partner shoots too): each robot takes care of its own zone
 
-The simplest safe option: we do not know the partner's auto or even its start, so we never drive into its zone. We shoot only our own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, and hold fire while our CELL is facing down. The start is picked by hand.
+The simplest safe option: we do not know the partner's auto, so we never drive into its zone. We shoot only our own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, and hold fire while our CELL is facing down. The start is picked by hand: the stronger robot of the pair takes start A (it shoots first), the weaker takes start B. Every match starts with the RIGHT CELL up (manual 10.3.1), which is Zone A's: start A shoots at once, start B waits for the tip.
 
 - **From A:** pre-loads in Zone A; GARDEN, shoot in Zone A; wall FLOWER, shoot in Zone A; park. Each shot waits in Zone A while our CELL is down.
 - **From B:** no fixed delay: hold fire at the start until our own camera sees our CELL up (the partner's pre-loads tipped the HIVE); then pre-loads in Zone B; back FLOWER, shoot in Zone B; park.
 - **If our CELL never comes up:** the reserve window parks us with the balls on board for TeleOp.
-- **Limelight not working at B** (unplugged, not configured, or `USE_AUTO_AIM` off): the robot gets no camera reads at all, so it never learns its CELL is up and does not shoot (init screen warns). A working camera that simply has not seen the CELL up yet is the normal wait above.
 - As a backstop, no shooting point is within `PARTNER_CLEAR_IN` of the other preset.
 
 Cost: with a weak partner, tip 2 depends on the partner putting 8 balls into Zone B, so from A we usually get one tip and hold the GARDEN load. Two strong robots can make three tips (A: 4 + later 8, B: 8), if the time allows.
@@ -138,7 +137,7 @@ The alliance is the OpMode (`Auto: Red` / `Auto: Blue`), so the right TeleOp is 
 | Slot | A cycles SOLO / PAIR; SOLO also sets start A | SOLO |
 | Cycles | D-pad up/down, 0-3 | `DEFAULT_CYCLES` (3) |
 
-There is no up-CELL override: which CELL is up at the start comes only from the camera (during init), else RIGHT as the manual sets up every match. Telemetry shows the selection, the exact coordinates to place the robot at for this alliance, what PAIR will do from this start, and warnings: a start that does not match the slot; a start outside the zone; a CELL with no usable zone point; poses past our side of the field (G402); PAIR from B without a camera. Selections are statics in `AutoSelection`, so they persist between matches until the app restarts or code is deployed.
+There is no up-CELL override: which CELL is up at the start comes only from the camera (during init), else RIGHT as the manual sets up every match. Telemetry shows the selection, the exact coordinates to place the robot at for this alliance, what PAIR will do from this start, and warnings: a start that does not match the slot; a start outside the zone; a CELL with no usable zone point; poses past our side of the field (G402). Selections are statics in `AutoSelection`, so they persist between matches until the app restarts or code is deployed.
 
 ## Robot and camera
 

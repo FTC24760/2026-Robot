@@ -22,7 +22,8 @@ public final class AutoSelection {
          * Partner shoots too. Each robot takes care of its own zone only: we shoot only our
          * own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, hold
          * fire while our CELL is down, and never drive into the partner's zone. Start picked
-         * by hand.
+         * by hand: the stronger robot at A (its CELL is up at the start, so it shoots first),
+         * the weaker at B (waits until its camera sees its CELL up).
          */
         PAIR;
 

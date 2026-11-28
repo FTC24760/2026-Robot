@@ -230,9 +230,6 @@ public abstract class AutoOpMode extends OpMode {
             telemetry.addLine("!! " + AutoSelection.slot + " normally starts at " + forSlot
                     + ", not " + AutoSelection.preset);
         }
-        if (AutoSelection.pair() && AutoSelection.preset == StartPreset.B && !robot.hasAutoAim()) {
-            telemetry.addLine("!! PAIR from B without a camera: it will never see our CELL up and will not shoot");
-        }
     }
 
     private CellSide defaultSide() {
