@@ -6,14 +6,14 @@ Figure positions are measured from pixels, about ±2 in.
 
 ## AUTO behavior summary (current, 2026-11-27)
 
-This is what the code on `auto-redesign` does. The sections below hold the reasoning and history; where they disagree, this section is current. All numbers are placeholders until measured on the robot.
+This is what the code on `auto-redesign` does. The sections below hold the reasoning and history (they still mention the old FIRST/SECOND/EQUAL slots and the start delay); where they disagree, this section is current. All numbers are placeholders until measured on the robot.
 
 ### Every shot, all slots
 
 - **Getting into the zone:** if the robot is already in the TeleOp shooting zone (distance ring + off-axis angle, `ShotZoneGeometry`), it does not drive. Otherwise it drives to the nearest point `ZONE_INSET_IN` (3 in) inside the zone edge (`ZoneTargets`). Those points are on our side of the middle line, at least `WALL_TURN_CLEAR_IN` from every wall, clear of FLOWERS, and in a pair at least `PARTNER_CLEAR_IN` (24 in) from the partner's start. The robot faces the CELL there so the fixed camera sees the HIVE.
 - **Firing:** the same "ready to fire" test as TeleOp (`ShootZone`): in the zone, aim and hood settled, wheel at speed, and a recent camera read of which CELL is up. Auto fires as soon as it passes, or after `READY_TIMEOUT_S` (1.5 s) anyway. The wheel pre-spins in the zone.
 - **After a burst:** wait up to `TIP_SETTLE_S` (1.5 s) for the camera to show whether the HIVE tipped. With no read, go by our own ball count: the first tip needs 4 balls, each later tip 8.
-- **Tip mid-burst:** feeding stops at once and the burst is finished at the other CELL.
+- **Tip mid-burst:** feeding stops at once. SOLO finishes the burst at the other CELL; PAIR holds the rest until its own CELL is up again.
 - **Time budget:** a cycle starts only if collecting, the shot, the drive to park and a margin all fit in the time left.
 - **End of auto:** with `RESERVE_TIME_LEFT_S` (6 s) left, whatever is running is dropped and the robot parks.
 - **Turning near walls:** the robot never turns with its centre closer than `WALL_TURN_CLEAR_IN` (13.5 in) to a wall. It moves straight off the wall first, or finishes the turn before moving in.
@@ -25,47 +25,19 @@ This is what the code on `auto-redesign` does. The sections below hold the reaso
 3. No tip: GARDEN, shoot in Zone A, wall FLOWER, shoot in Zone A, park.
 4. Pre-loads tip: GARDEN, shoot in Zone B, back FLOWER, shoot in Zone B (that tips it), then the wall FLOWER and a shot in Zone A if it fits, otherwise park.
 
-### FIRST (stronger robot, start A)
+### PAIR (partner shoots too): each robot takes care of its own zone
 
-1. Shoots the pre-loads from the start in Zone A, with no delay.
-2. GARDEN, then shoots (see below which zone).
-3. Wall FLOWER, then shoots.
-4. Parks. Never goes to the back FLOWER.
+Decided 2026-11-27 as the simplest safe option: we do not know the partner's auto or even its start, so we never drive into its zone. We shoot only our own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, and hold fire while our CELL is facing down. The start is picked by hand.
 
-Which zone depends on where the partner starts, which the drive team asks the partner team before the match and sets on the init menu (left stick press, `AutoSelection.partnerStart`, default UNKNOWN). We do not know the partner's auto, so its start is the only thing we can keep clear of; Zone B points all sit in the corner between the HIVE and the far wall, where a partner shooting its pre-loads would most likely be.
+- **From A:** pre-loads in Zone A; GARDEN, shoot in Zone A; wall FLOWER, shoot in Zone A; park. Each shot waits in Zone A while our CELL is down.
+- **From B:** no fixed delay: hold fire at the start until our own camera sees our CELL up (the partner's pre-loads tipped the HIVE); then pre-loads in Zone B; back FLOWER, shoot in Zone B; park.
+- **If our CELL never comes up:** the reserve window parks us with the balls on board for TeleOp.
+- **Without a camera at B:** the robot never sees its CELL up and does not shoot (init screen warns).
+- As a backstop, no shooting point is within `PARTNER_CLEAR_IN` of the other preset.
 
-- **UNKNOWN (default):** FIRST never drives into Zone B. It shoots only Zone A and holds fire while that CELL is down (like EQUAL from A), so tip 2 is up to the partner.
-- **FAR_WALL (start B):** FIRST shoots whichever CELL is up, keeping `PARTNER_CLEAR_IN` from start B.
-- **ALLIANCE_WALL:** FIRST shoots whichever CELL is up, keeping out of a strip `OWN_SIDE_MARGIN_IN` + `PARTNER_CLEAR_IN` (33 in) wide along our alliance wall. With the current placeholder zone that leaves Zone B almost no points.
+Cost: with a weak partner, tip 2 depends on the partner putting 8 balls into Zone B, so from A we usually get one tip and hold the GARDEN load. Two strong robots can make three tips (A: 4 + later 8, B: 8), if the time allows.
 
-If the up CELL has no usable zone point (as can happen with ALLIANCE_WALL), FIRST stays with Zone A and holds fire there. A partner that does not shoot at all: pick SOLO.
-
-### SECOND (weaker robot, start B)
-
-1. Waits its delay (5 s by default, bumpers). The wait ends early if the camera sees FIRST tip the HIVE.
-2. If the camera has not read the HIVE recently at that point, it assumes FIRST tipped it.
-3. Only ever shoots into its own CELL, Zone B, so it never goes near Zone A where FIRST shoots.
-4. Shoots the pre-loads from the start, then collects at the back FLOWER, shoots in Zone B again, and parks.
-5. Whenever its CELL is facing down at fire time, it holds fire in Zone B and waits for a tip. If none comes, the end-of-auto park takes over and it keeps its balls for TeleOp.
-
-### EQUAL (both robots strong, goal three tips)
-
-Each robot shoots only its own CELL (start A: Zone A, start B: Zone B), collects only its side's sources, and holds fire while its CELL is down. The start is picked by hand. The 20 balls then make exactly three tips:
-
-| Tip | Needs | From |
-|---|---|---|
-| 1 (RIGHT CELL, Zone A) | 4 | A robot's pre-loads |
-| 2 (LEFT CELL, Zone B) | 8 | B robot's pre-loads + back FLOWER |
-| 3 (RIGHT CELL, Zone A) | 8 | A robot's GARDEN + wall FLOWER |
-
-- **From A:** pre-loads in Zone A; GARDEN, then wait in Zone A for tip 2 and shoot; wall FLOWER, shoot in Zone A; park.
-- **From B:** like SECOND: delay (ends early on a seen tip), pre-loads in Zone B, back FLOWER, shoot in Zone B, park.
-
-Timing risk (placeholder speeds): the A robot waits about 10 s for tip 2 with the GARDEN load on board, so its wall FLOWER cycle starts at roughly 21 s and does not fit before the reserve window; tip 3 likely needs measured, faster cycles.
-
-### Partner
-
-The partner's auto is unknown; we only run our code on our robot. The only partner rule is static: stay `PARTNER_CLEAR_IN` from the partner's start. Agree routes with the partner team before each match.
+Removed with this change: the FIRST, SECOND and EQUAL slots, the start delay and its bumpers, the partner-start menu choice, and the blind "assume the partner tipped it" rule.
 
 ## TeleOp behavior summary (current, 2026-11-27)
 
@@ -182,11 +154,9 @@ Alliance stays the OpMode (`Auto: Red` / `Auto: Blue`): the Limelight and `prese
 | Input | Control | Default |
 |---|---|---|
 | Start preset | D-pad left/right (A / B) | A |
-| Slot | A cycles SOLO / FIRST / SECOND / EQUAL; also sets the start (SOLO and FIRST: A, SECOND: B, EQUAL: unchanged) | SOLO |
-| Start delay | bumpers, 0.5 s steps, 0-15 s; used only for SECOND | 5 s |
+| Slot | A cycles SOLO / PAIR; SOLO also sets start A | SOLO |
 | Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (3) |
 | Up-CELL override | X = LEFT, B = RIGHT, Y = automatic (existing) | automatic |
-| Partner start (FIRST only) | left stick press: UNKNOWN / FAR_WALL / ALLIANCE_WALL | UNKNOWN |
 
 Telemetry shows the selection, the exact coordinates the robot should be placed at for this alliance, and warnings: SECOND with zero delay; a delay so long that PARK may be skipped; a start that does not match the slot; a start outside the zone; a CELL with no usable zone point. Selections live in `AutoSelection` statics, so they persist between matches until the app restarts or code is deployed. Not done: Limelight wrong-alliance and pose-vs-preset warnings (`USE_AUTO_AIM` is currently false on the base branch).
 

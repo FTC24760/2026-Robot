@@ -224,36 +224,6 @@ public final class Steps {
         return new WaitStep(seconds);
     }
 
-    /**
-     * Wait for the partner to shoot first, if we took the SECOND slot on the init menu
-     * (AutoSelection). Read when the step starts, so the menu value is the one used.
-     */
-    public static AutoStep startDelay() {
-        return new AutoStep() {
-            private double untilS;
-            private int tipsAtStart;
-
-            @Override
-            public void start(AutoContext ctx) {
-                untilS = ctx.now() + AutoSelection.effectiveDelayS();
-                tipsAtStart = ctx.tips;
-            }
-
-            @Override
-            public boolean update(AutoContext ctx) {
-                // The up CELL changing means the partner's shots tipped the HIVE: go now.
-                boolean tipped = AutoConstants.END_DELAY_ON_TIP
-                        && AutoSelection.effectiveDelayS() > 0 && ctx.tips > tipsAtStart;
-                return tipped || ctx.now() >= untilS;
-            }
-
-            @Override
-            public String name() {
-                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s or tip)";
-            }
-        };
-    }
-
     /** Run some steps in order, as one step. */
     public static AutoStep sequence(String name, AutoStep... steps) {
         return new SequenceStep(name, Arrays.asList(steps));
@@ -272,27 +242,6 @@ public final class Steps {
      */
     public static AutoStep byUpSide(AutoStep leftUp, AutoStep rightUp) {
         return when("by shot CELL", ctx -> ctx.shotSide() == CellSide.LEFT, leftUp, rightUp);
-    }
-
-    /**
-     * SECOND's first burst: the partner agreed to shoot first and the delay has run. If the
-     * camera read the HIVE just now and our CELL is still down, the partner has not tipped
-     * it, so leave the belief alone (SECOND then shoots the CELL that is up). Without a
-     * recent read it cannot tell, so take it that the partner tipped the HIVE and shoot our
-     * own CELL.
-     */
-    public static AutoStep assumePartnerTipped() {
-        return instant("assume partner shot first", ctx -> {
-            if (!AutoSelection.shootsAfterPartner() || !ctx.robot.hasAutoAim()
-                    || !AutoConstants.DETECT_UP_SIDE) {
-                return;
-            }
-            boolean seesHive = ctx.lastCellReadS >= 0
-                    && ctx.now() - ctx.lastCellReadS <= AutoConstants.BLIND_READ_MAX_AGE_S;
-            if (!seesHive) {
-                ctx.upSide = AutoSelection.ownSide(ctx.alliance);
-            }
-        });
     }
 
     /**
@@ -463,8 +412,9 @@ public final class Steps {
                 plan(ctx);
                 return false;
             }
-            // SECOND only shoots its own CELL: while it faces down, wait for the partner to
-            // tip the HIVE (the reserve window parks us, balls kept, if it never does).
+            // PAIR only shoots its own CELL: while it faces down, wait until the camera shows
+            // it up (the reserve window parks us, balls kept, if it never does). At start B
+            // this is the wait for the partner's pre-loads to tip the HIVE.
             if (ctx.waitsForCell()) {
                 waitStartS = ctx.now();
                 return false;

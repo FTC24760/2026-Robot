@@ -25,9 +25,7 @@ import org.firstinspires.ftc.teamcode.utils.PoseHandoff;
  *
  * During init, before the match countdown starts (gamepad 1):
  *   d-pad left / right  start preset (where the robot is placed; see StartPreset)
- *   A                   our slot: SOLO / FIRST / SECOND (agreed with the partner)
- *   bumpers             start delay for the SECOND slot, down / up
- *   left stick press    if FIRST's pre-loads do not tip the HIVE: LEAVE or STAY (agree with partner)
+ *   A                   our slot: SOLO (sets start A) / PAIR (each robot its own zone)
  *   d-pad up / down     more / fewer collection cycles after the pre-loads
  *   X / B               our LEFT / RIGHT CELL is up (override)
  *   Y                   back to automatic (Limelight if it sees the HIVE, else RIGHT,
@@ -55,9 +53,6 @@ public abstract class AutoOpMode extends OpMode {
     private final EdgeDetector nextPreset = new EdgeDetector();
     private final EdgeDetector previousPreset = new EdgeDetector();
     private final EdgeDetector nextSlot = new EdgeDetector();
-    private final EdgeDetector nextPartnerStart = new EdgeDetector();
-    private final EdgeDetector moreDelay = new EdgeDetector();
-    private final EdgeDetector lessDelay = new EdgeDetector();
 
     protected AutoOpMode(Alliance alliance) {
         this.alliance = alliance;
@@ -105,24 +100,12 @@ public abstract class AutoOpMode extends OpMode {
 
         if (nextSlot.rose(gamepad1.a)) {
             AutoSelection.slot = AutoSelection.slot.next();
-            // The stronger robot takes FIRST and starts at A; the weaker SECOND starts at B.
+            // SOLO starts at A; PAIR keeps whichever start the driver picked.
             StartPreset forSlot = AutoSelection.presetForSlot();
             if (forSlot != AutoSelection.preset) {
                 AutoSelection.preset = forSlot;
                 robot.setPose(routine.startPose(ctx));
             }
-        }
-        if (nextPartnerStart.rose(gamepad1.left_stick_button)) {
-            AutoSelection.partnerStart = AutoSelection.partnerStart.next();
-        }
-        if (moreDelay.rose(gamepad1.right_bumper)) {
-            AutoSelection.startDelayS = Math.min(
-                    AutoSelection.startDelayS + AutoConstants.START_DELAY_STEP_S,
-                    AutoConstants.MAX_START_DELAY_S);
-        }
-        if (lessDelay.rose(gamepad1.left_bumper)) {
-            AutoSelection.startDelayS = Math.max(
-                    AutoSelection.startDelayS - AutoConstants.START_DELAY_STEP_S, 0);
         }
 
         if (gamepad1.x) {
@@ -148,15 +131,10 @@ public abstract class AutoOpMode extends OpMode {
                 AutoSelection.preset, AutoSelection.preset.where,
                 start.x(), start.y(), Math.toDegrees(start.heading()));
         telemetry.addData("Slot", "%s   (A)", AutoSelection.slot);
-        telemetry.addData("Start delay", AutoSelection.shootsAfterPartner()
-                ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
-                : "none (only for SECOND, or EQUAL at B)");
-        if (AutoSelection.slot == AutoSelection.Slot.FIRST) {
-            AutoSelection.PartnerStart ps = AutoSelection.partnerStart;
-            telemetry.addData("Partner starts", "%s   (left stick press)  %s", ps,
-                    ps == AutoSelection.PartnerStart.UNKNOWN
-                            ? "Zone A only, never Zone B (ask the partner team!)"
-                            : "Zone B allowed, clear of the partner");
+        if (AutoSelection.pair()) {
+            telemetry.addLine(AutoSelection.preset == StartPreset.A
+                    ? "PAIR from A: Zone A only (GARDEN, wall FLOWER); holds fire while our CELL is down"
+                    : "PAIR from B: Zone B only (back FLOWER); waits until the camera sees our CELL up");
         }
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
@@ -263,18 +241,8 @@ public abstract class AutoOpMode extends OpMode {
             telemetry.addLine("!! " + AutoSelection.slot + " normally starts at " + forSlot
                     + ", not " + AutoSelection.preset);
         }
-        if (AutoSelection.shootsAfterPartner() && AutoSelection.startDelayS <= 0) {
-            telemetry.addLine("!! SECOND slot with no delay: we will shoot at the same time as the partner");
-        }
-        // Rough budget: delay, one pre-load burst, the wait before parking, and the park
-        // drive itself. If it does not fit, FullAuto skips the park drive.
-        double burstS = AutoConstants.SHOOT_TIMEOUT_S / 2 + AutoConstants.SHOOT_FEED_S;
-        double needS = AutoSelection.effectiveDelayS() + burstS
-                + AutoConstants.PARK_DELAY_S + AutoConstants.PARK_MIN_TIME_LEFT_S;
-        if (AutoConstants.PARK_ENABLED && needS > AutoConstants.AUTO_LENGTH_S) {
-            telemetry.addLine(String.format(
-                    "!! Delay too long: about %.0f s needed of %.0f, PARK may be skipped",
-                    needS, AutoConstants.AUTO_LENGTH_S));
+        if (AutoSelection.pair() && AutoSelection.preset == StartPreset.B && !robot.hasAutoAim()) {
+            telemetry.addLine("!! PAIR from B without a camera: it will never see our CELL up and will not shoot");
         }
     }
 

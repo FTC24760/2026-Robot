@@ -16,18 +16,15 @@ public final class AutoSelection {
 
     /** Our slot, as agreed with the alliance partner before the match. */
     public enum Slot {
-        /** Partner runs no auto, or only parks: shoot at once. */
+        /** Partner runs no auto, or only parks: we have the whole HIVE (start A). */
         SOLO,
-        /** Partner shoots too, and we agreed to go first: shoot at once. */
-        FIRST,
-        /** Partner shoots too, and goes first: wait startDelayS before shooting. */
-        SECOND,
         /**
-         * Both robots strong, goal three tips: each shoots only its own CELL (start A: Zone A,
-         * start B: Zone B), collects only its side's sources, and holds fire while its CELL
-         * is down. Start chosen by hand; at B it waits the delay like SECOND.
+         * Partner shoots too. Each robot takes care of its own zone only: we shoot only our
+         * own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, hold
+         * fire while our CELL is down, and never drive into the partner's zone. Start picked
+         * by hand.
          */
-        EQUAL;
+        PAIR;
 
         public Slot next() {
             Slot[] all = values();
@@ -35,64 +32,18 @@ public final class AutoSelection {
         }
     }
 
-    /**
-     * FIRST only: where the partner starts, as its team told us before the match. We do not
-     * know the partner's auto, so this is all we have to stay out of its way.
-     */
-    public enum PartnerStart {
-        /** Nobody asked: FIRST shoots only Zone A and never drives into Zone B. */
-        UNKNOWN,
-        /** At start B (far wall): FIRST may use Zone B, PARTNER_CLEAR_IN from there. */
-        FAR_WALL,
-        /** Along our alliance wall: FIRST may use Zone B, PARTNER_CLEAR_IN from that wall. */
-        ALLIANCE_WALL;
-
-        public PartnerStart next() {
-            PartnerStart[] all = values();
-            return all[(ordinal() + 1) % all.length];
-        }
-    }
-
     public static StartPreset preset = StartPreset.A;
-    /** FIRST only. Default UNKNOWN, so a robot whose drive team did not ask plays safe. */
-    public static PartnerStart partnerStart = PartnerStart.UNKNOWN;
     public static Slot slot = Slot.SOLO;
-    /** Only used in the SECOND slot. */
-    public static double startDelayS = AutoConstants.DEFAULT_START_DELAY_S;
     public static int cycles = AutoConstants.DEFAULT_CYCLES;
 
-    /**
-     * The start that goes with the slot: SOLO and FIRST (the stronger robot) at A, SECOND
-     * at B, EQUAL either. The driver can still change it by hand (the init screen then warns).
-     */
+    /** The start that goes with the slot: SOLO at A; PAIR either (the driver picks it). */
     public static StartPreset presetForSlot() {
-        switch (slot) {
-            case SECOND:
-                return StartPreset.B;
-            case EQUAL:
-                return preset; // either start; the driver picks it
-            default:
-                return StartPreset.A;
-        }
+        return slot == Slot.SOLO ? StartPreset.A : preset;
     }
 
-    /**
-     * We let the partner shoot first: SECOND, or EQUAL from start B (our CELL is down at the
-     * start, so the partner's pre-loads must tip it first).
-     */
-    public static boolean shootsAfterPartner() {
-        return slot == Slot.SECOND || (slot == Slot.EQUAL && preset == StartPreset.B);
-    }
-
-    /** We only ever shoot our own CELL (the one nearest our start) and hold fire while it is down. */
-    public static boolean ownCellOnly() {
-        return slot == Slot.SECOND || slot == Slot.EQUAL
-                || (slot == Slot.FIRST && partnerStart == PartnerStart.UNKNOWN);
-    }
-
-    /** FIRST, SECOND or EQUAL: the partner shoots into the same HIVE. */
+    /** PAIR: the partner shoots into the same HIVE, and we keep to our own zone. */
     public static boolean pair() {
-        return slot != Slot.SOLO;
+        return slot == Slot.PAIR;
     }
 
     /**
@@ -101,10 +52,5 @@ public final class AutoSelection {
      */
     public static CellSide ownSide(Alliance alliance) {
         return CellSide.of(alliance, preset == StartPreset.A ? HiveSide.AUDIENCE : HiveSide.FAR);
-    }
-
-    /** How long to wait before the pre-loads, given the slot. */
-    public static double effectiveDelayS() {
-        return shootsAfterPartner() ? startDelayS : 0;
     }
 }

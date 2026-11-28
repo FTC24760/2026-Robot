@@ -1,7 +1,6 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
 import static org.firstinspires.ftc.teamcode.auto.Steps.awaitCamera;
-import static org.firstinspires.ftc.teamcode.auto.Steps.assumePartnerTipped;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
 import static org.firstinspires.ftc.teamcode.auto.Steps.instant;
@@ -9,7 +8,6 @@ import static org.firstinspires.ftc.teamcode.auto.Steps.toZoneAndReady;
 import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
-import static org.firstinspires.ftc.teamcode.auto.Steps.startDelay;
 import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
@@ -30,8 +28,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Start at the chosen preset, wait for the partner if we shoot SECOND, shoot the
- * pre-loads from the start, run up to three collection cycles
+ * Start at the chosen preset, shoot the pre-loads from the start (PAIR at B: once the camera
+ * sees our CELL up), run up to three collection cycles
  * (each one FLOWER or the GARDEN, then back to shoot), then park (the reserve window banks the park).
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
@@ -47,16 +45,10 @@ public final class FullAuto {
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
 
-        // SECOND slot: let the partner shoot first (no wait otherwise), or go as soon as the
-        // camera sees the partner tip the HIVE. The robot holds only its 4 pre-loads, so
-        // there is nothing useful to collect meanwhile. After the wait SECOND runs the same
-        // loop as SOLO: shoot the up CELL from its spot, collect, shoot again, then park.
-        steps.add(startDelay());
-        steps.add(assumePartnerTipped());
 
-        // Pre-loads: the start is in the zone and faces the HIVE, so they go from there
-        // unless the CELL up now cannot be scored from it (the HIVE tipped while we waited,
-        // or start B with the audience CELL up): then the robot drives into the zone first.
+        // Pre-loads: the start is in the zone and faces the HIVE, so they go from there. SOLO
+        // drives into the other zone first if that CELL is up. PAIR at start B holds fire
+        // until its camera sees our CELL up (the partner's pre-loads tipped the HIVE).
         steps.add(zoneShot());
 
         for (int i = 0; i < 3; i++) {
@@ -81,10 +73,7 @@ public final class FullAuto {
         steps.add(intake(Intake.Mode.OFF));
         steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
                 sequence("park",
-                        // FIRST leaves early so the partner has the shooting area.
-                        when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
-                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S),
-                                waitSeconds(AutoConstants.PARK_DELAY_S)),
+                        waitSeconds(AutoConstants.PARK_DELAY_S),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
                                 sequence("park drive",
@@ -106,28 +95,19 @@ public final class FullAuto {
     // The source for this cycle (0, 1, 2) in our slot. Read when a step starts, because
     // the slot is picked in the init menu after the routine is built.
     private static CycleSource sourceFor(int index) {
-        switch (AutoSelection.slot) {
-            case FIRST:
-                return AutoConstants.FIRST_SOURCES[index];
-            case SECOND:
-                return AutoConstants.SECOND_SOURCES[index];
-            case EQUAL:
-                // Only our side's sources, nearest first: A the GARDEN then the wall
-                // FLOWER, B the back FLOWER.
-                return AutoSelection.preset == StartPreset.A
-                        ? AutoConstants.FIRST_SOURCES[index] : AutoConstants.SECOND_SOURCES[index];
-            case SOLO:
-            default:
-                return AutoConstants.SOLO_SOURCES[index];
+        if (!AutoSelection.pair()) {
+            return AutoConstants.SOLO_SOURCES[index];
         }
+        // PAIR: only our side's sources, nearest first.
+        return AutoSelection.preset == StartPreset.A
+                ? AutoConstants.PAIR_A_SOURCES[index] : AutoConstants.PAIR_B_SOURCES[index];
     }
 
     /**
      * The source for this cycle, or null if none fits. SOLO (SOLO_NEAREST_SOURCE) takes the
-     * unused source nearest to the robot; FIRST and SECOND take the next one in their fixed
-     * list, so the partner can rely on it. A source counts only if its trips, a burst into
-     * the CELL that is up, the park trip and the margin fit in the time left: the park is
-     * never given up for a cycle.
+     * unused source nearest to the robot; PAIR takes the next one of our side's sources. A
+     * source counts only if its trips, a burst, the park trip and the margin fit in the time
+     * left: the park is never given up for a cycle.
      */
     private static CycleSource chooseSource(AutoContext c, int index) {
         CycleSource[] candidates;

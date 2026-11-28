@@ -108,7 +108,7 @@ public class AutoConstants {
     // the middle. Keep PARK_Y <= 99 or it reaches into the upper half.
     public static boolean PARK_ENABLED = true;
     public static double PARK_MIN_TIME_LEFT_S = 3;
-    // SOLO and SECOND: park this long after the last shot or cycle. 0 = at once; the rest
+    // Park this long after the last shot or cycle. 0 = at once; the rest
     // of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
     public static double PARK_DELAY_S = 0;
     // After a burst, wait at least TIP_SETTLE_MIN_S (the HIVE needs time to tip), then until
@@ -125,13 +125,6 @@ public class AutoConstants {
     // time the longest drive to PARK. Needs PARK_ENABLED.
     public static double RESERVE_TIME_LEFT_S = 6;
 
-    // ---- Partner coordination ----
-    // SECOND slot: stop waiting as soon as the camera sees the HIVE tip (the partner has
-    // shot); the delay stays as the fallback when there is no camera or no tip.
-    public static boolean END_DELAY_ON_TIP = true;
-    // FIRST slot: park this long after the last shot (instead of PARK_DELAY_S), so the
-    // partner has the shooting area to itself.
-    public static double FIRST_PARK_DELAY_S = 0;
     // Shot points are kept this far from FLOWERS.
     public static double SPOT_KEEP_OUT_IN = 14;
 
@@ -162,29 +155,17 @@ public class AutoConstants {
     // SOLO (decided with the team): keep shooting the CELL that is up (the other side once it
     // tips); before each shot after the pre-loads, collect from the unused source nearest to
     // the robot that still fits in the time left. Off: SOLO_SOURCES in order instead.
-    // In a pair the split is fixed: FIRST the GARDEN then the wall FLOWER, SECOND the back
+    // PAIR: only our side's sources: start A the GARDEN then the wall FLOWER, start B the back
     // FLOWER. The 20 POLLEN are 4 pre-loaded on each robot and one cycle (4) at each source.
     public static boolean SOLO_NEAREST_SOURCE = true;
     public static CycleSource[] SOLO_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
-    public static CycleSource[] FIRST_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
-    public static CycleSource[] SECOND_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};
-    // SECOND's first burst: after the agreed delay, if the camera read the HIVE within this long
-    // and our CELL is still down, the partner has not tipped it and SECOND shoots the CELL that
-    // is up. With no recent read it cannot tell, and takes it that the partner (who agreed to
-    // shoot first) tipped it.
-    public static double BLIND_READ_MAX_AGE_S = 2.0;
+    public static CycleSource[] PAIR_A_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
+    public static CycleSource[] PAIR_B_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};
 
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
     public static int MAX_CYCLES = 3;
 
-    // ---- Sharing the HIVE with an alliance partner (chosen during init). ----
-    // When we agreed to shoot SECOND, wait this long before the pre-loads (bumpers adjust
-    // it in steps of START_DELAY_STEP_S, up to MAX_START_DELAY_S). Measure the partner's
-    // burst and agree on the number before the match.
-    public static double DEFAULT_START_DELAY_S = 5.0;
-    public static double START_DELAY_STEP_S = 0.5;
-    public static double MAX_START_DELAY_S = 15.0;
     // A cycle (drive out, collect, drive back, burst) only starts if it fits in the time left
     // together with the park trip: trip times + BURST_S + park trip + CYCLE_MARGIN_S. The 30 s
     // does not hold every cycle, so later ones are dropped, never the park. Trip times are

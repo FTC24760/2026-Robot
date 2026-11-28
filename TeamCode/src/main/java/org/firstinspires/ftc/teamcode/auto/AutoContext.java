@@ -39,22 +39,12 @@ public class AutoContext {
     public int cycleIndex;
 
     /**
-     * The CELL to shoot into next. SOLO and FIRST: whichever is up, whoever tipped it.
-     * SECOND (the weaker robot, start B) and EQUAL: always our own CELL (the zone by our
-     * start), so we never drive into the partner's zone; we wait there until that CELL is
-     * up (waitsForCell).
+     * The CELL to shoot into next. SOLO: whichever is up, whoever tipped it. PAIR: always our
+     * own CELL (the zone by our start), so we never drive into the partner's zone; we wait
+     * there until the camera shows it up (waitsForCell).
      */
     public CellSide shotSide() {
-        CellSide own = AutoSelection.ownSide(alliance);
-        if (AutoSelection.ownCellOnly()) {
-            return own;
-        }
-        // The other CELL has no usable zone point (e.g. FIRST keeping clear of a partner on
-        // the alliance wall): stay with our own CELL and hold fire until it is up again.
-        if (upSide != own && !ZoneTargets.hasTarget(upSide, AutoSelection.pair())) {
-            return own;
-        }
-        return upSide;
+        return AutoSelection.pair() ? AutoSelection.ownSide(alliance) : upSide;
     }
 
     /** True while the CELL we shoot into is facing down: hold fire and wait for a tip. */
@@ -161,7 +151,6 @@ public class AutoContext {
     }
 
     void markStart(double nowS) {
-        ZoneTargets.forget();
         startS = nowS;
         tips = 0;
         ballsSinceTip = 0;

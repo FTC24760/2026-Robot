@@ -27,29 +27,6 @@ public final class ZoneTargets {
     // FLOWER positions in the red frame (doc/auto-design-spec.md section 2).
     private static final double[][] FLOWERS = {{0, 48}, {48, 144}, {95.5, 0}, {144, 95.5}};
 
-    // hasTarget() cache: the grid search is too slow to run every loop.
-    private static String cacheKey;
-    private static boolean cacheHas;
-
-    /**
-     * True if this CELL has any usable zone point for our slot and start. Cached on the
-     * settings it depends on; call forget() when constants may have changed (auto start).
-     */
-    public static boolean hasTarget(CellSide cell, boolean pair) {
-        String key = cell + "/" + pair + "/" + AutoSelection.slot + "/" + AutoSelection.preset
-                + "/" + AutoSelection.partnerStart;
-        if (!key.equals(cacheKey)) {
-            cacheKey = key;
-            cacheHas = target(cell, AutoConstants.FIELD_SIZE_IN / 2, AutoConstants.FIELD_SIZE_IN / 2,
-                    pair) != null;
-        }
-        return cacheHas;
-    }
-
-    public static void forget() {
-        cacheKey = null;
-    }
-
     /** The aim point of this CELL, red frame. */
     public static double[] cellXY(CellSide cell) {
         return cell == CellSide.RIGHT
@@ -110,16 +87,11 @@ public final class ZoneTargets {
     /**
      * True if (x, y) is too close to where the partner starts. We do not know the partner's
      * auto, only its start, and most autos shoot their pre-loads from there or close by.
-     * FIRST: as the partner's team told us (AutoSelection.partnerStart). SECOND and EQUAL:
-     * the other preset (the partner is the FIRST robot, or the other EQUAL one).
+     * The partner is taken to be at the other preset; our own zone is far from it anyway,
+     * so this is only a backstop.
      */
     static boolean nearPartner(double x, double y) {
         double clear = AutoConstants.PARTNER_CLEAR_IN;
-        if (AutoSelection.slot == AutoSelection.Slot.FIRST
-                && AutoSelection.partnerStart == AutoSelection.PartnerStart.ALLIANCE_WALL) {
-            // Somewhere along our alliance wall (red x = 0): keep out of a strip along it.
-            return x < AutoConstants.OWN_SIDE_MARGIN_IN + clear;
-        }
         double[] p = AutoSelection.preset == StartPreset.A
                 ? new double[] {AutoConstants.START_B_X, AutoConstants.START_B_Y}
                 : new double[] {AutoConstants.START_A_X, AutoConstants.START_A_Y};
