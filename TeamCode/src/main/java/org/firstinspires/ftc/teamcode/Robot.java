@@ -263,6 +263,14 @@ public class Robot {
         return zone.wantsPrespin();
     }
 
+    /**
+     * Feed pulses since feeding last stopped: about one per ball pushed in the pulsed feed
+     * styles (the last ball may get a steady push instead). 0 when feeding is not pulsed.
+     */
+    public int feedPulseCount() {
+        return feedPulser.getPulseCount();
+    }
+
     /** Seconds since the camera or driver last said which CELL is up; NaN if never. */
     public double upStateAgeS() {
         return aim.upStateAgeS(nowNs);

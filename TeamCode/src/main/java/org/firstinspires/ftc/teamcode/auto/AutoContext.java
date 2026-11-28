@@ -55,6 +55,14 @@ public class AutoContext {
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
 
+    /**
+     * Balls still to shoot after a burst that the HIVE's tip cut short (4 minus the balls
+     * pushed before the tip, from the feed pulses). The finishing burst at the other CELL
+     * counts only these toward the next tip (valid while leftoverPending).
+     */
+    public int leftoverBalls;
+    public boolean leftoverPending;
+
     /** How many collection cycles to run after the pre-loads (chosen during init). */
     public int cycles = AutoSelection.cycles;
 
@@ -149,6 +157,8 @@ public class AutoContext {
     }
 
     void markStart(double nowS) {
+        leftoverBalls = 0;
+        leftoverPending = false;
         startS = nowS;
         tips = 0;
         ballsSinceTip = 0;

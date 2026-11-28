@@ -452,6 +452,11 @@ public final class Steps {
         private double lastS;
         private double pausedUntilS;
         private CellSide aimedAt;
+        // Balls pushed so far this burst, from the feed pulses (about one per ball), and the
+        // number pushed when the HIVE tipped mid-burst (-1 = it did not).
+        private int pushed;
+        private int lastPulses;
+        private int pushedAtTip;
 
         ShootStep(double feedS) {
             this.feedS = feedS;
@@ -465,6 +470,9 @@ public final class Steps {
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
             ctx.shotInterrupted = false;
+            pushed = 0;
+            lastPulses = ctx.robot.feedPulseCount();
+            pushedAtTip = -1;
             ctx.robot.shootSequence.start(ctx.now(), Configurables.SHOOT_FEED_SECONDS);
         }
 
@@ -474,9 +482,17 @@ public final class Steps {
             double dt = now - lastS;
             lastS = now;
 
+            // Count balls pushed: the pulser restarts from 0 whenever feeding stops.
+            int pulses = ctx.robot.feedPulseCount();
+            if (pulses > lastPulses) {
+                pushed += pulses - lastPulses;
+            }
+            lastPulses = pulses;
+
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
+                pushedAtTip = Math.min(pushed, AutoConstants.BALLS_PER_SHOT);
                 ctx.robot.shootSequence.cancel();
                 if (AutoConstants.LOCK_TURRET_FORWARD) {
                     ctx.shotInterrupted = true;
@@ -509,8 +525,21 @@ public final class Steps {
         @Override
         public void end(AutoContext ctx) {
             ctx.robot.shootSequence.cancel();
-            // After a tip the count restarts for the new up CELL, so only count full shots.
-            if (fedS > 0 && !ctx.shotInterrupted) {
+            if (fedS <= 0) {
+                return;
+            }
+            // A tip restarts the count for the new up CELL, so only the balls shot after it
+            // count: the rest of a burst the tip cut short, or the leftover of the burst
+            // before it. With no pulse count (0 pushed) the whole burst is assumed.
+            if (ctx.shotInterrupted) {
+                ctx.leftoverBalls = AutoConstants.BALLS_PER_SHOT - pushedAtTip;
+                ctx.leftoverPending = true;
+            } else if (pushedAtTip >= 0) {
+                ctx.recordShot(AutoConstants.BALLS_PER_SHOT - pushedAtTip);
+            } else if (ctx.leftoverPending) {
+                ctx.recordShot(ctx.leftoverBalls);
+                ctx.leftoverPending = false;
+            } else {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);
             }
         }
