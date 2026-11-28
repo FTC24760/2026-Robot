@@ -38,12 +38,13 @@ public class ShooterConstants {
     public static double PACK_S = 0.25;
     // Feeding stops by itself after this long. Long enough for 4 balls, allowing for
     // feed gating pausing the transfer whenever the wheel is slow.
-    // Allow the blocker to open before starting the transfer; calibrate.
-    public static double BLOCKER_OPEN_SETTLE_S = 0.49;
+    // Allow the blocker to open before starting the transfer. Measured about 0.25 s
+    // (2026-11-27); 0.3 leaves a small margin.
+    public static double BLOCKER_OPEN_SETTLE_S = 0.3;
     // Allow the blocker to close before the intake or transfer pushes balls toward it
     // again; otherwise a ball slips past the half-closed gate into the wheel. Same servo
-    // and travel as opening, so the same default; calibrate.
-    public static double BLOCKER_CLOSE_SETTLE_S = 0.49;
+    // and travel as opening, so the same value (closing not measured separately).
+    public static double BLOCKER_CLOSE_SETTLE_S = 0.3;
 
     // ---- Not wired into any subsystem yet (carried over for upcoming features). ----
     // Shooter is ready inside this RPM window around target.

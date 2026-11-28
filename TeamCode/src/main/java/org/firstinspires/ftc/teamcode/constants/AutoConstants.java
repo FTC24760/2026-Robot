@@ -47,26 +47,44 @@ public class AutoConstants {
     // The robot is 17 in wide and 18 in deep, so against a wall its centre is 8.5 in
     // (side on) or 9 in (front or back on) from it.
 
-    // Start presets, picked during init (see auto/StartPreset). Both are side on against a
-    // wall, front facing our alliance wall (heading 180); the turret aims at the CELL, so
-    // the pre-loads go straight away. Legal starts (G304): touching the wall, inside our
-    // columns (red x <= 72), clear of the GARDEN, LOADING ZONE and FLOWER volumes.
-    // A: audience wall. Footprint x 50..68, y 0..17.
-    public static double START_A_X = 59, START_A_Y = 8.5, START_A_H = 180;
-    // B: far wall. The FLOWER there spans x 45..51 and column C ends at x 72, so the
-    // centre must be 60..63 (footprint 52.5..70.5 at 61.5). Only ~1.5 in of slack each
-    // side: place it against a tape mark.
-    public static double START_B_X = 61.5, START_B_Y = 135.5, START_B_H = 180;
+    // Start presets, picked during init (see auto/StartPreset). Both are back against a
+    // wall, front (and the fixed camera) facing the HIVE, so the camera can watch it from
+    // the start and the pre-loads go from here (both are inside the shooting zone). Legal
+    // starts (G304): touching the wall, inside our columns (red x <= 72), clear of the
+    // GARDEN, LOADING ZONE and FLOWER volumes.
+    // A: audience wall, facing the AUDIENCE (RIGHT) CELL. Footprint x 50.5..67.5, y 0..18.
+    public static double START_A_X = 59, START_A_Y = 9, START_A_H = 90;
+    // B: far wall, facing the FAR (LEFT) CELL. The FLOWER there spans x 45..51 and column C
+    // ends at x 72, so the centre must be 59.5..63.5 (footprint 53..70 at 61.5).
+    public static double START_B_X = 61.5, START_B_Y = 135, START_B_H = 270;
 
-    // Shooting position while our RIGHT CELL is up (the normal case). Same as the start:
-    // the GARDEN run is straight there and straight back, and the turret aims.
-    public static double SHOOT_X = 59, SHOOT_Y = 8.5, SHOOT_H = 180;
+    // ---- Where to shoot from: anywhere in the shooting zone (auto/ZoneTargets). ----
+    // The zone is the TeleOp one (ShotZoneGeometry: distance ring + off-axis angle). The
+    // auto drives to the in-zone point nearest to it that is ZONE_INSET_IN inside the edge,
+    // faces the up CELL there (so the fixed camera sees it), and fires when the TeleOp
+    // "ready to fire" test passes. Extra auto limits: not past the middle line (G402,
+    // OWN_SIDE_*), WALL_TURN_CLEAR_IN from every wall (so it can turn there), SPOT_KEEP_OUT_IN
+    // from FLOWERS, and in a pair PARTNER_CLEAR_IN from the partner's start (its auto is
+    // unknown; it likely shoots from there). Searched on a ZONE_GRID_IN grid.
+    public static double ZONE_INSET_IN = 3;
+    public static double ZONE_GRID_IN = 2;
+    public static double PARTNER_CLEAR_IN = 24;
+    // Once at the point, wait up to this long for "ready to fire" (in zone, aim and hood
+    // settled, wheel at speed, a recent camera read of the up CELL). Then fire anyway: the
+    // shot step still waits for the wheel and aim (SHOOT_TIMEOUT_S).
+    public static double READY_TIMEOUT_S = 1.5;
+    // If the up CELL changes before firing (camera saw a tip), go to the other CELL's point;
+    // at most this many times per shot.
+    public static int MAX_REDIRECTS = 2;
 
-    // Shooting position if our LEFT CELL is up instead (HIVE tipped): against the far
-    // wall. Same heading as everywhere else, so getting there needs no turn; the turret
-    // aims. Same spot as start B: at x 59 the footprint would overlap the far-wall FLOWER
-    // (x 45..51) by about an inch.
-    public static double SHOOT_LEFT_UP_X = 61.5, SHOOT_LEFT_UP_Y = 135.5, SHOOT_LEFT_UP_H = 180;
+    // ---- Turning near walls. ----
+    // The robot (17 x 18 in) sweeps its corners out to 12.4 in from its centre when it
+    // turns, so it only turns where its centre is at least WALL_TURN_CLEAR_IN from every
+    // wall. A drive that starts or ends nearer a wall with a turn of more than
+    // WALL_TURN_MAX_DEG first moves straight off the wall / finishes turning before moving
+    // straight in. PLACEHOLDER: check with the real bumpers.
+    public static double WALL_TURN_CLEAR_IN = 13.5;
+    public static double WALL_TURN_MAX_DEG = 2;
 
     // FLOWER poses are where the robot STOPS to collect. It lines up FLOWER_LINE_UP_IN
     // further back first, lowers the arm there, then creeps in. If it still goes in too
@@ -78,9 +96,10 @@ public class AutoConstants {
     // In front of the FLOWER on the far (back) wall, ready to collect.
     public static double BACK_FLOWER_X = 48, BACK_FLOWER_Y = 125, BACK_FLOWER_H = 90;
 
-    // GARDEN: from the shooting position, drive straight along the audience wall with the
-    // intake running until the front reaches our wall, then straight back.
+    // GARDEN: line up against the audience wall at GARDEN_LEAD_IN_X, then drive straight
+    // along it with the intake running until the front reaches our wall.
     public static double GARDEN_X = 9, GARDEN_Y = 8.5, GARDEN_H = 180;
+    public static double GARDEN_LEAD_IN_X = 32;
 
     // Park partly in the LOADING ZONE (worth PARK points in AUTO), only in its lower
     // (audience) half so the upper half stays free. The zone is x 0..12, y 97..119
@@ -89,15 +108,14 @@ public class AutoConstants {
     // the middle. Keep PARK_Y <= 99 or it reaches into the upper half.
     public static boolean PARK_ENABLED = true;
     public static double PARK_MIN_TIME_LEFT_S = 3;
-    // Wait this long after the last shot/cycle before driving to park.
-    public static double PARK_DELAY_S = 8;
-    // SOLO slot (partner passive or only parking): park this long after the last shot or
-    // cycle. 0 = at once; the rest of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
-    public static double SOLO_PARK_DELAY_S = 0;
-    // After a burst, wait this long (with a camera) before leaving the shot spot, so the
-    // HIVE has time to tip and the camera to see which CELL is up now. The next trip then
-    // goes to the right side: the same spot if it did not tip, the other CELL's if it did.
-    public static double TIP_SETTLE_S = 0.8;
+    // Park this long after the last shot or cycle. 0 = at once; the rest
+    // of the time goes to more cycles (see CYCLE_MIN_TIME_LEFT_S).
+    public static double PARK_DELAY_S = 0;
+    // SOLO, after a burst that brought our count to the tip threshold: keep watching the
+    // HIVE until the camera sees it tip, at most this long, before planning the next trip.
+    // It ends the moment the tip is seen (each HIVE tips at a slightly different speed, so
+    // there is no fixed wait). Set it above the slowest tip seen. 0 = do not watch.
+    public static double TIP_WATCH_S = 1.5;
     public static double PARK_X = 10, PARK_Y = 98, PARK_H = 180;
     // Reserve window: when this many seconds are left and the normal route has not started
     // its park drive, whatever step is running is abandoned and the robot drives to PARK
@@ -106,24 +124,7 @@ public class AutoConstants {
     // time the longest drive to PARK. Needs PARK_ENABLED.
     public static double RESERVE_TIME_LEFT_S = 6;
 
-    // ---- Partner coordination ----
-    // SECOND slot: stop waiting as soon as the camera sees the HIVE tip (the partner has
-    // shot); the delay stays as the fallback when there is no camera or no tip.
-    public static boolean END_DELAY_ON_TIP = true;
-    // Before the pre-loads (after any delay), if the start pose is not in the shooting zone
-    // for the CELL that is up now (e.g. the HIVE tipped during the delay, or start B with
-    // the audience CELL up), drive to the shot spot first.
-    public static boolean DRIVE_TO_ZONE_FIRST = true;
-    // FIRST slot: park this long after the last shot (instead of PARK_DELAY_S), so the
-    // partner has the shooting area to itself. SOLO and SECOND still use PARK_DELAY_S.
-    public static double FIRST_PARK_DELAY_S = 0;
-    // SECOND slot shoots from the allowed point farthest from the fixed shot spot (where the
-    // partner is expected). Candidates: the fixed spot turned about the CELL in steps of
-    // SPOT_ARC_STEP_DEG, up to SPOT_ARC_STEPS each way; the same distance, so the same table
-    // row. Spots within SPOT_KEEP_OUT_IN of a FLOWER are not used.
-    public static boolean SECOND_USES_OFFSET_SPOT = true;
-    public static double SPOT_ARC_STEP_DEG = 20;
-    public static int SPOT_ARC_STEPS = 2;
+    // Shot points are kept this far from FLOWERS.
     public static double SPOT_KEEP_OUT_IN = 14;
 
     // Getting past the HIVE: a drive that crosses from the audience half to the far half
@@ -145,32 +146,51 @@ public class AutoConstants {
     public enum CycleSource {
         WALL_FLOWER,
         GARDEN,
-        BACK_FLOWER
+        BACK_FLOWER,
+        /** No cycle: the slot has no more POLLEN to take. */
+        NONE
     }
+
+    // SOLO (decided with the team): keep shooting the CELL that is up (the other side once it
+    // tips); before each shot after the pre-loads, collect from the unused source nearest to
+    // the robot that still fits in the time left. Off: SOLO_SOURCES in order instead.
+    // PAIR: only our side's sources: start A the GARDEN then the wall FLOWER, start B the back
+    // FLOWER. The 20 POLLEN are 4 pre-loaded on each robot and one cycle (4) at each source.
+    public static boolean SOLO_NEAREST_SOURCE = true;
+    public static CycleSource[] SOLO_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
+    public static CycleSource[] PAIR_A_SOURCES = {CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.NONE};
+    public static CycleSource[] PAIR_B_SOURCES = {CycleSource.BACK_FLOWER, CycleSource.NONE, CycleSource.NONE};
 
     // How many the auto runs; the driver can change it during init with the d-pad.
     public static int DEFAULT_CYCLES = 3;
     public static int MAX_CYCLES = 3;
 
-    // ---- Sharing the HIVE with an alliance partner (chosen during init). ----
-    // When we agreed to shoot SECOND, wait this long before the pre-loads (bumpers adjust
-    // it in steps of START_DELAY_STEP_S, up to MAX_START_DELAY_S). Measure the partner's
-    // burst and agree on the number before the match.
-    public static double DEFAULT_START_DELAY_S = 5.0;
-    public static double START_DELAY_STEP_S = 0.5;
-    public static double MAX_START_DELAY_S = 15.0;
-    // The order they run in. Default: nearest first.
-    public static CycleSource CYCLE_1 = CycleSource.GARDEN;
-    public static CycleSource CYCLE_2 = CycleSource.WALL_FLOWER;
-    public static CycleSource CYCLE_3 = CycleSource.BACK_FLOWER;
-    // Skip a cycle that starts with less than this much of the auto left.
-    public static double CYCLE_MIN_TIME_LEFT_S = 9;
+    // A cycle (drive out, collect, drive back, burst) only starts if it fits in the time left
+    // together with the park trip: trip times + BURST_S + park trip + CYCLE_MARGIN_S. The 30 s
+    // does not hold every cycle, so later ones are dropped, never the park. Trip times are
+    // worked out from the poses above: straight-line distance x CROSS_DETOUR when the drive
+    // crosses between the audience and far halves (it bulges around the HIVE), at
+    // AVG_SPEED_IN_PER_S, plus TURN_S per drive. PLACEHOLDERS at an assumed ~35 in/s: replace
+    // with measured times from the "AutoStep" log lines (each step change is logged).
+    public static double AVG_SPEED_IN_PER_S = 35;
+    public static double TURN_S = 0.5;
+    public static double CROSS_DETOUR = 1.25;
+    // Lowering the arm at a FLOWER, on top of FLOWER_COLLECT_S.
+    public static double FLOWER_ARM_S = 1.0;
+    // One burst at the spot: spin-up, feed (SHOOT_FEED_S), tip settle.
+    public static double BURST_S = 4.5;
+    public static double CYCLE_MARGIN_S = 1.5;
 
     // ---- Following the HIVE when it tips. ----
-    // The Limelight is the main way the auto knows which CELL is up. As a backup when it
-    // cannot see the HIVE, assume our own shots tipped it after this many balls into the
-    // up CELL. 0 = do not guess (the manual only says "enough" POLLEN; set it once known).
-    public static int BALLS_TO_TIP = 0;
+    // The Limelight is the main way the auto knows which CELL is up. A tip needs balls in the
+    // up CELL: the first only BALLS_FIRST_TIP (the CELL starts with 3 NECTAR in it), every
+    // later one BALLS_NEXT_TIP. So the 20 POLLEN make at most three tips (3 + 8 + 8 = 19),
+    // and each later tip takes two bursts. Our own balls are counted; the partner's are not. When the
+    // camera cannot see the HIVE after a burst, believe the count and take it that the CELL
+    // tipped; when it can, the camera wins.
+    public static int BALLS_FIRST_TIP = 3;
+    public static int BALLS_NEXT_TIP = 8;
+    public static boolean PREDICT_TIP_WHEN_BLIND = true;
     public static int BALLS_PER_SHOT = 4;
     // If the HIVE tips during a shot, stop feeding, let the turret swing to the new up
     // CELL for this long, then carry on.

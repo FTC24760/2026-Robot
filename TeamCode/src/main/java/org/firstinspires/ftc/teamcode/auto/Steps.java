@@ -12,7 +12,9 @@ import org.firstinspires.ftc.teamcode.constants.IntakeConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -38,6 +40,11 @@ public final class Steps {
         Path build(AutoContext ctx, Pose from);
     }
 
+    // Several paths driven one after the other, built when the step starts.
+    private interface LegsFactory {
+        List<Path> build(AutoContext ctx, Pose from);
+    }
+
     // ---- Driving ----
 
     /** Drive a path. The path is built when the step starts, so it begins at the robot. */
@@ -46,14 +53,18 @@ public final class Steps {
     }
 
     public static AutoStep follow(String name, PathFactory path, double timeoutS) {
-        return new FollowStep(name, path, timeoutS);
+        return new FollowStep(name, (ctx, from) -> Collections.singletonList(path.build(ctx, from)),
+                timeoutS);
     }
 
     /**
      * Drive to a pose. Straight there when the HIVE is not in the way. A drive that
      * crosses from the audience half of the field to the far half (or back) follows one
      * smooth curve bulging out toward our wall (AROUND_HIVE_X) instead, so it never
-     * touches the HIVE. Any turn is spread over the whole drive, the shortest way round.
+     * touches the HIVE. Any turn is spread over the drive, the shortest way round, but
+     * never done near a wall (WALL_TURN_CLEAR_IN): a drive that starts against a wall with
+     * a turn first moves straight off it, and one that ends against a wall finishes its
+     * turn first and then moves straight in.
      */
     public static AutoStep driveTo(String name, Function<AutoContext, Pose> target) {
         return driveTo(name, target, false);
@@ -85,20 +96,61 @@ public final class Steps {
     }
 
     private static AutoStep drivePath(String name, Function<AutoContext, Pose> target) {
-        return follow(name, (ctx, from) -> {
-            Pose to = target.apply(ctx);
-            double middle = AutoConstants.FIELD_SIZE_IN / 2;
-            boolean crossesHive = (ctx.redY(from) - middle) * (ctx.redY(to) - middle) < 0;
+        return new FollowStep(name, (ctx, from) -> legs(ctx, from, target.apply(ctx)),
+                AutoConstants.DRIVE_TIMEOUT_S);
+    }
 
-            Path path;
-            if (crossesHive) {
-                double x = ctx.pose(AutoConstants.AROUND_HIVE_X, 0, 0).x();
-                path = curve(from, new Pose(x, from.y(), 0), new Pose(x, to.y(), 0), to);
-            } else {
-                path = line(from, to);
+    private static List<Path> legs(AutoContext ctx, Pose from, Pose to) {
+        double turn = Math.atan2(Math.sin(to.heading() - from.heading()),
+                Math.cos(to.heading() - from.heading()));
+        boolean turns = Math.abs(turn) > Math.toRadians(AutoConstants.WALL_TURN_MAX_DEG);
+        List<Path> out = new ArrayList<>();
+
+        Pose a = from;
+        if (turns) {
+            Pose off = clearOfWalls(from);
+            if (Math.hypot(off.x() - from.x(), off.y() - from.y()) > 0.5) {
+                out.add(line(from, off).constant(from.heading()));
+                a = off;
             }
-            return headingAlong(path, from.heading(), to.heading());
-        });
+        }
+        Pose b = to;
+        if (turns) {
+            Pose in = clearOfWalls(to);
+            if (Math.hypot(in.x() - to.x(), in.y() - to.y()) > 0.5) {
+                b = in;
+            }
+        }
+        if (Math.hypot(b.x() - a.x(), b.y() - a.y()) > 0.5 || out.isEmpty()) {
+            out.add(mainLeg(ctx, a, b));
+        }
+        if (b != to) {
+            out.add(line(b, to).constant(to.heading()));
+        }
+        return out;
+    }
+
+    // The pose moved straight away from any wall it is nearer than WALL_TURN_CLEAR_IN to.
+    private static Pose clearOfWalls(Pose p) {
+        double c = AutoConstants.WALL_TURN_CLEAR_IN;
+        double size = AutoConstants.FIELD_SIZE_IN;
+        double x = Math.min(Math.max(p.x(), c), size - c);
+        double y = Math.min(Math.max(p.y(), c), size - c);
+        return new Pose(x, y, p.heading());
+    }
+
+    private static Path mainLeg(AutoContext ctx, Pose from, Pose to) {
+        double middle = AutoConstants.FIELD_SIZE_IN / 2;
+        boolean crossesHive = (ctx.redY(from) - middle) * (ctx.redY(to) - middle) < 0;
+
+        Path path;
+        if (crossesHive) {
+            double x = ctx.pose(AutoConstants.AROUND_HIVE_X, 0, 0).x();
+            path = curve(from, new Pose(x, from.y(), 0), new Pose(x, to.y(), 0), to);
+        } else {
+            path = line(from, to);
+        }
+        return headingAlong(path, from.heading(), to.heading());
     }
 
     // Hold the heading when there is no real turn (so the robot does not hunt), otherwise
@@ -171,36 +223,6 @@ public final class Steps {
         return new WaitStep(seconds);
     }
 
-    /**
-     * Wait for the partner to shoot first, if we took the SECOND slot on the init menu
-     * (AutoSelection). Read when the step starts, so the menu value is the one used.
-     */
-    public static AutoStep startDelay() {
-        return new AutoStep() {
-            private double untilS;
-            private CellSide upAtStart;
-
-            @Override
-            public void start(AutoContext ctx) {
-                untilS = ctx.now() + AutoSelection.effectiveDelayS();
-                upAtStart = ctx.upSide;
-            }
-
-            @Override
-            public boolean update(AutoContext ctx) {
-                // The up CELL changing means the partner's shots tipped the HIVE: go now.
-                boolean tipped = AutoConstants.END_DELAY_ON_TIP
-                        && AutoSelection.effectiveDelayS() > 0 && ctx.upSide != upAtStart;
-                return tipped || ctx.now() >= untilS;
-            }
-
-            @Override
-            public String name() {
-                return "wait for partner (" + AutoSelection.effectiveDelayS() + " s or tip)";
-            }
-        };
-    }
-
     /** Run some steps in order, as one step. */
     public static AutoStep sequence(String name, AutoStep... steps) {
         return new SequenceStep(name, Arrays.asList(steps));
@@ -218,13 +240,61 @@ public final class Steps {
      * driver's choice, or the start default.
      */
     public static AutoStep byUpSide(AutoStep leftUp, AutoStep rightUp) {
-        return when("by up CELL", ctx -> ctx.upSide == CellSide.LEFT, leftUp, rightUp);
+        return when("by shot CELL", ctx -> ctx.shotSide() == CellSide.LEFT, leftUp, rightUp);
+    }
+
+    /**
+     * Get to the shooting zone for the CELL that is up and wait until the robot is ready to
+     * fire (the TeleOp test: in zone, aim and hood settled, wheel at speed, a recent camera
+     * read of the up CELL), at most READY_TIMEOUT_S once there. Already in the zone: no
+     * drive. Otherwise drive to the nearest usable zone point (ZoneTargets), facing the CELL.
+     * If the camera sees the up CELL change before firing, go to the other CELL's zone
+     * (at most MAX_REDIRECTS times). Follow it with shoot().
+     */
+    public static AutoStep toZoneAndReady() {
+        return new ZoneApproachStep();
+    }
+
+    /** The zone target for the CELL that is up now, from where the robot is, as a pose. */
+    static Pose zoneTargetPose(AutoContext ctx, CellSide cell) {
+        Pose me = ctx.robot.drivetrain.getPose();
+        double[] t = ZoneTargets.target(cell, ctx.redX(me), ctx.redY(me), AutoSelection.pair());
+        return t == null ? null : ctx.pose(t[0], t[1], t[2]);
     }
 
     /** Choose between two steps when this step starts. Either may be null (skip). */
     public static AutoStep when(String name, Predicate<AutoContext> test, AutoStep ifTrue,
                                 AutoStep ifFalse) {
         return new ChoiceStep(name, test, ifTrue, ifFalse);
+    }
+
+    /**
+     * After a burst that should have tipped the HIVE: keep watching until the camera sees the
+     * tip, at most {@code maxS}. Ends the moment the tip is seen, so a HIVE that tips a little
+     * faster or slower costs only its own time. Ends at once without a camera.
+     */
+    public static AutoStep awaitTip(String name, double maxS) {
+        return new AutoStep() {
+            private double startS;
+            private int tipsAtStart;
+
+            @Override
+            public void start(AutoContext ctx) {
+                startS = ctx.now();
+                tipsAtStart = ctx.tips;
+            }
+
+            @Override
+            public boolean update(AutoContext ctx) {
+                return !ctx.robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE
+                        || ctx.tips > tipsAtStart || ctx.now() - startS >= maxS;
+            }
+
+            @Override
+            public String name() {
+                return name;
+            }
+        };
     }
 
     /** A step that does something once and finishes immediately. */
@@ -251,30 +321,119 @@ public final class Steps {
 
     private static final class FollowStep implements AutoStep {
         private final String name;
-        private final PathFactory path;
+        private final LegsFactory legs;
         private final double timeoutS;
         private double startS;
+        private List<Path> paths;
+        private int index;
 
-        FollowStep(String name, PathFactory path, double timeoutS) {
+        FollowStep(String name, LegsFactory legs, double timeoutS) {
             this.name = name;
-            this.path = path;
+            this.legs = legs;
             this.timeoutS = timeoutS;
         }
 
         @Override
         public void start(AutoContext ctx) {
             startS = ctx.now();
-            ctx.robot.drivetrain.follow(path.build(ctx, ctx.robot.drivetrain.getPose()));
+            paths = legs.build(ctx, ctx.robot.drivetrain.getPose());
+            index = 0;
+            ctx.robot.drivetrain.follow(paths.get(0));
         }
 
         @Override
         public boolean update(AutoContext ctx) {
-            return !ctx.robot.drivetrain.isBusy() || ctx.now() - startS > timeoutS;
+            if (ctx.now() - startS > timeoutS) {
+                return true;
+            }
+            if (ctx.robot.drivetrain.isBusy()) {
+                return false;
+            }
+            index++;
+            if (index >= paths.size()) {
+                return true;
+            }
+            ctx.robot.drivetrain.follow(paths.get(index));
+            return false;
         }
 
         @Override
         public String name() {
             return name;
+        }
+    }
+
+    private static final class ZoneApproachStep implements AutoStep {
+        private AutoContext ctx0;
+        private AutoStep drive;
+        private boolean driving;
+        private double waitStartS;
+        private int redirects;
+
+        @Override
+        public void start(AutoContext ctx) {
+            ctx0 = ctx;
+            redirects = 0;
+            plan(ctx);
+        }
+
+        private void plan(AutoContext ctx) {
+            ctx.plannedSide = ctx.shotSide();
+            ctx.tripStartS = ctx.now();
+            waitStartS = -1;
+            Pose target = ctx.inZoneNow(ctx.plannedSide) ? null : zoneTargetPose(ctx, ctx.plannedSide);
+            if (target == null) {
+                // In the zone already, or no usable point: shoot from here.
+                drive = null;
+                driving = false;
+                return;
+            }
+            drive = driveTo("to zone (" + ctx.plannedSide + " CELL)", c -> target);
+            drive.start(ctx);
+            driving = true;
+        }
+
+        @Override
+        public boolean update(AutoContext ctx) {
+            if (driving) {
+                if (!drive.update(ctx)) {
+                    return false;
+                }
+                drive.end(ctx);
+                driving = false;
+            }
+            if (waitStartS < 0) {
+                waitStartS = ctx.now();
+            }
+            if (ctx.shotSide() != ctx.plannedSide && redirects < AutoConstants.MAX_REDIRECTS) {
+                redirects++;
+                plan(ctx);
+                return false;
+            }
+            // PAIR only shoots its own CELL: while it faces down, wait until the camera shows
+            // it up (the reserve window parks us, balls kept, if it never does). At start B
+            // this is the wait for the partner's pre-loads to tip the HIVE.
+            if (ctx.waitsForCell()) {
+                waitStartS = ctx.now();
+                return false;
+            }
+            return ctx.robot.isReadyToFire()
+                    || ctx.now() - waitStartS >= AutoConstants.READY_TIMEOUT_S;
+        }
+
+        @Override
+        public void end(AutoContext ctx) {
+            if (driving) {
+                drive.end(ctx);
+                driving = false;
+            }
+        }
+
+        @Override
+        public String name() {
+            return driving ? drive.name()
+                    : ctx0 != null && ctx0.waitsForCell() ? "wait for our CELL to tip up"
+                    : "wait ready to fire";
         }
     }
 
@@ -293,6 +452,11 @@ public final class Steps {
         private double lastS;
         private double pausedUntilS;
         private CellSide aimedAt;
+        // Balls pushed so far this burst, from the feed pulses (about one per ball), and the
+        // number pushed when the HIVE tipped mid-burst (-1 = it did not).
+        private int pushed;
+        private int lastPulses;
+        private int pushedAtTip;
 
         ShootStep(double feedS) {
             this.feedS = feedS;
@@ -306,6 +470,9 @@ public final class Steps {
             pausedUntilS = -1;
             aimedAt = ctx.upSide;
             ctx.shotInterrupted = false;
+            pushed = 0;
+            lastPulses = ctx.robot.feedPulseCount();
+            pushedAtTip = -1;
             ctx.robot.shootSequence.start(ctx.now(), Configurables.SHOOT_FEED_SECONDS);
         }
 
@@ -315,9 +482,17 @@ public final class Steps {
             double dt = now - lastS;
             lastS = now;
 
+            // Count balls pushed: the pulser restarts from 0 whenever feeding stops.
+            int pulses = ctx.robot.feedPulseCount();
+            if (pulses > lastPulses) {
+                pushed += pulses - lastPulses;
+            }
+            lastPulses = pulses;
+
             // The HIVE tipped: stop feeding and retarget.
             if (ctx.upSide != aimedAt) {
                 aimedAt = ctx.upSide;
+                pushedAtTip = Math.min(pushed, AutoConstants.BALLS_PER_SHOT);
                 ctx.robot.shootSequence.cancel();
                 if (AutoConstants.LOCK_TURRET_FORWARD) {
                     ctx.shotInterrupted = true;
@@ -350,8 +525,21 @@ public final class Steps {
         @Override
         public void end(AutoContext ctx) {
             ctx.robot.shootSequence.cancel();
-            // After a tip the count restarts for the new up CELL, so only count full shots.
-            if (fedS > 0 && !ctx.shotInterrupted) {
+            if (fedS <= 0) {
+                return;
+            }
+            // A tip restarts the count for the new up CELL, so only the balls shot after it
+            // count: the rest of a burst the tip cut short, or the leftover of the burst
+            // before it. With no pulse count (0 pushed) the whole burst is assumed.
+            if (ctx.shotInterrupted) {
+                ctx.leftoverBalls = AutoConstants.BALLS_PER_SHOT - pushedAtTip;
+                ctx.leftoverPending = true;
+            } else if (pushedAtTip >= 0) {
+                ctx.recordShot(AutoConstants.BALLS_PER_SHOT - pushedAtTip);
+            } else if (ctx.leftoverPending) {
+                ctx.recordShot(ctx.leftoverBalls);
+                ctx.leftoverPending = false;
+            } else {
                 ctx.recordShot(AutoConstants.BALLS_PER_SHOT);
             }
         }

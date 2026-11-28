@@ -1,6 +1,9 @@
 package org.firstinspires.ftc.teamcode.auto;
 
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.utils.Alliance;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
+import org.firstinspires.ftc.teamcode.utils.HiveSide;
 
 /**
  * What the drive team chose on the init menu. Static, so the choices survive from one
@@ -13,12 +16,16 @@ public final class AutoSelection {
 
     /** Our slot, as agreed with the alliance partner before the match. */
     public enum Slot {
-        /** Partner runs no auto, or only parks: shoot at once. */
+        /** Partner runs no auto, or only parks: we have the whole HIVE (start A). */
         SOLO,
-        /** Partner shoots too, and we agreed to go first: shoot at once. */
-        FIRST,
-        /** Partner shoots too, and goes first: wait startDelayS before shooting. */
-        SECOND;
+        /**
+         * Partner shoots too. Each robot takes care of its own zone only: we shoot only our
+         * own CELL (start A: Zone A, start B: Zone B), collect only our side's sources, hold
+         * fire while our CELL is down, and never drive into the partner's zone. Start picked
+         * by hand: the stronger robot at A (its CELL is up at the start, so it shoots first),
+         * the weaker at B (waits until its camera sees its CELL up).
+         */
+        PAIR;
 
         public Slot next() {
             Slot[] all = values();
@@ -28,12 +35,23 @@ public final class AutoSelection {
 
     public static StartPreset preset = StartPreset.A;
     public static Slot slot = Slot.SOLO;
-    /** Only used in the SECOND slot. */
-    public static double startDelayS = AutoConstants.DEFAULT_START_DELAY_S;
     public static int cycles = AutoConstants.DEFAULT_CYCLES;
 
-    /** How long to wait before the pre-loads, given the slot. */
-    public static double effectiveDelayS() {
-        return slot == Slot.SECOND ? startDelayS : 0;
+    /** The start that goes with the slot: SOLO at A; PAIR either (the driver picks it). */
+    public static StartPreset presetForSlot() {
+        return slot == Slot.SOLO ? StartPreset.A : preset;
+    }
+
+    /** PAIR: the partner shoots into the same HIVE, and we keep to our own zone. */
+    public static boolean pair() {
+        return slot == Slot.PAIR;
+    }
+
+    /**
+     * The CELL nearest this start, which a robot in a pair shoots into: preset A (audience
+     * wall) the AUDIENCE CELL, B (far wall) the FAR CELL.
+     */
+    public static CellSide ownSide(Alliance alliance) {
+        return CellSide.of(alliance, preset == StartPreset.A ? HiveSide.AUDIENCE : HiveSide.FAR);
     }
 }

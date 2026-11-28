@@ -17,14 +17,18 @@ public final class PoseHandoff {
     private static Pose pose;
     private static Alliance alliance;
     private static long savedNs;
+    // Which CELL AUTO believed was up, and what the last take() found (null: none).
+    private static CellSide upSide;
+    private static CellSide takenUpSide;
 
     private PoseHandoff() {
     }
 
     /** Record the latest pose. AUTO calls this every loop and when it stops. */
-    public static void save(Pose latest, Alliance from) {
+    public static void save(Pose latest, Alliance from, CellSide believedUp) {
         pose = latest;
         alliance = from;
+        upSide = believedUp;
         savedNs = System.nanoTime();
     }
 
@@ -34,11 +38,19 @@ public final class PoseHandoff {
      */
     public static Pose take(Alliance forAlliance) {
         Pose result = null;
+        takenUpSide = null;
         if (pose != null && alliance == forAlliance
                 && (System.nanoTime() - savedNs) * 1e-9 <= MAX_AGE_S) {
             result = pose;
+            takenUpSide = upSide;
         }
         pose = null;
+        upSide = null;
         return result;
+    }
+
+    /** The CELL AUTO believed was up, from the last take() that returned a pose; else null. */
+    public static CellSide takenUpSide() {
+        return takenUpSide;
     }
 }

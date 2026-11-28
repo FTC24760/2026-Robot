@@ -51,6 +51,9 @@ public class VisionConstants {
     // loses it. It forgets the HIVE when the camera sees that CELL facing down.
     public static boolean ODOMETRY_FALLBACK = true;
     // Stop trusting the remembered position this many seconds after the camera last saw
-    // it, in case odometry drifts. 0 = keep it until the camera says otherwise.
+    // it, in case odometry drifts. 0 = keep it until the camera says otherwise. AUTO uses
+    // the first value; TeleOp keeps the CELL for good (the second), because which CELL is up
+    // has its own age limit there (ShootGateConstants.UPSIDE_MAX_AGE_S).
     public static double ODOMETRY_FALLBACK_MAX_S = 20.0;
+    public static double TELEOP_ODOMETRY_FALLBACK_MAX_S = 0;
 }

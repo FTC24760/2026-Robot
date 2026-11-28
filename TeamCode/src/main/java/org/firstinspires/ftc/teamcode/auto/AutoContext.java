@@ -7,11 +7,10 @@ import java.util.List;
 
 import org.firstinspires.ftc.teamcode.Robot;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
+import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.CellSide;
-import org.firstinspires.ftc.teamcode.utils.HiveSide;
-import org.firstinspires.ftc.teamcode.utils.ShotZoneGeometry;
 
 /**
  * What steps can see and change while an auto runs: the robot, the alliance, which CELL
@@ -25,14 +24,51 @@ public class AutoContext {
     /** Which CELL of our HIVE is up, as our drivers see it. Change it with setUpSide(). */
     public CellSide upSide;
 
+    /**
+     * How many tips the camera (or a broken-off burst) has shown since the routine started.
+     * A count, not a comparison with the starting side, so two tips are not read as none.
+     */
+    public int tips;
+
+    /** Which sources a cycle has already emptied, by CycleSource ordinal. */
+    public final boolean[] sourceUsed = new boolean[AutoConstants.CycleSource.values().length];
+    /** The source of the cycle running now. */
+    public AutoConstants.CycleSource chosenSource;
+
+    /** Cycles started so far (0, 1, 2); the next one uses this index. */
+    public int cycleIndex;
+
+    /**
+     * The CELL to shoot into next. SOLO: whichever is up, whoever tipped it. PAIR: always our
+     * own CELL (the zone by our start), so we never drive into the partner's zone; we wait
+     * there until the camera shows it up (waitsForCell).
+     */
+    public CellSide shotSide() {
+        return AutoSelection.pair() ? AutoSelection.ownSide(alliance) : upSide;
+    }
+
+    /** True while the CELL we shoot into is facing down: hold fire and wait for a tip. */
+    public boolean waitsForCell() {
+        return shotSide() != upSide;
+    }
+
     /** True if the last shot step stopped early because the HIVE tipped part-way. */
     public boolean shotInterrupted;
+
+    /**
+     * Balls still to shoot after a burst that the HIVE's tip cut short (4 minus the balls
+     * pushed before the tip, from the feed pulses). The finishing burst at the other CELL
+     * counts only these toward the next tip (valid while leftoverPending).
+     */
+    public int leftoverBalls;
+    public boolean leftoverPending;
 
     /** How many collection cycles to run after the pre-loads (chosen during init). */
     public int cycles = AutoSelection.cycles;
 
     // Balls we have shot into the current up CELL, for guessing when it tips.
     private int ballsSinceTip;
+    private double burstEndS;
 
     // Background jobs, applied every loop by AutoOpMode.
     public boolean spinUp;
@@ -57,24 +93,90 @@ public class AutoContext {
     public void setUpSide(CellSide side) {
         if (side != upSide) {
             upSide = side;
+            tips++;
             ballsSinceTip = 0;
         }
     }
 
-    /**
-     * Record a finished shot. If BALLS_TO_TIP is set, assume the HIVE tips once that many
-     * balls have gone in, so the next shot goes to the other CELL even if the Limelight
-     * never saw it move.
-     */
+    /** Balls needed in the up CELL for the next tip: 3 for the first, then 8. */
+    public int ballsToTip() {
+        return tips == 0 ? AutoConstants.BALLS_FIRST_TIP : AutoConstants.BALLS_NEXT_TIP;
+    }
+
+    /** Record a finished burst: our balls count toward the next tip. */
     public void recordShot(int balls) {
         ballsSinceTip += balls;
-        if (AutoConstants.BALLS_TO_TIP > 0 && ballsSinceTip >= AutoConstants.BALLS_TO_TIP) {
+        burstEndS = now();
+    }
+
+    /** SOLO: our balls in the up CELL have reached the tip threshold (3, then 8). */
+    public boolean tipExpected() {
+        return !AutoSelection.pair() && ballsSinceTip >= ballsToTip();
+    }
+
+    /**
+     * After a burst (and the tip watch): if the camera read the HIVE after the burst, it
+     * decides; a CELL it still shows up means the balls missed, so the count is capped below
+     * the threshold. With no read since the burst, believe the count and take it that the
+     * CELL tipped. A seen tip has already reset the count (setUpSide).
+     */
+    public void settleTipBelief() {
+        boolean read = lastCellReadS > burstEndS && burstEndS > 0;
+        if (read) {
+            if (ballsSinceTip >= ballsToTip()) {
+                ballsSinceTip = ballsToTip() - 1;
+            }
+        } else if (AutoConstants.PREDICT_TIP_WHEN_BLIND && ballsSinceTip >= ballsToTip()) {
             setUpSide(upSide.other());
         }
     }
 
+    /**
+     * The "which CELL is up" half of the ready-to-fire test: the camera read one of our CELLS
+     * within UPSIDE_MAX_AGE_S and after the last burst (which may have tipped the HIVE).
+     * Always true without a camera (there is nothing to wait for).
+     */
+    public boolean upStateKnown() {
+        if (!ShootGateConstants.UPSIDE_CHECK || !robot.hasAutoAim() || !AutoConstants.DETECT_UP_SIDE) {
+            return true;
+        }
+        return lastCellReadS >= 0 && now() - lastCellReadS <= ShootGateConstants.UPSIDE_MAX_AGE_S
+                && lastCellReadS >= burstEndS;
+    }
+
+    /** Distance from the robot (odometry) to the CELL believed up, inches. */
+    public double upCellDistanceIn() {
+        Pose p = robot.drivetrain.getPose();
+        return ZoneTargets.distanceIn(redX(p), redY(p), upSide);
+    }
+
+    /** Degrees the shot from here (odometry) is off the up CELL's opening axis. */
+    public double upCellOffAxisDeg() {
+        Pose p = robot.drivetrain.getPose();
+        return ZoneTargets.offAxisDeg(redX(p), redY(p), upSide);
+    }
+
     void markStart(double nowS) {
+        leftoverBalls = 0;
+        leftoverPending = false;
         startS = nowS;
+        tips = 0;
+        ballsSinceTip = 0;
+        burstEndS = 0;
+        cycleIndex = 0;
+        java.util.Arrays.fill(sourceUsed, false);
+        chosenSource = null;
+    }
+
+    /** When (ctx.now()) the camera last read one of our CELLS, up or down; -1 = never. */
+    public double lastCellReadS = -1;
+    /** When the current trip into the zone started, and which CELL it was planned for. */
+    public double tripStartS;
+    public CellSide plannedSide;
+
+    /** True if the HIVE has tipped since the routine started (the camera saw it). */
+    public boolean tippedSinceStart() {
+        return tips > 0;
     }
 
     public double now() {
@@ -119,8 +221,7 @@ public class AutoContext {
     public void checkRouteConstants() {
         pose(AutoConstants.START_A_X, AutoConstants.START_A_Y, 0);
         pose(AutoConstants.START_B_X, AutoConstants.START_B_Y, 0);
-        pose(AutoConstants.SHOOT_X, AutoConstants.SHOOT_Y, 0);
-        pose(AutoConstants.SHOOT_LEFT_UP_X, AutoConstants.SHOOT_LEFT_UP_Y, 0);
+        pose(AutoConstants.GARDEN_LEAD_IN_X, AutoConstants.GARDEN_Y, 0);
         pose(AutoConstants.WALL_FLOWER_X, AutoConstants.WALL_FLOWER_Y, 0);
         pose(AutoConstants.BACK_FLOWER_X, AutoConstants.BACK_FLOWER_Y, 0);
         pose(AutoConstants.GARDEN_X, AutoConstants.GARDEN_Y, 0);
@@ -128,46 +229,27 @@ public class AutoContext {
     }
 
     /**
-     * Shots the route takes from a spot that is outside the shooting zone (the same test
-     * TeleOp uses: ShotZoneGeometry), as text for the init screen. Checked in the red
-     * frame, where our RIGHT cell is the AUDIENCE one and opens toward the audience wall.
-     * Covers the pre-loads from the chosen start pose into the CELL up at the start, and
-     * the two fixed shot spots into the CELL each one is for.
+     * Problems with the shooting zone, as text for the init screen (red frame, where our
+     * RIGHT cell is the AUDIENCE one): the chosen start is outside the zone for the CELL up
+     * at the start (the robot drives in first), or a CELL has no usable zone point at all
+     * (e.g. the shot table is empty, or the limits leave nothing).
      */
     public List<String> zoneWarnings(StartPreset preset, CellSide upAtStart) {
         List<String> out = new ArrayList<>();
         boolean startB = preset == StartPreset.B;
-        checkZone(out, "start " + preset + " pre-loads",
-                startB ? AutoConstants.START_B_X : AutoConstants.START_A_X,
-                startB ? AutoConstants.START_B_Y : AutoConstants.START_A_Y, upAtStart);
-        checkZone(out, "shot spot (RIGHT up)", AutoConstants.SHOOT_X, AutoConstants.SHOOT_Y,
-                CellSide.RIGHT);
-        checkZone(out, "shot spot (LEFT up)", AutoConstants.SHOOT_LEFT_UP_X,
-                AutoConstants.SHOOT_LEFT_UP_Y, CellSide.LEFT);
-        return out;
-    }
-
-    private static void checkZone(List<String> out, String what, double x, double y, CellSide cell) {
-        boolean right = cell == CellSide.RIGHT;
-        double cx = right ? AutoConstants.RIGHT_CELL_X : AutoConstants.LEFT_CELL_X;
-        double cy = right ? AutoConstants.RIGHT_CELL_Y : AutoConstants.LEFT_CELL_Y;
-        double dist = ShotZoneGeometry.distanceIn(x, y, cx, cy);
-        double off = ShotZoneGeometry.offAxisDeg(x, y, cx, cy,
-                right ? HiveSide.AUDIENCE : HiveSide.FAR);
-        if (!zoneOk(x, y, cell)) {
-            out.add(String.format("%s -> %s CELL: %.0f in, %.0f deg off the opening",
-                    what, cell, dist, off));
+        double sx = startB ? AutoConstants.START_B_X : AutoConstants.START_A_X;
+        double sy = startB ? AutoConstants.START_B_Y : AutoConstants.START_A_Y;
+        if (!ZoneTargets.inZone(sx, sy, upAtStart)) {
+            out.add(String.format("start %s -> %s CELL: %.0f in, %.0f deg off the opening (drives in first)",
+                    preset, upAtStart, ZoneTargets.distanceIn(sx, sy, upAtStart),
+                    ZoneTargets.offAxisDeg(sx, sy, upAtStart)));
         }
-    }
-
-    // The shooting-zone test for a spot (red frame) and the CELL it shoots into.
-    private static boolean zoneOk(double x, double y, CellSide cell) {
-        boolean right = cell == CellSide.RIGHT;
-        double cx = right ? AutoConstants.RIGHT_CELL_X : AutoConstants.LEFT_CELL_X;
-        double cy = right ? AutoConstants.RIGHT_CELL_Y : AutoConstants.LEFT_CELL_Y;
-        return ShotZoneGeometry.inZone(ShotZoneGeometry.distanceIn(x, y, cx, cy),
-                ShotZoneGeometry.offAxisDeg(x, y, cx, cy, right ? HiveSide.AUDIENCE : HiveSide.FAR),
-                false);
+        for (CellSide cell : CellSide.values()) {
+            if (ZoneTargets.target(cell, sx, sy, AutoSelection.pair()) == null) {
+                out.add("no usable zone point for the " + cell + " CELL");
+            }
+        }
+        return out;
     }
 
     /** Poses the routine uses that are past our side of the field in AUTO (red frame). */
@@ -183,7 +265,7 @@ public class AutoContext {
     /** True if the robot is where a shot into the up CELL can score (shooting zone). */
     public boolean inZoneNow(CellSide cell) {
         Pose p = robot.drivetrain.getPose();
-        return zoneOk(redX(p), redY(p), cell);
+        return ZoneTargets.inZone(redX(p), redY(p), cell);
     }
 
     /** A pose's distance from the audience wall as red sees it, for either alliance. */

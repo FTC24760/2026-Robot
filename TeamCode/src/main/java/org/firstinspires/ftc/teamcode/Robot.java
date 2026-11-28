@@ -6,6 +6,7 @@ import org.firstinspires.ftc.teamcode.constants.OperatorConstants;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.constants.ShootGateConstants;
@@ -19,6 +20,7 @@ import org.firstinspires.ftc.teamcode.controls.OperatorControls;
 import org.firstinspires.ftc.teamcode.sequences.FeedPulser;
 import org.firstinspires.ftc.teamcode.sequences.ShootSequence;
 import org.firstinspires.ftc.teamcode.sequences.ShootZone;
+import org.firstinspires.ftc.teamcode.utils.CellSide;
 import org.firstinspires.ftc.teamcode.subsystems.*;
 import org.firstinspires.ftc.teamcode.utils.Alliance;
 import org.firstinspires.ftc.teamcode.utils.AsyncRpmLogger;
@@ -94,6 +96,7 @@ public class Robot {
     private AimController aim;
     // TeleOp shooting zone and the "ready to fire" signal.
     private ShootZone zone;
+    private boolean wasReady;
     /** Feed in timed push/retract pulses while shooting. Operator X in teleop. */
     public boolean pulseShoot = true;
     private double pulseStartS = -1;
@@ -170,6 +173,12 @@ public class Robot {
     }
 
     /** True if auto-aim was enabled and the Limelight was found. */
+    /** TeleOp: remember the CELL for good and switch to the other after a down-read. */
+    public Robot enableTeleOpMemory() {
+        aim.enableTeleOpMemory();
+        return this;
+    }
+
     public boolean hasAutoAim() {
         return aim.hasAutoAim();
     }
@@ -224,6 +233,52 @@ public class Robot {
     /** True while in the zone with the aim ready and (when pre-spinning) the wheel at speed. */
     public boolean isReadyToFire() {
         return zone.isReadyToFire();
+    }
+
+    /**
+     * Auto: run the same shooting-zone and "ready to fire" decision as TeleOp, without the
+     * driver feedback (the auto fires by itself). Call once per loop after the turret is aimed.
+     *
+     * @param distanceIn   distance to the up CELL (camera, else odometry)
+     * @param offAxisDeg   degrees off the CELL's opening axis
+     * @param upStateKnown a recent camera read of which CELL is up, since the last burst
+     * @param intaking     the intake is running (counts as reloading)
+     */
+    public void updateAutoZone(double distanceIn, double offAxisDeg, boolean upStateKnown,
+                               boolean intaking) {
+        zone.setFeedback(false);
+        zone.updateReloadArming(shootSequence.isActive(), shootSequence.isFeeding(), false,
+                intaking, loopSeconds);
+        zone.update(distanceIn, offAxisDeg, aimReady(), shooter.isReadyToFeed(),
+                shootSequence.isActive(), upStateKnown, nowSeconds());
+        if (zone.isReadyToFire() && !wasReady) {
+            RobotLog.ii("ShootZone", "AUTO READY, %.0f in, %.0f deg off axis", distanceIn,
+                    offAxisDeg);
+        }
+        wasReady = zone.isReadyToFire();
+    }
+
+    /** True if the wheel should be held at the table speed (in the zone, not reloading). */
+    public boolean zoneWantsPrespin() {
+        return zone.wantsPrespin();
+    }
+
+    /**
+     * Feed pulses since feeding last stopped: about one per ball pushed in the pulsed feed
+     * styles (the last ball may get a steady push instead). 0 when feeding is not pulsed.
+     */
+    public int feedPulseCount() {
+        return feedPulser.getPulseCount();
+    }
+
+    /** Seconds since the camera or driver last said which CELL is up; NaN if never. */
+    public double upStateAgeS() {
+        return aim.upStateAgeS(nowNs);
+    }
+
+    /** Aim at this CELL until the camera says otherwise (start of TeleOp, or the auto's belief). */
+    public void syncUpSide(CellSide side) {
+        aim.syncUpSide(side, nowNs);
     }
 
     /** Why aimReady() is false, for telemetry; null when ready. */
@@ -300,6 +355,9 @@ public class Robot {
         if (operator.pulseTogglePressed()) {
             pulseShoot = !pulseShoot;
         }
+        if (controls.flipCellPressed() || operator.flipCellPressed()) {
+            aim.flipUpCell(nowNs);
+        }
         if (controls.flowerTogglePressed() || operator.flowerTogglePressed()) {
             flowerArm.toggle();
         }
@@ -327,8 +385,16 @@ public class Robot {
 
         updateDrive();
         runTeleopTurret();
+        if (zone.takeShotEnded()) {
+            aim.noteShotFed(nowNs);
+        }
         zone.update(targetDistanceIn(), targetOffAxisDeg(), aimReady(), shooter.isReadyToFeed(),
-                shootSequence.isActive(), nowSeconds());
+                shootSequence.isActive(), aim.upStateConfirmed(nowNs), nowSeconds());
+        if (zone.isReadyToFire() && !wasReady) {
+            // To set UPSIDE_MAX_AGE_S: how old was the up/down read each time we signalled?
+            RobotLog.ii("ShootZone", "READY, up/down read age %.1f s", aim.upStateAgeS(nowNs));
+        }
+        wasReady = zone.isReadyToFire();
 
         // Intake and transfer, highest priority first.
         boolean pulsing = pulseActive(shootSequence.inFeedingStage() && aimReady());
@@ -574,6 +640,9 @@ public class Robot {
                         : targetOffAxisDeg() > ShootGateConstants.ZONE_MAX_OFF_AXIS_DEG
                         ? String.format("Not ready: bad angle (%.0f deg off the opening)", targetOffAxisDeg())
                         : "Not ready: outside shooting zone");
+ } else if (zone.isUpStateUnconfirmed()) {
+                telemetry.addLine("UP CELL UNCONFIRMED (no recent camera read): D-pad right flips"
+                        + " the cell, or shoot anyway");
             } else {
                 String blocked = aimBlockReason();
                 telemetry.addLine("In zone, not ready: " + (zone.isReloading() ? "reloading (run intake or leave the zone)"

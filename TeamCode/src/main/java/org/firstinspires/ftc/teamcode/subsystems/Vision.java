@@ -121,6 +121,9 @@ public class Vision implements Subsystem {
         LLResult result = limelight.getLatestResult();
         boolean newFrame = false;
         if (result != null && result.isValid()) {
+            // Age of the image: time on the Limelight plus time since it reached the hub.
+            double ageMs = result.getCaptureLatency() + result.getTargetingLatency()
+                    + result.getStaleness();
             readSightings(result);
             long stamp = result.getControlHubTimeStampNanos();
             newFrame = stamp != lastFrameStampNs;
@@ -134,7 +137,6 @@ public class Vision implements Subsystem {
 
         boolean up = isUp(best);
         if (newFrame) {
-            // Age of the image: time on the Limelight plus time since it reached the hub.
             double ageMs = result.getCaptureLatency() + result.getTargetingLatency()
                     + result.getStaleness();
             fix = new Fix(best, up, nowNs - MathUtil.msToNs(ageMs));
@@ -237,7 +239,7 @@ public class Vision implements Subsystem {
 
     /**
      * Limelight camera space (x right, y down, z out of the lens) to the robot frame
-     * (X forward, Y left, Z up), using the mounting in VisionConstants.
+     * (X forward, Y left, Z up), using the fixed mounting in VisionConstants.
      */
     static double[] cameraToRobot(double x, double y, double z) {
         if (VisionConstants.CAMERA_UPSIDE_DOWN) {

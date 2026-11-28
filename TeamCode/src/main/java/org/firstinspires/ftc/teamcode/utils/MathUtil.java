@@ -19,4 +19,9 @@ public final class MathUtil {
     public static long msToNs(double ms) {
         return (long) (ms * 1_000_000.0);
     }
+
+    /** Wrap an angle in radians to (-pi, pi]. */
+    public static double normalizeRad(double rad) {
+        return Math.atan2(Math.sin(rad), Math.cos(rad));
+    }
 }

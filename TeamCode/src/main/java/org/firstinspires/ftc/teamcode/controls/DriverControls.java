@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.utils.EdgeDetector;
  * Right trigger: press to start/cancel shooting. Right bumper: hold intake.
  * Left bumper: hold outtake (takes priority). Y: toggle flower arm.
  * Left stick drives; right stick X rotates. D-pad left stops shooter. Up/down adjusts RPM by 50 per press.
- * Create/Back resets pose. Turret aiming uses gamepad 2 right stick X.
+ * D-pad right flips the up CELL when the camera cannot tell. Create/Back resets pose. Turret aiming uses gamepad 2 right stick X.
  */
 public class DriverControls {
     private final OpMode opMode;
@@ -24,6 +24,8 @@ public class DriverControls {
     private final EdgeDetector aimToggle = new EdgeDetector();
     private final EdgeDetector shooterStop = new EdgeDetector();
     private final EdgeDetector resetPose = new EdgeDetector();
+    private final EdgeDetector flipCell = new EdgeDetector();
+    private boolean flipCellPressed;
 
     private boolean shootPressed;
     private boolean flowerTogglePressed;
@@ -46,6 +48,7 @@ public class DriverControls {
         flowerTogglePressed = flowerToggle.rose(pad.y);
         aimTogglePressed = aimToggle.rose(pad.a);
         shooterStopPressed = shooterStop.rose(pad.dpad_left);
+        flipCellPressed = flipCell.rose(pad.dpad_right);
         // PS5 Create button; the SDK reports it as both back and share.
         resetPosePressed = resetPose.rose(driver().back || driver().share);
     }
@@ -91,6 +94,11 @@ public class DriverControls {
 
     public boolean flowerTogglePressed() {
         return flowerTogglePressed;
+    }
+
+    /** D-pad right: the camera cannot say which CELL is up, so aim at the other one. */
+    public boolean flipCellPressed() {
+        return flipCellPressed;
     }
 
     public boolean aimTogglePressed() {

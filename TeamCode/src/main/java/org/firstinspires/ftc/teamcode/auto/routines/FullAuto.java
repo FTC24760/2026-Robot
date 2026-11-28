@@ -1,14 +1,13 @@
 package org.firstinspires.ftc.teamcode.auto.routines;
 
-import static org.firstinspires.ftc.teamcode.auto.Steps.byUpSide;
+import static org.firstinspires.ftc.teamcode.auto.Steps.awaitTip;
 import static org.firstinspires.ftc.teamcode.auto.Steps.collectFromFlower;
 import static org.firstinspires.ftc.teamcode.auto.Steps.driveTo;
 import static org.firstinspires.ftc.teamcode.auto.Steps.instant;
+import static org.firstinspires.ftc.teamcode.auto.Steps.toZoneAndReady;
 import static org.firstinspires.ftc.teamcode.auto.Steps.intake;
 import static org.firstinspires.ftc.teamcode.auto.Steps.sequence;
 import static org.firstinspires.ftc.teamcode.auto.Steps.shoot;
-import static org.firstinspires.ftc.teamcode.auto.Steps.spinUp;
-import static org.firstinspires.ftc.teamcode.auto.Steps.startDelay;
 import static org.firstinspires.ftc.teamcode.auto.Steps.waitSeconds;
 import static org.firstinspires.ftc.teamcode.auto.Steps.when;
 
@@ -18,19 +17,20 @@ import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
 import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
-import org.firstinspires.ftc.teamcode.auto.ShotSpots;
+import org.firstinspires.ftc.teamcode.auto.StartPreset;
+import org.firstinspires.ftc.teamcode.auto.TripTimes;
+import org.firstinspires.ftc.teamcode.auto.ZoneTargets;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants.CycleSource;
 import org.firstinspires.ftc.teamcode.subsystems.Intake;
-import org.firstinspires.ftc.teamcode.utils.CellSide;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Start at the chosen preset, wait for the partner if we shoot SECOND, shoot the
- * pre-loads from the start, run up to three collection cycles
- * (each one FLOWER or the GARDEN, then back to shoot), wait PARK_DELAY_S, then park.
+ * Start at the chosen preset, shoot the pre-loads from the start (PAIR at B: once the camera
+ * sees our CELL up), run up to three collection cycles
+ * (each one FLOWER or the GARDEN, then back to shoot), then park (the reserve window banks the park).
  *
  * This file is only the order of steps. Every robot pose and option is in AutoConstants
  * and is read when each step starts, so Panels changes apply without re-initialising.
@@ -45,40 +45,35 @@ public final class FullAuto {
     public static AutoRoutine build(AutoContext ctx) {
         List<AutoStep> steps = new ArrayList<>();
 
-        // SECOND slot: let the partner shoot first (no wait otherwise). The robot holds
-        // only its 4 pre-loads, so there is nothing useful to collect meanwhile.
-        steps.add(startDelay());
 
-        // Pre-loads, from the start pose with no driving, unless that pose cannot score into
-        // the CELL that is up now (the HIVE tipped while we waited, or start B with the
-        // audience CELL up): then drive to the shot spot first.
-        steps.add(when("start pose in zone?",
-                c -> AutoConstants.DRIVE_TO_ZONE_FIRST && !c.inZoneNow(c.upSide),
-                driveToShot(), null));
-        steps.add(shootHere());
+        // Pre-loads: the start is in the zone and faces the HIVE, so they go from there. SOLO
+        // drives into the other zone first if that CELL is up. PAIR at start B holds fire
+        // until its camera sees our CELL up (the partner's pre-loads tipped the HIVE).
+        steps.add(zoneShot());
 
-        CycleSource[] order = {AutoConstants.CYCLE_1, AutoConstants.CYCLE_2, AutoConstants.CYCLE_3};
-        for (int i = 0; i < order.length; i++) {
+        for (int i = 0; i < 3; i++) {
             int number = i + 1;
-            CycleSource source = order[i];
+            int index = i;
             steps.add(when("cycle " + number,
-                    c -> c.cycles >= number && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
-                    sequence("cycle " + number + " " + source,
-                            collect(source),
+                    c -> c.cycles >= number && mayCycle(c) && chooseSource(c, index) != null,
+                    sequence("cycle " + number,
+                            instant("choose source", c -> {
+                                c.cycleIndex = index + 1;
+                                c.chosenSource = chooseSource(c, index);
+                                c.sourceUsed[c.chosenSource.ordinal()] = true;
+                            }),
+                            // Chosen when the step starts: the slot and the up CELL are only
+                            // known by then.
+                            collectChosen(),
                             intake(Intake.Mode.OFF),
-                            shootCycle()),
+                            zoneShot()),
                     null));
         }
 
         steps.add(intake(Intake.Mode.OFF));
         steps.add(when("park", c -> AutoConstants.PARK_ENABLED,
                 sequence("park",
-                        // FIRST leaves early so the partner has the shooting area.
-                        when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.FIRST,
-                                waitSeconds(AutoConstants.FIRST_PARK_DELAY_S),
-                                when("park delay", c -> AutoSelection.slot == AutoSelection.Slot.SOLO,
-                                        waitSeconds(AutoConstants.SOLO_PARK_DELAY_S),
-                                        waitSeconds(AutoConstants.PARK_DELAY_S))),
+                        waitSeconds(AutoConstants.PARK_DELAY_S),
                         when("park drive",
                                 c -> c.timeLeft() >= AutoConstants.PARK_MIN_TIME_LEFT_S,
                                 sequence("park drive",
@@ -91,6 +86,68 @@ public final class FullAuto {
                 c -> AutoSelection.preset.pose(c),
                 steps.toArray(new AutoStep[0]))
                 .withReserve(driveToPark());
+    }
+
+    private static boolean mayCycle(AutoContext c) {
+        return true;
+    }
+
+    // The source for this cycle (0, 1, 2) in our slot. Read when a step starts, because
+    // the slot is picked in the init menu after the routine is built.
+    private static CycleSource sourceFor(int index) {
+        if (!AutoSelection.pair()) {
+            return AutoConstants.SOLO_SOURCES[index];
+        }
+        // PAIR: only our side's sources, nearest first.
+        return AutoSelection.preset == StartPreset.A
+                ? AutoConstants.PAIR_A_SOURCES[index] : AutoConstants.PAIR_B_SOURCES[index];
+    }
+
+    /**
+     * The source for this cycle, or null if none fits. SOLO (SOLO_NEAREST_SOURCE) takes the
+     * unused source nearest to the robot; PAIR takes the next one of our side's sources. A
+     * source counts only if its trips, a burst, the park trip and the margin fit in the time
+     * left: the park is never given up for a cycle.
+     */
+    private static CycleSource chooseSource(AutoContext c, int index) {
+        CycleSource[] candidates;
+        if (!AutoSelection.pair() && AutoConstants.SOLO_NEAREST_SOURCE) {
+            candidates = new CycleSource[] {
+                    CycleSource.GARDEN, CycleSource.WALL_FLOWER, CycleSource.BACK_FLOWER};
+        } else {
+            candidates = new CycleSource[] {sourceFor(index)};
+        }
+
+        Pose me = c.robot.drivetrain.getPose();
+        double[] from = {c.redX(me), c.redY(me)};
+        CycleSource best = null;
+        double bestS = Double.MAX_VALUE;
+        for (CycleSource source : candidates) {
+            if (source == CycleSource.NONE || c.sourceUsed[source.ordinal()]) {
+                continue;
+            }
+            double[] at = TripTimes.sourceXY(source);
+            double[] t = ZoneTargets.target(c.shotSide(), at[0], at[1], AutoSelection.pair());
+            double[] next = t != null ? new double[] {t[0], t[1]} : at;
+            double park = TripTimes.driveS(next[0], next[1], AutoConstants.PARK_X,
+                    AutoConstants.PARK_Y);
+            double need = TripTimes.cycleS(source, from, next) + AutoConstants.BURST_S + park
+                    + AutoConstants.CYCLE_MARGIN_S;
+            double away = TripTimes.driveS(from[0], from[1], at[0], at[1]);
+            if (need <= c.timeLeft() && away < bestS) {
+                best = source;
+                bestS = away;
+            }
+        }
+        return best;
+    }
+
+    private static AutoStep collectChosen() {
+        return when("source garden", c -> c.chosenSource == CycleSource.GARDEN,
+                collect(CycleSource.GARDEN),
+                when("source wall flower", c -> c.chosenSource == CycleSource.WALL_FLOWER,
+                        collect(CycleSource.WALL_FLOWER),
+                        collect(CycleSource.BACK_FLOWER)));
     }
 
     private static AutoStep driveToPark() {
@@ -106,51 +163,39 @@ public final class FullAuto {
             case WALL_FLOWER:
                 return collectFromFlower("wall FLOWER", c -> c.pose(AutoConstants.WALL_FLOWER_X,
                         AutoConstants.WALL_FLOWER_Y, AutoConstants.WALL_FLOWER_H));
+            case NONE:
+                return instant("no source", c -> { });
             case GARDEN:
             default:
                 return sequence("GARDEN",
                         intake(Intake.Mode.INTAKE),
+                        driveTo("line up at GARDEN", c -> c.pose(AutoConstants.GARDEN_LEAD_IN_X,
+                                AutoConstants.GARDEN_Y, AutoConstants.GARDEN_H)),
                         driveTo("along GARDEN", c -> c.pose(AutoConstants.GARDEN_X,
                                 AutoConstants.GARDEN_Y, AutoConstants.GARDEN_H)));
         }
     }
 
-    // Drive to the straight-on spot for whichever CELL is up when this starts (shooter
-    // off while driving, to save battery), spin up, shoot, spin down. If the HIVE tips
-    // mid-burst, move straight across to the other CELL's spot and finish the burst there.
-    private static AutoStep shootCycle() {
-        return sequence("shoot",
-                driveToShot(),
-                shootHere());
-    }
-
-    // Pre-loads: the robot starts at its shooting pose, so there is no drive step at all.
-    // The drivetrain is never commanded; only the turret aims.
-    private static AutoStep shootHere() {
-        return sequence("shoot here",
-                spinUp(true),
+    // Into the zone for the CELL that is up (no drive if already in it), wait until ready to
+    // fire, fire. If the HIVE tips mid-burst, go to the other CELL's zone and finish there.
+    // Then, if a tip is expected, watch for it before the next trip is planned.
+    private static AutoStep zoneShot() {
+        return sequence("zone shot",
+                toZoneAndReady(),
                 shoot(),
                 when("after a tip", c -> c.shotInterrupted,
-                        sequence("finish at other CELL", driveToShot(), spinUp(true), shoot()),
+                        sequence("finish at other CELL", toZoneAndReady(), shoot()),
                         null),
-                spinUp(false),
-                // Let the HIVE tip and the camera see it before the next trip is planned.
-                when("tip settle",
-                        c -> AutoConstants.TIP_SETTLE_S > 0 && c.robot.hasAutoAim()
-                                && c.cycles > 0 && c.timeLeft() >= AutoConstants.CYCLE_MIN_TIME_LEFT_S,
-                        waitSeconds(AutoConstants.TIP_SETTLE_S), null));
-    }
-
-    // The shooter goes off only if the robot actually drives (see Steps.driveTo).
-    private static AutoStep driveToShot() {
-        return byUpSide(
-                driveTo("to shot (LEFT CELL up)", c -> shotPose(c, CellSide.LEFT), true),
-                driveTo("to shot", c -> shotPose(c, CellSide.RIGHT), true));
-    }
-
-    // The spot for this CELL and our slot (ShotSpots), as a pose for our alliance.
-    private static Pose shotPose(AutoContext c, CellSide cell) {
-        double[] s = ShotSpots.spot(cell, AutoSelection.slot);
-        return c.pose(s[0], s[1], s[2]);
+                // SOLO, when our balls should have tipped it: watch for the tip before
+                // choosing the next source and side. PAIR needs no wait: it only shoots its
+                // own CELL and checks the camera again before every shot.
+                when("watch for tip",
+                        c -> AutoConstants.TIP_WATCH_S > 0 && c.robot.hasAutoAim()
+                                && c.tipExpected() && c.cycles > c.cycleIndex
+                                && chooseSource(c, c.cycleIndex) != null,
+                        awaitTip("watch for tip", AutoConstants.TIP_WATCH_S),
+                        null),
+                // No camera read since the burst: believe the ball count (3, then 8).
+                instant("tip belief", AutoContext::settleTipBelief));
     }
 }
