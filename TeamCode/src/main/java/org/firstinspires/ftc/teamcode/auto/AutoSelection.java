@@ -21,7 +21,13 @@ public final class AutoSelection {
         /** Partner shoots too, and we agreed to go first: shoot at once. */
         FIRST,
         /** Partner shoots too, and goes first: wait startDelayS before shooting. */
-        SECOND;
+        SECOND,
+        /**
+         * Both robots strong, goal three tips: each shoots only its own CELL (start A: Zone A,
+         * start B: Zone B), collects only its side's sources, and holds fire while its CELL
+         * is down. Start chosen by hand; at B it waits the delay like SECOND.
+         */
+        EQUAL;
 
         public Slot next() {
             Slot[] all = values();
@@ -37,13 +43,33 @@ public final class AutoSelection {
 
     /**
      * The start that goes with the slot: SOLO and FIRST (the stronger robot) at A, SECOND
-     * at B. The driver can still change it by hand (the init screen then warns).
+     * at B, EQUAL either. The driver can still change it by hand (the init screen then warns).
      */
     public static StartPreset presetForSlot() {
-        return slot == Slot.SECOND ? StartPreset.B : StartPreset.A;
+        switch (slot) {
+            case SECOND:
+                return StartPreset.B;
+            case EQUAL:
+                return preset; // either start; the driver picks it
+            default:
+                return StartPreset.A;
+        }
     }
 
-    /** FIRST or SECOND: the partner shoots into the same HIVE. */
+    /**
+     * We let the partner shoot first: SECOND, or EQUAL from start B (our CELL is down at the
+     * start, so the partner's pre-loads must tip it first).
+     */
+    public static boolean shootsAfterPartner() {
+        return slot == Slot.SECOND || (slot == Slot.EQUAL && preset == StartPreset.B);
+    }
+
+    /** We only ever shoot our own CELL (the one nearest our start) and hold fire while it is down. */
+    public static boolean ownCellOnly() {
+        return slot == Slot.SECOND || slot == Slot.EQUAL;
+    }
+
+    /** FIRST, SECOND or EQUAL: the partner shoots into the same HIVE. */
     public static boolean pair() {
         return slot != Slot.SOLO;
     }
@@ -58,6 +84,6 @@ public final class AutoSelection {
 
     /** How long to wait before the pre-loads, given the slot. */
     public static double effectiveDelayS() {
-        return slot == Slot.SECOND ? startDelayS : 0;
+        return shootsAfterPartner() ? startDelayS : 0;
     }
 }

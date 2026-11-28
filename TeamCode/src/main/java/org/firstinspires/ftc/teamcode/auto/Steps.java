@@ -283,7 +283,7 @@ public final class Steps {
      */
     public static AutoStep assumePartnerTipped() {
         return instant("assume partner shot first", ctx -> {
-            if (AutoSelection.slot != AutoSelection.Slot.SECOND || !ctx.robot.hasAutoAim()
+            if (!AutoSelection.shootsAfterPartner() || !ctx.robot.hasAutoAim()
                     || !AutoConstants.DETECT_UP_SIDE) {
                 return;
             }

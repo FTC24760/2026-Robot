@@ -40,6 +40,21 @@ This is what the code on `auto-redesign` does. The sections below hold the reaso
 4. Shoots the pre-loads from the start, then collects at the back FLOWER, shoots in Zone B again, and parks.
 5. Whenever its CELL is facing down at fire time, it holds fire in Zone B and waits for a tip. If none comes, the end-of-auto park takes over and it keeps its balls for TeleOp.
 
+### EQUAL (both robots strong, goal three tips)
+
+Each robot shoots only its own CELL (start A: Zone A, start B: Zone B), collects only its side's sources, and holds fire while its CELL is down. The start is picked by hand. The 20 balls then make exactly three tips:
+
+| Tip | Needs | From |
+|---|---|---|
+| 1 (RIGHT CELL, Zone A) | 4 | A robot's pre-loads |
+| 2 (LEFT CELL, Zone B) | 8 | B robot's pre-loads + back FLOWER |
+| 3 (RIGHT CELL, Zone A) | 8 | A robot's GARDEN + wall FLOWER |
+
+- **From A:** pre-loads in Zone A; GARDEN, then wait in Zone A for tip 2 and shoot; wall FLOWER, shoot in Zone A; park.
+- **From B:** like SECOND: delay (ends early on a seen tip), pre-loads in Zone B, back FLOWER, shoot in Zone B, park.
+
+Timing risk (placeholder speeds): the A robot waits about 10 s for tip 2 with the GARDEN load on board, so its wall FLOWER cycle starts at roughly 21 s and does not fit before the reserve window; tip 3 likely needs measured, faster cycles.
+
 ### Partner
 
 The partner's auto is unknown; we only run our code on our robot. The only partner rule is static: stay `PARTNER_CLEAR_IN` from the partner's start. Agree routes with the partner team before each match.
@@ -159,7 +174,7 @@ Alliance stays the OpMode (`Auto: Red` / `Auto: Blue`): the Limelight and `prese
 | Input | Control | Default |
 |---|---|---|
 | Start preset | D-pad left/right (A / B) | A |
-| Slot | A cycles SOLO / FIRST / SECOND; also sets the start (SOLO and FIRST: A, SECOND: B) | SOLO |
+| Slot | A cycles SOLO / FIRST / SECOND / EQUAL; also sets the start (SOLO and FIRST: A, SECOND: B, EQUAL: unchanged) | SOLO |
 | Start delay | bumpers, 0.5 s steps, 0-15 s; used only for SECOND | 5 s |
 | Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (3) |
 | Up-CELL override | X = LEFT, B = RIGHT, Y = automatic (existing) | automatic |

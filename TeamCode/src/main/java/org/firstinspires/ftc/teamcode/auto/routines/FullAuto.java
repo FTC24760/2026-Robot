@@ -19,6 +19,7 @@ import org.firstinspires.ftc.teamcode.auto.AutoContext;
 import org.firstinspires.ftc.teamcode.auto.AutoRoutine;
 import org.firstinspires.ftc.teamcode.auto.AutoSelection;
 import org.firstinspires.ftc.teamcode.auto.AutoStep;
+import org.firstinspires.ftc.teamcode.auto.StartPreset;
 import org.firstinspires.ftc.teamcode.auto.TripTimes;
 import org.firstinspires.ftc.teamcode.auto.ZoneTargets;
 import org.firstinspires.ftc.teamcode.constants.AutoConstants;
@@ -110,6 +111,11 @@ public final class FullAuto {
                 return AutoConstants.FIRST_SOURCES[index];
             case SECOND:
                 return AutoConstants.SECOND_SOURCES[index];
+            case EQUAL:
+                // Only our side's sources, nearest first: A the GARDEN then the wall
+                // FLOWER, B the back FLOWER.
+                return AutoSelection.preset == StartPreset.A
+                        ? AutoConstants.FIRST_SOURCES[index] : AutoConstants.SECOND_SOURCES[index];
             case SOLO:
             default:
                 return AutoConstants.SOLO_SOURCES[index];

@@ -40,12 +40,12 @@ public class AutoContext {
 
     /**
      * The CELL to shoot into next. SOLO and FIRST: whichever is up, whoever tipped it.
-     * SECOND (the weaker robot, start B): always its own CELL (Zone B), so it never drives
-     * into Zone A where FIRST shoots; it waits there until that CELL is up (waitsForCell).
+     * SECOND (the weaker robot, start B) and EQUAL: always our own CELL (the zone by our
+     * start), so we never drive into the partner's zone; we wait there until that CELL is
+     * up (waitsForCell).
      */
     public CellSide shotSide() {
-        return AutoSelection.slot == AutoSelection.Slot.SECOND
-                ? AutoSelection.ownSide(alliance) : upSide;
+        return AutoSelection.ownCellOnly() ? AutoSelection.ownSide(alliance) : upSide;
     }
 
     /** True while the CELL we shoot into is facing down: hold fire and wait for a tip. */

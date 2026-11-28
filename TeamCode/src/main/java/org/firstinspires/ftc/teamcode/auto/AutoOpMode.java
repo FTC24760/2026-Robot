@@ -144,9 +144,9 @@ public abstract class AutoOpMode extends OpMode {
                 AutoSelection.preset, AutoSelection.preset.where,
                 start.x(), start.y(), Math.toDegrees(start.heading()));
         telemetry.addData("Slot", "%s   (A)", AutoSelection.slot);
-        telemetry.addData("Start delay", AutoSelection.slot == AutoSelection.Slot.SECOND
+        telemetry.addData("Start delay", AutoSelection.shootsAfterPartner()
                 ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
-                : "none (only for SECOND)");
+                : "none (only for SECOND, or EQUAL at B)");
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());
@@ -252,7 +252,7 @@ public abstract class AutoOpMode extends OpMode {
             telemetry.addLine("!! " + AutoSelection.slot + " normally starts at " + forSlot
                     + ", not " + AutoSelection.preset);
         }
-        if (AutoSelection.slot == AutoSelection.Slot.SECOND && AutoSelection.startDelayS <= 0) {
+        if (AutoSelection.shootsAfterPartner() && AutoSelection.startDelayS <= 0) {
             telemetry.addLine("!! SECOND slot with no delay: we will shoot at the same time as the partner");
         }
         // Rough budget: delay, one pre-load burst, the wait before parking, and the park
