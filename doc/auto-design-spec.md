@@ -1,8 +1,48 @@
 # BIOBUZZ AUTO + shared-logic design spec (draft 1)
 
-Status: design only, no code changed. Written for the team's programmers.
+Status: implemented on branch `auto-redesign` (PR #10); see the summary below for current behavior. Written for the team's programmers.
 Base branch: `codex/competition-cleanup` (ae36ccc), which is the latest code; all new work goes on top of it. Sources: that branch; BIOBUZZ manual TU10 (Figures 9-2, 10-2, 11-1, G304).
 Figure positions are measured from pixels, about ±2 in.
+
+## AUTO behavior summary (current, 2026-11-27)
+
+This is what the code on `auto-redesign` does. The sections below hold the reasoning and history; where they disagree, this section is current. All numbers are placeholders until measured on the robot.
+
+### Every shot, all slots
+
+- **Getting into the zone:** if the robot is already in the TeleOp shooting zone (distance ring + off-axis angle, `ShotZoneGeometry`), it does not drive. Otherwise it drives to the nearest point `ZONE_INSET_IN` (3 in) inside the zone edge (`ZoneTargets`). Those points are on our side of the middle line, at least `WALL_TURN_CLEAR_IN` from every wall, clear of FLOWERS, and in a pair at least `PARTNER_CLEAR_IN` (24 in) from the partner's start. The robot faces the CELL there so the fixed camera sees the HIVE.
+- **Firing:** the same "ready to fire" test as TeleOp (`ShootZone`): in the zone, aim and hood settled, wheel at speed, and a recent camera read of which CELL is up. Auto fires as soon as it passes, or after `READY_TIMEOUT_S` (1.5 s) anyway. The wheel pre-spins in the zone.
+- **After a burst:** wait up to `TIP_SETTLE_S` (1.5 s) for the camera to show whether the HIVE tipped. With no read, go by our own ball count: the first tip needs 4 balls, each later tip 8.
+- **Tip mid-burst:** feeding stops at once and the burst is finished at the other CELL.
+- **Time budget:** a cycle starts only if collecting, the shot, the drive to park and a margin all fit in the time left.
+- **End of auto:** with `RESERVE_TIME_LEFT_S` (6 s) left, whatever is running is dropped and the robot parks.
+- **Turning near walls:** the robot never turns with its centre closer than `WALL_TURN_CLEAR_IN` (13.5 in) to a wall. It moves straight off the wall first, or finishes the turn before moving in.
+
+### SOLO (start A)
+
+1. Shoots the pre-loads from the start, in Zone A.
+2. Before each later shot, collects at the nearest unused source, then shoots whichever CELL is up.
+3. No tip: GARDEN, shoot in Zone A, wall FLOWER, shoot in Zone A, park.
+4. Pre-loads tip: GARDEN, shoot in Zone B, back FLOWER, shoot in Zone B (that tips it), then the wall FLOWER and a shot in Zone A if it fits, otherwise park.
+
+### FIRST (stronger robot, start A)
+
+1. Shoots the pre-loads from the start in Zone A, with no delay.
+2. GARDEN, then shoots whichever CELL is up: Zone A if the pre-loads missed, Zone B if they tipped.
+3. Wall FLOWER, then shoots whichever CELL is up.
+4. Parks. Never goes to the back FLOWER.
+
+### SECOND (weaker robot, start B)
+
+1. Waits its delay (5 s by default, bumpers). The wait ends early if the camera sees FIRST tip the HIVE.
+2. If the camera has not read the HIVE recently at that point, it assumes FIRST tipped it.
+3. Only ever shoots into its own CELL, Zone B, so it never goes near Zone A where FIRST shoots.
+4. Shoots the pre-loads from the start, then collects at the back FLOWER, shoots in Zone B again, and parks.
+5. Whenever its CELL is facing down at fire time, it holds fire in Zone B and waits for a tip. If none comes, the end-of-auto park takes over and it keeps its balls for TeleOp.
+
+### Partner
+
+The partner's auto is unknown; we only run our code on our robot. The only partner rule is static: stay `PARTNER_CLEAR_IN` from the partner's start. Agree routes with the partner team before each match.
 
 ## 1. Goals
 
@@ -64,12 +104,12 @@ Alliance stays the OpMode (`Auto: Red` / `Auto: Blue`): the Limelight and `prese
 | Input | Control | Default |
 |---|---|---|
 | Start preset | D-pad left/right (A / B) | A |
-| Slot | A cycles SOLO / FIRST / SECOND | SOLO |
+| Slot | A cycles SOLO / FIRST / SECOND; also sets the start (SOLO and FIRST: A, SECOND: B) | SOLO |
 | Start delay | bumpers, 0.5 s steps, 0-15 s; used only for SECOND | 5 s |
-| Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (0) |
+| Cycles | D-pad up/down, 0-3 (existing) | `DEFAULT_CYCLES` (3) |
 | Up-CELL override | X = LEFT, B = RIGHT, Y = automatic (existing) | automatic |
 
-Telemetry shows the selection, the exact coordinates the robot should be placed at for this alliance, and warnings: SECOND with zero delay; a delay so long that PARK may be skipped. Selections live in `AutoSelection` statics, so they persist between matches until the app restarts or code is deployed. Not done: Limelight wrong-alliance and pose-vs-preset warnings (`USE_AUTO_AIM` is currently false on the base branch).
+Telemetry shows the selection, the exact coordinates the robot should be placed at for this alliance, and warnings: SECOND with zero delay; a delay so long that PARK may be skipped; a start that does not match the slot; a start outside the zone; a CELL with no usable zone point. Selections live in `AutoSelection` statics, so they persist between matches until the app restarts or code is deployed. Not done: Limelight wrong-alliance and pose-vs-preset warnings (`USE_AUTO_AIM` is currently false on the base branch).
 
 ## 5. Plan builder
 
@@ -217,7 +257,7 @@ The turret and hood always aim at the believed-up CELL from odometry (`HiveTrack
 
 ### SECOND (partner shoots first), after the delay
 
-Same loop as SOLO. The wait ends at the delay or when the camera sees the up CELL change. If the partner tipped the HIVE, the up CELL is now the one on our side: shoot it at once from our spot (pre-loads), then collect and shoot as the camera reports. If it did not tip, drive into the up CELL's zone, clear of the partner's start (`ZoneTargets`), and shoot; if our shots tip it, the next trip goes to the other CELL's zone; if not, keep collecting and shooting at the same CELL. No idle wait before parking (`PARK_DELAY_S` = 0): cycles stop at `CYCLE_MIN_TIME_LEFT_S` and the reserve window banks PARK.
+Superseded 2026-11-27: SECOND only shoots Zone B and holds fire while its CELL is down (see the summary at the top and the next section).
 
 ### Slots and the partner (decided 2026-11-27)
 
