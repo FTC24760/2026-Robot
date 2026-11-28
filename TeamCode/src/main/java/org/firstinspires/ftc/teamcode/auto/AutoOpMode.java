@@ -107,7 +107,7 @@ public abstract class AutoOpMode extends OpMode {
             AutoSelection.slot = AutoSelection.slot.next();
             // The stronger robot takes FIRST and starts at A; the weaker SECOND starts at B.
             StartPreset forSlot = AutoSelection.presetForSlot();
-            if (forSlot != null && forSlot != AutoSelection.preset) {
+            if (forSlot != AutoSelection.preset) {
                 AutoSelection.preset = forSlot;
                 robot.setPose(routine.startPose(ctx));
             }
@@ -260,7 +260,7 @@ public abstract class AutoOpMode extends OpMode {
     // Selections that look like a mistake.
     private void addWarnings() {
         StartPreset forSlot = AutoSelection.presetForSlot();
-        if (forSlot != null && forSlot != AutoSelection.preset) {
+        if (forSlot != AutoSelection.preset) {
             telemetry.addLine("!! " + AutoSelection.slot + " normally starts at " + forSlot
                     + ", not " + AutoSelection.preset);
         }

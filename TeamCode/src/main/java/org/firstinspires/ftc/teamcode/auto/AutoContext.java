@@ -38,9 +38,19 @@ public class AutoContext {
     /** Cycles started so far (0, 1, 2); the next one uses this index. */
     public int cycleIndex;
 
-    /** The CELL to shoot into next: whichever is up, whoever tipped it. */
+    /**
+     * The CELL to shoot into next. SOLO and FIRST: whichever is up, whoever tipped it.
+     * SECOND (the weaker robot, start B): always its own CELL (Zone B), so it never drives
+     * into Zone A where FIRST shoots; it waits there until that CELL is up (waitsForCell).
+     */
     public CellSide shotSide() {
-        return upSide;
+        return AutoSelection.slot == AutoSelection.Slot.SECOND
+                ? AutoSelection.ownSide(alliance) : upSide;
+    }
+
+    /** True while the CELL we shoot into is facing down: hold fire and wait for a tip. */
+    public boolean waitsForCell() {
+        return shotSide() != upSide;
     }
 
     /** True if the last shot step stopped early because the HIVE tipped part-way. */

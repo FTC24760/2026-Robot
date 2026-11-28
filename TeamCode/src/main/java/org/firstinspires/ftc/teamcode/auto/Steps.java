@@ -423,6 +423,7 @@ public final class Steps {
     }
 
     private static final class ZoneApproachStep implements AutoStep {
+        private AutoContext ctx0;
         private AutoStep drive;
         private boolean driving;
         private double waitStartS;
@@ -430,6 +431,7 @@ public final class Steps {
 
         @Override
         public void start(AutoContext ctx) {
+            ctx0 = ctx;
             redirects = 0;
             plan(ctx);
         }
@@ -467,6 +469,12 @@ public final class Steps {
                 plan(ctx);
                 return false;
             }
+            // SECOND only shoots its own CELL: while it faces down, wait for the partner to
+            // tip the HIVE (the reserve window parks us, balls kept, if it never does).
+            if (ctx.waitsForCell()) {
+                waitStartS = ctx.now();
+                return false;
+            }
             return ctx.robot.isReadyToFire()
                     || ctx.now() - waitStartS >= AutoConstants.READY_TIMEOUT_S;
         }
@@ -481,7 +489,9 @@ public final class Steps {
 
         @Override
         public String name() {
-            return driving ? drive.name() : "wait ready to fire";
+            return driving ? drive.name()
+                    : ctx0 != null && ctx0.waitsForCell() ? "wait for our CELL to tip up"
+                    : "wait ready to fire";
         }
     }
 

@@ -53,18 +53,11 @@ public final class AutoSelection {
     public static NoTipPlan noTipPlan = AutoConstants.DEFAULT_NO_TIP_PLAN;
 
     /**
-     * The start that goes with the slot: FIRST (the stronger robot) at A, SECOND at B; null
-     * for SOLO (any start, normally A).
+     * The start that goes with the slot: SOLO and FIRST (the stronger robot) at A, SECOND
+     * at B. The driver can still change it by hand (the init screen then warns).
      */
     public static StartPreset presetForSlot() {
-        switch (slot) {
-            case FIRST:
-                return StartPreset.A;
-            case SECOND:
-                return StartPreset.B;
-            default:
-                return null;
-        }
+        return slot == Slot.SECOND ? StartPreset.B : StartPreset.A;
     }
 
     /** SECOND, delay over, no tip yet: keep waiting for the partner to tip it? */

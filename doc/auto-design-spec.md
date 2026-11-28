@@ -221,7 +221,10 @@ Same loop as SOLO. The wait ends at the delay or when the camera sees the up CEL
 
 ### Slots and the partner (decided 2026-11-27)
 
-The stronger robot takes FIRST and always starts at A; the weaker takes SECOND and starts at B. Picking the slot on the init menu sets the start (`AutoSelection.presetForSlot`); a hand-changed start shows a warning. FIRST never parks early: it cycles (GARDEN, wall FLOWER) like SOLO. The partner's auto is unknown (we only run our code on our robot), so the only partner rule is static: no zone point within `PARTNER_CLEAR_IN` (24 in) of the partner's start, whichever CELL we shoot, because most autos shoot their pre-loads from their start or close by. Not covered: a partner that drives into the zone we use; agree routes with the partner team before the match.
+The stronger robot takes FIRST and always starts at A; the weaker takes SECOND and starts at B; SOLO starts at A. Picking the slot on the init menu sets the start (`AutoSelection.presetForSlot`); a hand-changed start shows a warning.
+
+- FIRST: pre-loads in Zone A; GARDEN, then shoot whichever CELL is up (Zone A if the pre-loads missed, Zone B if they tipped); wall FLOWER, then shoot whichever is up; park. Never the back FLOWER.
+- SECOND: only ever shoots its own CELL, Zone B (`AutoContext.shotSide`), so it never drives into Zone A where FIRST shoots. Delay, then pre-loads in Zone B; back FLOWER, then Zone B; park. Whenever its CELL is facing down at fire time (FIRST missed, or the HIVE has tipped back), it holds fire in Zone B and waits for the tip (`waitsForCell`); if the tip never comes, the reserve window parks it with the balls kept for TeleOp. Without a recent camera read after the delay it assumes the partner tipped (`assumePartnerTipped`). The partner's auto is unknown (we only run our code on our robot), so the only partner rule is static: no zone point within `PARTNER_CLEAR_IN` (24 in) of the partner's start, whichever CELL we shoot, because most autos shoot their pre-loads from their start or close by. Not covered: a partner that drives into the zone we use; agree routes with the partner team before the match.
 
 One init-menu flag (left stick press, `AutoSelection.noTipPlan`, default LEAVE) now only changes how SECOND waits:
 
