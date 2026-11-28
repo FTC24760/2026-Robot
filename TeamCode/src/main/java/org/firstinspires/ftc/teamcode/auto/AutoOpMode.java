@@ -57,7 +57,6 @@ public abstract class AutoOpMode extends OpMode {
     private final EdgeDetector nextSlot = new EdgeDetector();
     private final EdgeDetector moreDelay = new EdgeDetector();
     private final EdgeDetector lessDelay = new EdgeDetector();
-    private final EdgeDetector nextPlan = new EdgeDetector();
 
     protected AutoOpMode(Alliance alliance) {
         this.alliance = alliance;
@@ -122,10 +121,6 @@ public abstract class AutoOpMode extends OpMode {
                     AutoSelection.startDelayS - AutoConstants.START_DELAY_STEP_S, 0);
         }
 
-        if (nextPlan.rose(gamepad1.left_stick_button)) {
-            AutoSelection.noTipPlan = AutoSelection.noTipPlan.next();
-        }
-
         if (gamepad1.x) {
             chosenSide = CellSide.LEFT;
         } else if (gamepad1.b) {
@@ -152,13 +147,6 @@ public abstract class AutoOpMode extends OpMode {
         telemetry.addData("Start delay", AutoSelection.slot == AutoSelection.Slot.SECOND
                 ? String.format("%.1f s   (bumpers)", AutoSelection.startDelayS)
                 : "none (only for SECOND)");
-        if (AutoSelection.slot != AutoSelection.Slot.SOLO) {
-            telemetry.addData("If FIRST does not tip", "%s   (left stick press)  %s",
-                    AutoSelection.noTipPlan,
-                    AutoSelection.noTipPlan == AutoSelection.NoTipPlan.LEAVE
-                            ? "SECOND goes when its delay ends"
-                            : "SECOND waits for the tip (or until 15 s left)");
-        }
         telemetry.addData("Cycles after pre-loads", "%d   (d-pad up / down)", ctx.cycles);
         addWarnings();
         telemetry.addData("Up CELL", "%s  [%s]", startSide(), sideSource());

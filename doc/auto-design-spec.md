@@ -162,7 +162,7 @@ State: `up` (CellSide; starts RIGHT, the camera sets it), `tips` (observed tips 
 
 | State | Does | Leaves to |
 |---|---|---|
-| WAIT (SECOND only) | stay still | GOTO on a tip (`tips`=1), delay end, or (STAY plan) `SECOND_GO_ANYWAY_LEFT_S` |
+| WAIT (SECOND only) | stay still | GOTO on a seen tip (`tips`=1) or delay end |
 | GOTO | skip the drive if already in the zone for `up`, else drive to `ZoneTargets.target(up)` facing the CELL | READY |
 | READY | wait for the TeleOp ready-to-fire test, <= `READY_TIMEOUT_S` | GOTO if `up` changed (`tips`++), else SHOOT |
 | SHOOT | burst (auto-fire); a tip mid-burst (`tips`++) finishes the burst once more at the other CELL | SETTLE |
@@ -183,7 +183,7 @@ Tips and the plan: a tip needs balls in the up CELL, and the first needs only 4 
 | FIRST (start A) | GARDEN, wall FLOWER | pre-load at its CELL (tips), GARDEN at the other CELL (joins SECOND's burst there: 8, tips), wall FLOWER back at its CELL |
 | SECOND (start B) | back FLOWER | pre-load at its CELL (4 of 8), back FLOWER at the CELL that is up then |
 
-Each robot goes to whichever CELL is up (`AutoContext.shotSide` = `upSide`), to the nearest usable point of that CELL's zone; for the partner's CELL it keeps `PARTNER_CLEAR_IN` from the partner's start. A trip is re-checked before firing and redirected if the HIVE tipped on the way. Nobody waits for "their" CELL, because one is always up. Tip belief: the camera decides; our own balls are counted (`AutoContext.ballsToTip`, `recordShot`), and when the camera has not read the HIVE since the burst the count is believed (`settleTipBelief`, `PREDICT_TIP_WHEN_BLIND`). Alone, a burst that leaves the count under the threshold skips the camera wait (`mayHaveTipped`). With a partner its balls are not counted, so the camera wait stays. `noTipPlan` now only controls whether SECOND waits for a tip or for its delay. FIRST no longer parks after its pre-loads. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
+Each robot goes to whichever CELL is up (`AutoContext.shotSide` = `upSide`), to the nearest usable point of that CELL's zone; for the partner's CELL it keeps `PARTNER_CLEAR_IN` from the partner's start. A trip is re-checked before firing and redirected if the HIVE tipped on the way. Nobody waits for "their" CELL, because one is always up. Tip belief: the camera decides; our own balls are counted (`AutoContext.ballsToTip`, `recordShot`), and when the camera has not read the HIVE since the burst the count is believed (`settleTipBelief`, `PREDICT_TIP_WHEN_BLIND`). Alone, a burst that leaves the count under the threshold skips the camera wait (`mayHaveTipped`). With a partner its balls are not counted, so the camera wait stays. SECOND only shoots its own CELL and holds fire while it is down. FIRST never parks early. There is no ball sensor, so an emptied source is not detected; the cycle still costs its time.
 
 SECOND (the partner agreed to shoot first): it waits the agreed delay, or a seen tip, and then decides at once (`assumePartnerTipped`). If the camera read the HIVE within `BLIND_READ_MAX_AGE_S` it trusts that read (our CELL still down means the partner has not tipped it, so SECOND shoots the CELL that is up); with no recent read it takes it that the partner tipped the HIVE and shoots its own CELL. If the partner never fires, the blind case wastes one burst.
 
@@ -191,14 +191,14 @@ Time budget (30 s) and the choice of source: a cycle starts only if its two trip
 
 By tips (side after each observed tip; the table assumes every tip is seen):
 
-| tips | up | SOLO | FIRST, LEAVE | FIRST, STAY | SECOND |
-|---|---|---|---|---|---|
-| 0 | RIGHT | shoot pre-loads, cycle | pre-loads, park | pre-loads, cycle | wait; if no tip by the delay, go to RIGHT's offset spot on the partner's side |
-| 1 | LEFT | next trip to LEFT's spot, cycle | park | park (tip seen) | partner tipped: shoot LEFT at once from our spot, cycle |
-| 2 | RIGHT | next trip to RIGHT's spot, cycle | park | park | cycle, RIGHT's spot |
-| 3 | LEFT | next trip to LEFT's spot, cycle | park | park | cycle, LEFT's spot |
+| tips | up | SOLO (A) | FIRST (A) | SECOND (B) |
+|---|---|---|---|---|
+| 0 | RIGHT | shoot Zone A, cycle | shoot Zone A, cycle | wait in Zone B for the tip (delay first) |
+| 1 | LEFT | next shot in Zone B, cycle | next shot in Zone B, cycle | shoot Zone B, back FLOWER, Zone B |
+| 2 | RIGHT | next shot in Zone A, cycle | next shot in Zone A, cycle | hold fire in Zone B, wait for the next tip; reserve window parks |
+| 3 | LEFT | next shot in Zone B, cycle | next shot in Zone B, cycle | shoot Zone B |
 
-Fixed: `tippedSinceStart()` used to compare the current side with the starting side, so after two tips it read false again and FIRST/STAY would resume cycling. It is now `tips > 0` (and the SECOND wait uses `tips > tipsAtStart`). The table stops at 3 tips; the counter itself does not.
+`tippedSinceStart()` is `tips > 0` (the SECOND wait uses `tips > tipsAtStart`), so two tips are not read as none.
 
 Known gaps (fixed camera): a tip while the robot is collecting or driving is only seen at ARRIVE or SETTLE, and a tip while blind is never seen, so a burst can go at the down CELL. The mid-burst check is the only recovery.
 
@@ -226,12 +226,7 @@ The stronger robot takes FIRST and always starts at A; the weaker takes SECOND a
 - FIRST: pre-loads in Zone A; GARDEN, then shoot whichever CELL is up (Zone A if the pre-loads missed, Zone B if they tipped); wall FLOWER, then shoot whichever is up; park. Never the back FLOWER.
 - SECOND: only ever shoots its own CELL, Zone B (`AutoContext.shotSide`), so it never drives into Zone A where FIRST shoots. Delay, then pre-loads in Zone B; back FLOWER, then Zone B; park. Whenever its CELL is facing down at fire time (FIRST missed, or the HIVE has tipped back), it holds fire in Zone B and waits for the tip (`waitsForCell`); if the tip never comes, the reserve window parks it with the balls kept for TeleOp. Without a recent camera read after the delay it assumes the partner tipped (`assumePartnerTipped`). The partner's auto is unknown (we only run our code on our robot), so the only partner rule is static: no zone point within `PARTNER_CLEAR_IN` (24 in) of the partner's start, whichever CELL we shoot, because most autos shoot their pre-loads from their start or close by. Not covered: a partner that drives into the zone we use; agree routes with the partner team before the match.
 
-One init-menu flag (left stick press, `AutoSelection.noTipPlan`, default LEAVE) now only changes how SECOND waits:
-
-- **LEAVE:** SECOND waits its delay (ending early on a seen tip), then goes.
-- **STAY:** SECOND ignores the delay and waits for the tip, going anyway at `SECOND_GO_ANYWAY_LEFT_S` (15 s) left.
-
-SOLO and FIRST ignore the flag.
+The no-tip plan flag (LEAVE/STAY) was removed 2026-11-27: with SECOND holding fire until its own CELL is up, both plans behaved the same.
 
 ### Camera-confirmed tip checks (SOLO, also used by FIRST/SECOND)
 
